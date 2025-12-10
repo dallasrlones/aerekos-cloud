@@ -48,6 +48,18 @@ describe('Conductor API Integration Tests', () => {
     return testUser;
   }
 
+  // Helper to reset test user password to known value
+  async function resetTestUserPassword() {
+    const { User } = require('../../api/models');
+    const { hashPassword } = require('../../api/utils/password');
+    const users = await User.findAll({ where: { username: 'testadmin' } });
+    if (users.length > 0) {
+      await User.update(users[0].id, {
+        password_hash: await hashPassword('testpass123')
+      });
+    }
+  }
+
   beforeAll(async () => {
     // Setup test database
     await setupTestDatabase();
@@ -218,6 +230,371 @@ describe('Conductor API Integration Tests', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('message', 'Logged out successfully');
+    });
+
+    test('POST /api/auth/reset-password should update password with correct current password', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      // Get auth token
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .post('/api/auth/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'testpass123',
+          newPassword: 'newpassword123'
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('user');
+      expect(response.body.user).toHaveProperty('id');
+      expect(response.body.user).toHaveProperty('username');
+
+      // Verify password was changed by trying to login with new password
+      const newLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'newpassword123'
+        })
+        .expect(200);
+
+      expect(newLoginResponse.body).toHaveProperty('token');
+      
+      // Reset password back for other tests
+      await resetTestUserPassword();
+    });
+
+    test('POST /api/auth/reset-password should reject with incorrect current password', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .post('/api/auth/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'wrongpassword',
+          newPassword: 'newpassword123'
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('Current password is incorrect');
+    });
+
+    test('POST /api/auth/reset-password should reject password shorter than 6 characters', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .post('/api/auth/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'testpass123',
+          newPassword: 'short'
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('at least 6 characters');
+    });
+
+    test('POST /api/auth/reset-password should require current and new password', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .post('/api/auth/reset-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'testpass123'
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('required');
+    });
+
+    test('POST /api/auth/reset-password should reject request without auth', async () => {
+      const response = await request(app)
+        .post('/api/auth/reset-password')
+        .send({
+          currentPassword: 'oldpassword',
+          newPassword: 'newpassword123'
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('PUT /api/auth/profile should update username successfully', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+      const timestamp = Date.now();
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: `updatedusername-${timestamp}`,
+          email: `testadmin-${timestamp}@aerekos.cloud`
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('user');
+      expect(response.body.user.username).toContain('updatedusername');
+      
+      // Reset username back for other tests
+      const { User } = require('../../api/models');
+      const users = await User.findAll({ where: { username: `updatedusername-${timestamp}` } });
+      if (users.length > 0) {
+        await User.update(users[0].id, { username: 'testadmin' });
+      }
+    });
+
+    test('PUT /api/auth/profile should update email successfully', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+      const timestamp = Date.now();
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: 'testadmin',
+          email: `updated-${timestamp}@example.com`
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('user');
+      expect(response.body.user.email).toContain('@example.com');
+    });
+
+    test('PUT /api/auth/profile should reject duplicate username', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      // Create another user
+      const { User } = require('../../api/models');
+      const { hashPassword } = require('../../api/utils/password');
+      const passwordHash = await hashPassword('password123');
+      const timestamp = Date.now();
+      const otherUser = await User.create({
+        username: `existinguser-${timestamp}`,
+        email: `existing-${timestamp}@example.com`,
+        password_hash: passwordHash,
+        role: 'user'
+      });
+
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: `existinguser-${timestamp}`,
+          email: `testadmin-${timestamp}@aerekos.cloud`
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('Username already exists');
+
+      // Cleanup
+      await User.delete(otherUser.id);
+    });
+
+    test('PUT /api/auth/profile should reject duplicate email', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      // Create another user
+      const { User } = require('../../api/models');
+      const { hashPassword } = require('../../api/utils/password');
+      const passwordHash = await hashPassword('password123');
+      const timestamp = Date.now();
+      const otherUser = await User.create({
+        username: `otheruser-${timestamp}`,
+        email: `existing-${timestamp}@example.com`,
+        password_hash: passwordHash,
+        role: 'user'
+      });
+
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: 'testadmin',
+          email: `existing-${timestamp}@example.com`
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('Email already exists');
+
+      // Cleanup
+      await User.delete(otherUser.id);
+    });
+
+    test('PUT /api/auth/profile should reject invalid email format', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: 'testadmin',
+          email: 'invalid-email'
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('Invalid email format');
+    });
+
+    test('PUT /api/auth/profile should reject username shorter than 3 characters', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+      const timestamp = Date.now();
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          username: 'ab',
+          email: `testadmin-${timestamp}@aerekos.cloud`
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('at least 3 characters');
+    });
+
+    test('PUT /api/auth/profile should require at least one field', async () => {
+      await ensureTestUser();
+      await resetTestUserPassword();
+      
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          username: 'testadmin',
+          password: 'testpass123'
+        });
+      
+      const token = loginResponse.body.token;
+
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error.message).toContain('required');
+    });
+
+    test('PUT /api/auth/profile should reject request without auth', async () => {
+      const response = await request(app)
+        .put('/api/auth/profile')
+        .send({
+          username: 'newusername',
+          email: 'new@example.com'
+        })
+        .expect(401);
+
+      expect(response.body).toHaveProperty('error');
     });
   });
 

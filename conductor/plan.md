@@ -315,6 +315,8 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [x] Test JWTService methods
 - [x] Test TokenService methods
 - [x] Test password hashing utility
+- [x] Test UserService.updatePassword method
+- [x] Test UserService.updateProfile method
 
 ### 8.2 Integration Tests
 - [x] Test authentication endpoints
@@ -323,13 +325,25 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [x] Test database operations
 - [x] Created comprehensive test suite with Jest and Supertest
 - [x] Test files: `tests/integration/api.test.js`, `tests/integration/auth.test.js`, `tests/integration/token.test.js`, `tests/integration/database.test.js`
-- [x] **All 48 tests passing ✅** (4 test suites, 48 tests total)
+- [x] **76/76 tests passing ✅** (4 test suites, 76 tests total)
 - [x] Fixed SQLite boolean handling (using integers 0/1)
 - [x] Fixed test cleanup and isolation
 - [x] Fixed health check database connectivity check
 - [x] Fixed test user creation and authentication
 - [x] Added `ensureTestUser()` helper for better test isolation
 - [x] Fixed unique constraint test error handling
+- [x] Test password reset endpoint (`POST /api/auth/reset-password`)
+- [x] Test profile update endpoint (`PUT /api/auth/profile`)
+- [x] Test password reset with invalid current password
+- [x] Test password reset with weak new password
+- [x] Test password reset requires both passwords
+- [x] Test password reset requires authentication
+- [x] Test profile update with duplicate username
+- [x] Test profile update with duplicate email
+- [x] Test profile update with invalid email format
+- [x] Test profile update with short username
+- [x] Test profile update requires at least one field
+- [x] Test profile update requires authentication
 
 ### 8.3 Test Scaffolding & Infrastructure
 - [x] Global setup (`tests/globalSetup.js`) - runs once before all tests
@@ -356,22 +370,26 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [../backend_guidelines.md](../backend_guidelines.md) for coding standards
 - [../testing_guidelines.md](../testing_guidelines.md) for testing practices
 
-## ✅ Conductor Implementation Complete!
+## ✅ Conductor Implementation Status
 
-**All phases (1-8) are complete!**
+**Backend:** Phases 1-6 complete, Phase 8 in progress (missing tests for new endpoints)
+**Frontend:** Phase 7 in progress - Core UI components and navigation complete
 
 ### Backend (Phases 1-6, 8)
-- ✅ **48/48 tests passing** (4 test suites, all tests green)
-- ✅ All API endpoints working
+- ✅ **76/76 tests passing** (4 test suites, 76 tests total)
+- ✅ All API endpoints working and tested
 - ✅ Database models created and tested
 - ✅ Authentication system complete
 - ✅ Token generation working
+- ✅ Password reset endpoint (`POST /api/auth/reset-password`) implemented and tested
+- ✅ Profile update endpoint (`PUT /api/auth/profile`) implemented and tested
 - ✅ Health checks implemented with database connectivity
 - ✅ Request ID middleware added for correlation tracking
 - ✅ API versioning in place (`/api/v1/*` and `/api/*`)
 - ✅ Comprehensive test scaffolding with setup/teardown
 - ✅ Test helpers and utilities created
 - ✅ All test isolation issues resolved
+- ✅ All new endpoints fully tested (password reset and profile update)
 - ✅ Docker configuration ready
 - ✅ README.md created
 

@@ -68,6 +68,9 @@ describe('Token Service Integration Tests', () => {
 
   describe('TokenService.getCurrentToken', () => {
     test('should return active token if exists', async () => {
+      // Clean up any existing tokens first to ensure we get the one we create
+      await TokenRepository.invalidateAllTokens();
+      
       const token = await TokenService.generateRegistrationToken();
       const currentToken = await TokenService.getCurrentToken();
 

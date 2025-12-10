@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { Box } from '../../components/Box/Box';
 import apiClient from '../../utils/api';
 import { DashboardStyles } from './Dashboard.styles';
 
@@ -50,8 +51,7 @@ export const Dashboard = ({ navigation }) => {
       </View>
 
       {/* Health Status Card */}
-      <View style={DashboardStyles.card}>
-        <Text style={DashboardStyles.cardTitle}>System Health</Text>
+      <Box title="System Health">
         {healthStatus ? (
           <View style={DashboardStyles.healthStatus}>
             <View style={DashboardStyles.statusRow}>
@@ -79,29 +79,27 @@ export const Dashboard = ({ navigation }) => {
         ) : (
           <Text style={DashboardStyles.loadingText}>Checking health...</Text>
         )}
-      </View>
+      </Box>
 
       {/* Workers Section */}
-      <View style={DashboardStyles.card}>
-        <Text style={DashboardStyles.cardTitle}>Workers</Text>
+      <Box title="Workers">
         <View style={DashboardStyles.emptyState}>
           <Text style={DashboardStyles.emptyStateText}>No workers registered</Text>
           <Text style={DashboardStyles.emptyStateSubtext}>
             Workers will appear here once they register with the conductor
           </Text>
         </View>
-      </View>
+      </Box>
 
       {/* Services Section */}
-      <View style={DashboardStyles.card}>
-        <Text style={DashboardStyles.cardTitle}>Services</Text>
+      <Box title="Services">
         <View style={DashboardStyles.emptyState}>
           <Text style={DashboardStyles.emptyStateText}>No services deployed</Text>
           <Text style={DashboardStyles.emptyStateSubtext}>
             Deploy services from the conductor dashboard
           </Text>
         </View>
-      </View>
+      </Box>
     </ScrollView>
   );
 };

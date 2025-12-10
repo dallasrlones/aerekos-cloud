@@ -6,7 +6,7 @@ const JSONSupportManager = require('./jsonSupport')
 const ChangeStreamsManager = require('./changeStreams')
 const GeospatialManager = require('./geospatial')
 const CompositeKeysManager = require('./compositeKeys')
-const enhanceModelWithAttachments = require('./attachmentEnhancer')
+const { enhanceModelWithAttachments } = require('./attachmentEnhancer')
 const enhanceModelWithEmbeddings = require('./embeddingEnhancer')
 
 /**

@@ -169,8 +169,15 @@ const sqliteAdapter = (connectionSettings = {}) => {
 
     // Add foreign keys
     if (settings.belongsTo) {
-      const fkName = toFkColumn(settings.belongsTo)
-      columns.push(`${fkName} TEXT`)
+      if (Array.isArray(settings.belongsTo)) {
+        settings.belongsTo.forEach(parentModel => {
+          const fkName = toFkColumn(parentModel)
+          columns.push(`${fkName} TEXT`)
+        })
+      } else {
+        const fkName = toFkColumn(settings.belongsTo)
+        columns.push(`${fkName} TEXT`)
+      }
     }
 
     // Create table
@@ -377,9 +384,18 @@ const sqliteAdapter = (connectionSettings = {}) => {
         }
 
         if (settings.belongsTo) {
-          const fkName = toFkColumn(settings.belongsTo)
-          if (attrs[fkName]) {
-            insertData[fkName] = attrs[fkName]
+          if (Array.isArray(settings.belongsTo)) {
+            settings.belongsTo.forEach(parentModel => {
+              const fkName = toFkColumn(parentModel)
+              if (attrs[fkName]) {
+                insertData[fkName] = attrs[fkName]
+              }
+            })
+          } else {
+            const fkName = toFkColumn(settings.belongsTo)
+            if (attrs[fkName]) {
+              insertData[fkName] = attrs[fkName]
+            }
           }
         }
 

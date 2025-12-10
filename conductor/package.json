@@ -1,0 +1,37 @@
+{
+  "name": "aerekos-cloud-conductor",
+  "version": "1.0.0",
+  "description": "Conductor (master orchestrator) for aerekos-cloud",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest --testPathPattern=tests",
+    "test:watch": "jest --watch --testPathPattern=tests",
+    "test:coverage": "jest --coverage --testPathPattern=tests",
+    "test:integration": "jest --testPathPattern=tests/integration",
+    "test:unit": "jest --testPathPattern=tests/unit"
+  },
+  "keywords": [
+    "cloud",
+    "orchestration",
+    "conductor"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^9.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}

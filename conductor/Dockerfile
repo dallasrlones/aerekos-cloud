@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (including dev dependencies for building native modules)
+RUN npm install
+
+# Copy application code
+COPY . .
+
+# Rebuild better-sqlite3 after copying code to ensure correct architecture
+RUN npm rebuild better-sqlite3 --build-from-source
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Expose port
+EXPOSE 3000
+
+# Start application
+CMD ["node", "index.js"]

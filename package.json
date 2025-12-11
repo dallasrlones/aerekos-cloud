@@ -1,0 +1,20 @@
+{
+  "name": "aerekos-cloud",
+  "version": "1.0.0",
+  "description": "AWS-like cloud infrastructure platform",
+  "private": true,
+  "scripts": {
+    "test": "npm run test --workspaces",
+    "test:worker": "cd worker && npm test",
+    "test:conductor": "cd conductor && npm test",
+    "test:coverage": "npm run test:coverage --workspaces",
+    "prepare": "husky"
+  },
+  "workspaces": [
+    "worker",
+    "conductor"
+  ],
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

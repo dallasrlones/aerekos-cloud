@@ -82,8 +82,10 @@ This plan details the implementation of the worker node for aerekos-cloud. Worke
 - [x] Review existing `docker-compose.yml` in worker root
 - [x] Created `docker-compose.yml` with Docker socket mounting
 - [x] Created `Dockerfile` for worker containerization
-- [ ] Set up Docker client (dockerode or docker-compose API) - **PENDING Phase 3**
-- [ ] Test Docker connectivity - **PENDING Phase 3**
+- [x] Mount `./data:/app/data` volume for persistent worker ID storage
+- [x] Created `docker-entrypoint.sh` for OS detection and environment variable setup
+- [x] Set up Docker client (dockerode) - **COMPLETE Phase 3**
+- [x] Test Docker connectivity - **COMPLETE Phase 3**
 
 ## Phase 2: Conductor Communication
 
@@ -106,6 +108,14 @@ This plan details the implementation of the worker node for aerekos-cloud. Worke
   - [x] Store worker ID, IP, and hostname returned by conductor (in memory only)
   - [x] Handle registration errors (invalid token, network issues)
   - [x] Implement retry logic with exponential backoff
+- [x] **Persistent Worker ID Storage**:
+  - [x] Create `utils/workerIdStorage.js` for file-based worker ID persistence
+  - [x] Store worker ID in `data/worker-id.json` (persists across restarts)
+  - [x] On startup, check for stored worker ID and verify with conductor
+  - [x] Only register as new worker if ID is missing or invalid
+  - [x] Mount `./data:/app/data` volume in docker-compose.yml for persistence
+  - [x] Add `verifyWorkerId(workerId)` method to ConductorService
+  - [x] Add `setOnReconnect(callback)` method to ConductorSocketService for re-registration on socket reconnection
 
 ### 2.3 Heartbeat Mechanism
 - [x] Implement heartbeat loop:
@@ -115,6 +125,11 @@ This plan details the implementation of the worker node for aerekos-cloud. Worke
   - [x] Handle heartbeat failures (network issues, conductor down)
   - [x] Implement re-registration if heartbeat fails repeatedly
   - [x] Handle IP address changes (re-register if IP changes)
+- [x] **WebSocket Heartbeat**:
+  - [x] Use Socket.IO for real-time bidirectional communication
+  - [x] Send heartbeat via WebSocket (`worker:ping` event)
+  - [x] Handle WebSocket reconnection and re-register worker on reconnect
+  - [x] Emit live resource updates via WebSocket for real-time frontend updates
 
 ### 2.4 Resource Reporting
 - [x] Implement resource detection:
@@ -129,10 +144,18 @@ This plan details the implementation of the worker node for aerekos-cloud. Worke
     - [x] `getDiskInfo()` - Get disk total and available
     - [x] `getNetworkInfo()` - Get network interfaces and bandwidth
     - [x] `getAllResources()` - Get all resource information
+- [x] **Real-time Host Resource Monitoring**:
+  - [x] Prioritize reading from mounted host filesystems (`/host/proc/meminfo`, `df -BG /host`) for accurate host resource detection
+  - [x] Implement macOS Docker Desktop scaling: Scale container usage percentage to actual Mac RAM/disk using `WORKER_RAM_GB` and `WORKER_DISK_GB` environment variables
+  - [x] Ensure fresh resource reads on every heartbeat (no caching) for real-time updates
+  - [x] Preserve 2-decimal precision in RAM and disk calculations to show subtle changes
+  - [x] Gracefully fall back to `systeminformation` (container metrics) if host filesystem reads fail
+  - [x] Support both macOS Docker Desktop (VM-based) and Linux (native) environments
 - [x] Implement resource reporting loop:
   - [x] Check resources every `RESOURCE_CHECK_INTERVAL` seconds
   - [x] Update resources on conductor (`PUT /api/workers/:id/resources`)
   - [x] Report resources during heartbeat if changed significantly (5% threshold)
+  - [x] **Call `getAllResources()` on every heartbeat** for real-time monitoring (fresh data each time)
 
 ## Phase 3: Docker Container Management
 
@@ -238,12 +261,29 @@ This plan details the implementation of the worker node for aerekos-cloud. Worke
 - [x] Test Docker service manager methods (`tests/unit/serviceManager.test.js`)
 - [x] Test deployment handler logic (`tests/unit/deploymentHandler.test.js`)
 - [x] Test error handling and retry logic (covered in unit tests)
+- [x] **Test persistent worker ID storage** (`tests/unit/workerIdStorage.test.js`):
+  - [x] Test `getStoredWorkerId()` - returns null when file doesn't exist, reads valid ID, handles invalid JSON
+  - [x] Test `storeWorkerId()` - stores ID successfully, overwrites existing, creates directory
+  - [x] Test `clearWorkerId()` - deletes file, handles missing file gracefully
+  - [x] Test integration flow (store/retrieve/clear)
+- [x] **Test ConductorService.verifyWorkerId** (`tests/unit/conductorService.test.js`):
+  - [x] Test returns true when worker ID is valid
+  - [x] Test returns false when worker ID not found (404)
+  - [x] Test returns false on connection errors
+  - [x] Test registerWorker with existingWorkerId parameter
+- [x] **Test ConductorSocketService** (`tests/unit/conductorSocketService.test.js`):
+  - [x] Test `setOnReconnect()` - sets reconnect callback, replaces previous callback
+  - [x] Test `registerWorker()` with existing worker ID via WebSocket
 
 ### 6.2 Integration Tests
 - [x] Test worker registration with conductor (`tests/integration/worker.test.js`)
 - [x] Test heartbeat mechanism (`tests/integration/worker.test.js`)
 - [x] Test resource reporting (`tests/integration/worker.test.js`)
 - [x] Test re-registration after connection loss (`tests/integration/worker.test.js`)
+- [x] **Test persistent worker ID flow** (`tests/integration/worker.test.js`):
+  - [x] Test stores worker ID after registration
+  - [x] Test uses stored worker ID on re-registration
+  - [x] Test clears invalid worker ID and registers as new
 - [ ] Test service deployment from conductor - **PENDING** (requires Docker daemon)
 - [ ] Test service status reporting - **PENDING** (requires Docker daemon)
 - [ ] Test re-registration after IP change - **PENDING** (requires network simulation)
@@ -305,6 +345,9 @@ Once Worker Setup is complete:
 - Worker can run on same device as conductor (but only one conductor total)
 - Worker's `docker-compose.yml` manages services from `worker/` folder
 - Services are deployed based on configuration received from conductor
-- Worker automatically re-registers after power outages or IP changes
+- **Persistent Worker ID**: Worker ID is stored in `data/worker-id.json` and persists across restarts. On startup, worker verifies stored ID with conductor and only registers as new if ID is missing or invalid.
+- **Real-time Resource Monitoring**: Worker reads resources from host filesystems (`/host/proc/meminfo`, `df -BG /host`) when available for accurate host resource detection. On macOS Docker Desktop, scales container usage percentage to actual Mac RAM/disk. Resources are read fresh on every heartbeat for real-time updates.
+- **WebSocket Communication**: Worker uses Socket.IO for real-time bidirectional communication with conductor. Heartbeats are sent via WebSocket (`worker:ping`), and worker re-registers automatically on socket reconnection.
+- Worker automatically re-registers after power outages or IP changes (if ID verification fails)
 - Resource reporting helps conductor make intelligent deployment decisions
 

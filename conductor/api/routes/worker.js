@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const WorkerService = require('../services/WorkerService');
+const authenticate = require('../middleware/auth');
 
 /**
  * POST /api/workers/register
@@ -154,7 +155,7 @@ router.put('/:id/resources', async (req, res, next) => {
  * Get all workers
  * Protected route - requires authentication
  */
-router.get('/', async (req, res, next) => {
+router.get('/', authenticate, async (req, res, next) => {
   try {
     const workers = await WorkerService.getAllWorkers();
     
@@ -180,7 +181,7 @@ router.get('/', async (req, res, next) => {
  * Get worker by ID
  * Protected route - requires authentication
  */
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
     

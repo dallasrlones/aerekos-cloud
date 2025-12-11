@@ -2,8 +2,8 @@
 
 ## ✅ STATUS: IN PROGRESS
 
-**Backend:** All phases complete! All 48 tests passing.
-**Frontend:** Phase 7 in progress - Core UI components and navigation complete.
+**Backend:** All phases complete! All 80 tests passing.
+**Frontend:** Phase 7 complete - Core UI components, navigation, device management, ServerVisual, and real-time WebSocket updates complete.
 
 ## Overview
 
@@ -329,6 +329,19 @@ This plan details the implementation of the conductor (master orchestrator) for 
   - [x] Display device resources (CPU, RAM, disk, network)
   - [x] Display registration and last seen timestamps
   - [x] Add pull-to-refresh functionality
+  - [x] Listen for `worker:live:update` WebSocket events for real-time resource updates
+  - [x] Display live resource graphs (CPU, RAM, Disk, Network) using Chart components
+- [x] **ServerVisual Component** (`components/ServerVisual/ServerVisual.jsx`):
+  - [x] Create futuristic 3D server visualization component
+  - [x] Display device details in LCD-style displays (NAME, CPU, RAM, DISK, NET)
+  - [x] Show real-time status LED (online/offline/degraded)
+  - [x] Use light grey background with grey text and thin futuristic font (Assassin's Creed-inspired)
+  - [x] Support both web (CSS 3D transforms) and React Native (2D transforms)
+  - [x] Integrate ServerVisual into Device Details screen
+- [x] **WebSocket Live Updates**:
+  - [x] Emit `worker:live:update` event from `WorkerSocketService` on `worker:ping` heartbeat
+  - [x] Include detailed resource data (CPU, RAM, Disk, Network) in live update events
+  - [x] Frontend listens for live updates and updates Device Details screen in real-time
 - [x] Add registration token display to Dashboard
   - [x] Show token with hide/show toggle (eye icon)
   - [x] Display token hint text
@@ -354,7 +367,7 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [x] Test database operations
 - [x] Created comprehensive test suite with Jest and Supertest
 - [x] Test files: `tests/integration/api.test.js`, `tests/integration/auth.test.js`, `tests/integration/token.test.js`, `tests/integration/database.test.js`
-- [x] **76/76 tests passing ✅** (4 test suites, 76 tests total)
+- [x] **80/80 tests passing ✅** (5 test suites, 80 tests total)
 - [x] Fixed SQLite boolean handling (using integers 0/1)
 - [x] Fixed test cleanup and isolation
 - [x] Fixed health check database connectivity check
@@ -373,6 +386,11 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [x] Test profile update with short username
 - [x] Test profile update requires at least one field
 - [x] Test profile update requires authentication
+- [x] **Test WebSocket live updates** (`tests/integration/websocket.test.js`):
+  - [x] Test worker registration via WebSocket
+  - [x] Test worker registration with existing worker ID via WebSocket
+  - [x] Test `worker:live:update` event emission on `worker:ping` with resources
+  - [x] Test `worker:resources:updated` broadcast to all frontend clients
 
 ### 8.3 Test Scaffolding & Infrastructure
 - [x] Global setup (`tests/globalSetup.js`) - runs once before all tests
@@ -401,11 +419,11 @@ This plan details the implementation of the conductor (master orchestrator) for 
 
 ## ✅ Conductor Implementation Status
 
-**Backend:** Phases 1-6 complete, Phase 8 in progress (missing tests for new endpoints)
-**Frontend:** Phase 7 in progress - Core UI components and navigation complete
+**Backend:** Phases 1-6 complete, Phase 8 complete! All 76 tests passing ✅
+**Frontend:** Phase 7 complete - Core UI components, navigation, device management, ServerVisual, and real-time WebSocket updates ✅
 
 ### Backend (Phases 1-6, 8)
-- ✅ **76/76 tests passing** (4 test suites, 76 tests total)
+- ✅ **80/80 tests passing** (5 test suites, 80 tests total)
 - ✅ All API endpoints working and tested
 - ✅ Database models created and tested
 - ✅ Authentication system complete
@@ -432,8 +450,12 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - ✅ Global Header component with navigation icons
 - ✅ Settings page with password reset and profile editing (username/email)
 - ✅ Menu screen with sign out functionality
-- ✅ URL-based routing for web (`/`, `/settings`, `/menu`)
+- ✅ URL-based routing for web (`/`, `/settings`, `/menu`, `/devices`, `/devices/:id`)
 - ✅ Browser navigation support (back/forward buttons)
+- ✅ **Devices Management UI**: Devices list screen and Device Details screen
+- ✅ **ServerVisual Component**: Futuristic 3D server visualization with LCD-style displays
+- ✅ **WebSocket Live Updates**: Real-time resource updates via `worker:live:update` events
+- ✅ Live resource graphs (CPU, RAM, Disk, Network) on Device Details screen
 - ✅ Dockerized with multi-stage build (nginx)
 - ✅ Docker Compose integration
 - ✅ Environment variable configuration

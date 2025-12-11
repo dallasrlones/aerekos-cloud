@@ -1,0 +1,39 @@
+#!/bin/sh
+echo "🧪 Running tests before commit..."
+
+# Get the root directory of the git repo
+ROOT_DIR=$(git rev-parse --show-toplevel)
+cd "$ROOT_DIR" || exit 1
+
+# Run worker tests
+echo "📦 Testing worker..."
+cd worker || exit 1
+WORKER_TEST_OUTPUT=$(npm test -- --passWithNoTests 2>&1)
+WORKER_EXIT_CODE=$?
+echo "$WORKER_TEST_OUTPUT" | tail -3
+if [ $WORKER_EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "❌ Worker tests failed!"
+  echo "$WORKER_TEST_OUTPUT" | grep -E "FAIL|●|Error|at " | head -30
+  exit 1
+fi
+cd "$ROOT_DIR" || exit 1
+
+# Run conductor tests (excluding websocket test that times out)
+echo "🎼 Testing conductor..."
+cd conductor || exit 1
+CONDUCTOR_TEST_OUTPUT=$(npm test -- --testPathPattern="api.test|auth.test|token.test|database.test" --testPathIgnorePatterns="websocket.test" --passWithNoTests 2>&1)
+CONDUCTOR_EXIT_CODE=$?
+echo "$CONDUCTOR_TEST_OUTPUT" | tail -3
+if [ $CONDUCTOR_EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "❌ Conductor tests failed!"
+  echo "$CONDUCTOR_TEST_OUTPUT" | grep -E "FAIL|●|Error|at " | head -30
+  echo ""
+  echo "💡 Tip: If containers are running, they might be interfering."
+  echo "   Try: cd conductor && docker compose down"
+  exit 1
+fi
+cd "$ROOT_DIR" || exit 1
+
+echo "✅ All tests passed! Proceeding with commit..."

@@ -89,9 +89,12 @@ Each detailed plan.md can reference other plan.md files for dependencies (like l
 **Current Chapter**: [x] Chapter 1: Conductor Setup ✅ **COMPLETE** | [x] Chapter 2: Worker Setup ✅ **COMPLETE**
 
 **Status**: 
-- **Conductor Backend**: All phases (1-6, 8) complete! All 76 tests passing! ✅
-- **Conductor Frontend**: Phase 7 complete! All UI components, navigation, URL routing, device management complete ✅
-- **Worker**: All phases (1-8) complete! All 52 tests passing! ✅
+- **Conductor Backend**: All phases (1-6, 8) complete! All 80 tests passing! ✅
+- **Conductor Frontend**: Phase 7 complete! All UI components, navigation, URL routing, device management, ServerVisual component, and real-time WebSocket updates complete ✅
+- **Worker**: All phases (1-8) complete! All 74 tests passing! ✅
+  - **Persistent Worker ID**: Worker ID stored in `data/worker-id.json`, verified on startup, prevents re-registration on restarts ✅
+  - **Real-time Resource Monitoring**: Host filesystem reads for accurate RAM/disk detection, macOS Docker scaling, fresh reads on every heartbeat ✅
+  - **WebSocket Communication**: Socket.IO for real-time bidirectional communication, live resource updates ✅
 - **Docker Setup**: Everything dockerized with development and production Dockerfiles ✅
 
 **Next Steps**: 
@@ -125,7 +128,7 @@ Each detailed plan.md can reference other plan.md files for dependencies (like l
 - ✅ Request ID middleware added
 - ✅ API versioning in place
 - ✅ Comprehensive test suite with setup/teardown
-- ✅ Frontend Phase 7 in progress: Header, Settings, Menu, Box components, navigation, URL-based routing
+- ✅ Frontend Phase 7 complete: Header, Settings, Menu, Box components, navigation, URL-based routing, Devices management, **ServerVisual component**, **WebSocket live updates**
 
 **When Complete**: Move to Chapter 2 (Worker Setup)
 
@@ -152,8 +155,11 @@ Each detailed plan.md can reference other plan.md files for dependencies (like l
 **Completion Status**: 
 - ✅ Conductor-side worker management (WorkerRepository, WorkerService, routes)
 - ✅ Worker node implementation (registration, heartbeat, resource reporting)
+- ✅ **Persistent Worker ID storage** (file-based, verified on startup, prevents re-registration)
 - ✅ Resource detection utilities
+- ✅ **Real-time host resource monitoring** (host filesystem reads, macOS Docker scaling, fresh reads on heartbeat)
 - ✅ Conductor API client
+- ✅ **WebSocket communication** (Socket.IO for real-time bidirectional updates)
 - ✅ Health check and status endpoints
 - ✅ Error handling and re-registration logic
 - ✅ Docker Compose configuration

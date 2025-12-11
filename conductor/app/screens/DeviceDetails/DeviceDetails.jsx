@@ -1,22 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { deviceService } from '../../services/deviceService';
 import websocketService from '../../services/websocketService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Box } from '../../components/Box/Box';
+import { Chart } from '../../components/Chart/Chart';
+import { NetworkChart } from '../../components/Chart/NetworkChart';
+import { ServerVisual } from '../../components/ServerVisual/ServerVisual';
 import { DeviceDetailsStyles } from './DeviceDetails.styles';
+import { colors, spacing } from '../../styles/theme';
 
 export const DeviceDetails = ({ route, navigation }) => {
-  const { deviceId } = route.params;
+  const { deviceId } = route?.params || {};
   const { isAuthenticated, getToken } = useAuth();
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveData, setLiveData] = useState(null);
+  const [lastHeartbeat, setLastHeartbeat] = useState(null);
+  const [dataHistory, setDataHistory] = useState({ cpu: [], ram: [], disk: [], network: [] });
   const dataHistoryRef = useRef({ cpu: [], ram: [], disk: [], network: [] });
   const MAX_HISTORY = 60; // Keep last 60 data points (5 minutes at 5s intervals)
 
   useEffect(() => {
+    if (!deviceId) {
+      console.error('DeviceDetails: deviceId is missing');
+      setLoading(false);
+      return;
+    }
     loadDevice();
 
     // Connect WebSocket and subscribe to live updates
@@ -25,58 +36,77 @@ export const DeviceDetails = ({ route, navigation }) => {
         if (token) {
           websocketService.connect(token);
           
-          // Subscribe to live updates for this worker
-          websocketService.subscribeToWorker(deviceId);
+          // Wait for connection before subscribing
+          const unsubscribeConnected = websocketService.on('connected', () => {
+            console.log('[DeviceDetails] WebSocket connected, subscribing to worker:', deviceId);
+            websocketService.subscribeToWorker(deviceId);
+          });
+
+          // Subscribe immediately if already connected
+          if (websocketService.isConnected) {
+            console.log('[DeviceDetails] WebSocket already connected, subscribing to worker:', deviceId);
+            websocketService.subscribeToWorker(deviceId);
+          }
 
           // Listen for live updates
           const unsubscribeLive = websocketService.on('worker:live:update', (data) => {
+            console.log('[DeviceDetails] Received worker:live:update:', data);
             if (data.workerId === deviceId) {
+              console.log('[DeviceDetails] Processing live update for device:', deviceId);
               setLiveData(data.resources);
+              setLastHeartbeat(data.timestamp);
               
               // Add to history for graphs
               const timestamp = new Date(data.timestamp).getTime();
+              const newHistory = { ...dataHistoryRef.current };
+              
               if (data.resources.cpu) {
-                dataHistoryRef.current.cpu.push({
+                newHistory.cpu.push({
                   timestamp,
-                  usage: data.resources.cpu.usage || 0
+                  usagePercent: parseFloat(data.resources.cpu.usagePercent || data.resources.cpu.usage || 0)
                 });
-                if (dataHistoryRef.current.cpu.length > MAX_HISTORY) {
-                  dataHistoryRef.current.cpu.shift();
+                if (newHistory.cpu.length > MAX_HISTORY) {
+                  newHistory.cpu.shift();
                 }
               }
               if (data.resources.ram) {
-                dataHistoryRef.current.ram.push({
+                newHistory.ram.push({
                   timestamp,
-                  usagePercent: data.resources.ram.usagePercent || 0
+                  usagePercent: parseFloat(data.resources.ram.usagePercent || 0)
                 });
-                if (dataHistoryRef.current.ram.length > MAX_HISTORY) {
-                  dataHistoryRef.current.ram.shift();
+                if (newHistory.ram.length > MAX_HISTORY) {
+                  newHistory.ram.shift();
                 }
               }
               if (data.resources.disk) {
-                dataHistoryRef.current.disk.push({
+                newHistory.disk.push({
                   timestamp,
-                  usagePercent: data.resources.disk.usagePercent || 0
+                  usagePercent: parseFloat(data.resources.disk.usagePercent || 0)
                 });
-                if (dataHistoryRef.current.disk.length > MAX_HISTORY) {
-                  dataHistoryRef.current.disk.shift();
+                if (newHistory.disk.length > MAX_HISTORY) {
+                  newHistory.disk.shift();
                 }
               }
               if (data.resources.network) {
-                dataHistoryRef.current.network.push({
+                newHistory.network.push({
                   timestamp,
                   rx_bytes_per_sec: data.resources.network.rx_bytes_per_sec || 0,
                   tx_bytes_per_sec: data.resources.network.tx_bytes_per_sec || 0
                 });
-                if (dataHistoryRef.current.network.length > MAX_HISTORY) {
-                  dataHistoryRef.current.network.shift();
+                if (newHistory.network.length > MAX_HISTORY) {
+                  newHistory.network.shift();
                 }
               }
+              
+              // Update both ref and state to trigger re-render
+              dataHistoryRef.current = newHistory;
+              setDataHistory(newHistory);
             }
           });
 
           return () => {
             unsubscribeLive();
+            unsubscribeConnected();
             websocketService.unsubscribeFromWorker(deviceId);
           };
         }
@@ -85,6 +115,12 @@ export const DeviceDetails = ({ route, navigation }) => {
   }, [deviceId, isAuthenticated]);
 
   const loadDevice = async () => {
+    if (!deviceId) {
+      console.error('DeviceDetails: Cannot load device without deviceId');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const deviceData = await deviceService.getDevice(deviceId);
       setDevice(deviceData);
@@ -128,6 +164,14 @@ export const DeviceDetails = ({ route, navigation }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  if (!deviceId) {
+    return (
+      <View style={DeviceDetailsStyles.container}>
+        <Text style={DeviceDetailsStyles.errorText}>Device ID is missing</Text>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={DeviceDetailsStyles.container}>
@@ -151,87 +195,74 @@ export const DeviceDetails = ({ route, navigation }) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Box title="Device Information">
-        <View style={DeviceDetailsStyles.section}>
-          <Text style={DeviceDetailsStyles.label}>Hostname</Text>
-          <Text style={DeviceDetailsStyles.value}>{device.hostname || 'Unknown'}</Text>
-        </View>
+      {/* Server Visualization with Details */}
+      <Box title="" style={DeviceDetailsStyles.serverBox}>
+        <ServerVisual
+          hostname={device.hostname}
+          status={device.status}
+          cpuCores={device.resources?.cpu_cores || 0}
+          ramGB={device.resources?.ram_gb || 0}
+          diskGB={device.resources?.disk_gb || 0}
+          networkMbps={device.resources?.network_mbps || 0}
+          lastSeen={device.last_seen}
+          deviceId={device.id}
+        />
 
-        <View style={DeviceDetailsStyles.section}>
-          <Text style={DeviceDetailsStyles.label}>IP Address</Text>
-          <Text style={DeviceDetailsStyles.value}>{device.ip_address || 'Unknown'}</Text>
-        </View>
+        {/* Additional Details Below Server */}
+        <View style={DeviceDetailsStyles.detailsGrid}>
+          <View style={DeviceDetailsStyles.detailCard}>
+            <Text style={DeviceDetailsStyles.detailLabel}>IP Address</Text>
+            <Text style={DeviceDetailsStyles.detailValue}>{device.ip_address || 'Unknown'}</Text>
+          </View>
 
-        <View style={DeviceDetailsStyles.section}>
-          <Text style={DeviceDetailsStyles.label}>Status</Text>
-          <View style={[DeviceDetailsStyles.statusBadge, { backgroundColor: getStatusColor(device.status) }]}>
-            <Text style={DeviceDetailsStyles.statusText}>{device.status || 'unknown'}</Text>
+          <View style={DeviceDetailsStyles.detailCard}>
+            <Text style={DeviceDetailsStyles.detailLabel}>Last Seen</Text>
+            <Text style={DeviceDetailsStyles.detailValue}>{formatDate(device.last_seen)}</Text>
+          </View>
+
+          {device.created_at && (
+            <View style={DeviceDetailsStyles.detailCard}>
+              <Text style={DeviceDetailsStyles.detailLabel}>Registered</Text>
+              <Text style={DeviceDetailsStyles.detailValue}>{formatDate(device.created_at)}</Text>
+            </View>
+          )}
+
+          <View style={DeviceDetailsStyles.detailCard}>
+            <Text style={DeviceDetailsStyles.detailLabel}>Device ID</Text>
+            <Text style={[DeviceDetailsStyles.detailValue, DeviceDetailsStyles.deviceId]} numberOfLines={1}>
+              {device.id}
+            </Text>
           </View>
         </View>
-
-        <View style={DeviceDetailsStyles.section}>
-          <Text style={DeviceDetailsStyles.label}>Last Seen</Text>
-          <Text style={DeviceDetailsStyles.value}>{formatDate(device.last_seen)}</Text>
-        </View>
-
-        <View style={DeviceDetailsStyles.section}>
-          <Text style={DeviceDetailsStyles.label}>Device ID</Text>
-          <Text style={DeviceDetailsStyles.value}>{device.id}</Text>
-        </View>
-
-        {device.created_at && (
-          <View style={DeviceDetailsStyles.section}>
-            <Text style={DeviceDetailsStyles.label}>Registered</Text>
-            <Text style={DeviceDetailsStyles.value}>{formatDate(device.created_at)}</Text>
-          </View>
-        )}
       </Box>
 
-      {device.resources && (
-        <Box title="Resources">
-          <View style={DeviceDetailsStyles.section}>
-            <Text style={DeviceDetailsStyles.label}>CPU Cores</Text>
-            <Text style={DeviceDetailsStyles.value}>{device.resources.cpu_cores || 0}</Text>
-          </View>
-
-          <View style={DeviceDetailsStyles.section}>
-            <Text style={DeviceDetailsStyles.label}>RAM</Text>
-            <Text style={DeviceDetailsStyles.value}>{device.resources.ram_gb || 0} GB</Text>
-          </View>
-
-          <View style={DeviceDetailsStyles.section}>
-            <Text style={DeviceDetailsStyles.label}>Disk</Text>
-            <Text style={DeviceDetailsStyles.value}>{device.resources.disk_gb || 0} GB</Text>
-          </View>
-
-          {device.resources.network_mbps && (
-            <View style={DeviceDetailsStyles.section}>
-              <Text style={DeviceDetailsStyles.label}>Network</Text>
-              <Text style={DeviceDetailsStyles.value}>{device.resources.network_mbps} Mbps</Text>
-            </View>
-          )}
-        </Box>
-      )}
-
       {liveData && (
-        <Box title="Live Metrics">
-          {/* CPU Usage */}
-          {liveData.cpu && (
-            <View style={DeviceDetailsStyles.section}>
-              <View style={DeviceDetailsStyles.metricRow}>
-                <Text style={DeviceDetailsStyles.label}>CPU Usage</Text>
-                <Text style={DeviceDetailsStyles.value}>{liveData.cpu.usagePercent || 0}%</Text>
+        <>
+          <Box title="Live Metrics">
+            {lastHeartbeat && (
+              <View style={DeviceDetailsStyles.section}>
+                <Text style={DeviceDetailsStyles.label}>Last Heartbeat</Text>
+                <Text style={DeviceDetailsStyles.value}>{formatDate(lastHeartbeat)}</Text>
               </View>
-              <View style={DeviceDetailsStyles.progressBar}>
-                <View 
-                  style={[
-                    DeviceDetailsStyles.progressFill, 
-                    { width: `${liveData.cpu.usagePercent || 0}%`, backgroundColor: '#4CAF50' }
-                  ]} 
-                />
+            )}
+
+            {/* CPU Usage */}
+            {liveData.cpu && (
+              <View style={DeviceDetailsStyles.section}>
+                <View style={DeviceDetailsStyles.metricRow}>
+                  <Text style={DeviceDetailsStyles.label}>CPU Usage</Text>
+                  <Text style={DeviceDetailsStyles.value}>{liveData.cpu.usagePercent || 0}%</Text>
+                </View>
+                <View style={DeviceDetailsStyles.progressBar}>
+                  <View 
+                    style={[
+                      DeviceDetailsStyles.progressFill, 
+                      { width: `${liveData.cpu.usagePercent || 0}%`, backgroundColor: '#4CAF50' }
+                    ]} 
+                  />
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
           {/* RAM Usage */}
           {liveData.ram && (
@@ -304,6 +335,61 @@ export const DeviceDetails = ({ route, navigation }) => {
             </View>
           )}
         </Box>
+        </>
+      )}
+
+      {/* Live Charts */}
+      {Platform.OS === 'web' && liveData && (
+        <>
+          {dataHistory.cpu.length > 0 && (
+            <Box title="CPU Usage Over Time">
+              <Chart
+                title=""
+                data={dataHistory.cpu}
+                dataKey="usagePercent"
+                color="#4CAF50"
+                height={200}
+                unit="%"
+              />
+            </Box>
+          )}
+
+          {dataHistory.ram.length > 0 && (
+            <Box title="RAM Usage Over Time">
+              <Chart
+                title=""
+                data={dataHistory.ram}
+                dataKey="usagePercent"
+                color="#2196F3"
+                height={200}
+                unit="%"
+              />
+            </Box>
+          )}
+
+          {dataHistory.disk.length > 0 && (
+            <Box title="Disk Usage Over Time">
+              <Chart
+                title=""
+                data={dataHistory.disk}
+                dataKey="usagePercent"
+                color="#FF9800"
+                height={200}
+                unit="%"
+              />
+            </Box>
+          )}
+
+          {dataHistory.network.length > 0 && (
+            <Box title="Network I/O Over Time">
+              <NetworkChart
+                title=""
+                data={dataHistory.network}
+                height={200}
+              />
+            </Box>
+          )}
+        </>
       )}
     </ScrollView>
   );

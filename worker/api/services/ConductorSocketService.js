@@ -12,6 +12,15 @@ class ConductorSocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 5000; // 5 seconds
+    this.onReconnectCallback = null; // Callback to call on reconnect
+  }
+
+  /**
+   * Set callback to be called when socket reconnects
+   * @param {Function} callback - Callback function
+   */
+  setOnReconnect(callback) {
+    this.onReconnectCallback = callback;
   }
 
   /**
@@ -21,6 +30,13 @@ class ConductorSocketService {
   async connect() {
     return new Promise((resolve, reject) => {
       const wsUrl = this.conductorUrl.replace(/^http/, 'ws');
+      const wasConnected = this.isConnected;
+      
+      // If socket already exists, remove old listeners to avoid duplicates
+      if (this.socket) {
+        this.socket.removeAllListeners();
+      }
+      
       this.socket = Client(wsUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -28,16 +44,32 @@ class ConductorSocketService {
         reconnectionAttempts: this.maxReconnectAttempts
       });
 
+      let isFirstConnect = true;
+      
       this.socket.on('connect', () => {
         console.log('[Socket] Connected to conductor');
+        const isReconnect = !isFirstConnect && this.workerId !== null;
+        isFirstConnect = false;
         this.isConnected = true;
         this.reconnectAttempts = 0;
-        resolve();
+        
+        // If this is a reconnect (was connected before), clear workerId and notify
+        if (isReconnect) {
+          console.log('[Socket] Reconnected - need to re-register worker');
+          this.workerId = null;
+          if (this.onReconnectCallback) {
+            this.onReconnectCallback();
+          }
+        } else {
+          // First connection - resolve the promise
+          resolve();
+        }
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log(`[Socket] Disconnected from conductor: ${reason}`);
         this.isConnected = false;
+        this.workerId = null; // Clear workerId on disconnect
       });
 
       this.socket.on('connect_error', (error) => {
@@ -69,9 +101,10 @@ class ConductorSocketService {
    * @param {string} hostname - Worker hostname
    * @param {string} ipAddress - Worker IP address
    * @param {object} resources - Initial resource information
+   * @param {string} [existingWorkerId] - Optional existing worker ID to use
    * @returns {Promise<object>} Registered worker info
    */
-  async registerWorker(token, hostname, ipAddress, resources) {
+  async registerWorker(token, hostname, ipAddress, resources, existingWorkerId = null) {
     return new Promise((resolve, reject) => {
       if (!this.isConnected) {
         reject(new Error('Not connected to conductor'));
@@ -102,7 +135,8 @@ class ConductorSocketService {
         token,
         hostname,
         ip_address: ipAddress,
-        resources
+        resources,
+        worker_id: existingWorkerId // Include existing worker ID if provided
       });
     });
   }

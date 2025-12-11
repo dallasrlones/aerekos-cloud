@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { colors } from '../../styles/theme';
+import { StyleSheet, Platform } from 'react-native';
+import { colors, spacing } from '../../styles/theme';
 
 export const DeviceDetailsStyles = StyleSheet.create({
   metricRow: {
@@ -71,6 +71,46 @@ export const DeviceDetailsStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
+  },
+  serverBox: {
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    marginHorizontal: -spacing.xs / 2,
+  },
+  detailCard: {
+    flex: 1,
+    minWidth: '48%',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.xs / 2,
+    marginBottom: spacing.sm,
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: '400',
+  },
+  deviceId: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'monospace',
+    color: colors.textMuted,
   },
 });
 

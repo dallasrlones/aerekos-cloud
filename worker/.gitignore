@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Data directory (contains worker ID)
+data/
+
+# Logs
+*.log
+npm-debug.log*
+

@@ -16,14 +16,48 @@ class WorkerService {
    * @param {string} hostname - Worker hostname
    * @param {string} ipAddress - Worker IP address
    * @param {object} resources - Initial resource information
+   * @param {string} [existingWorkerId] - Optional existing worker ID to use
    * @returns {Promise<object>} Registered worker
    * @throws {Error} If token is invalid or registration fails
    */
-  async registerWorker(token, hostname, ipAddress, resources = {}) {
+  async registerWorker(token, hostname, ipAddress, resources = {}, existingWorkerId = null) {
     // Validate registration token
     const isValidToken = await this.tokenService.validateToken(token);
     if (!isValidToken) {
       throw new Error('Invalid registration token');
+    }
+
+    // If existingWorkerId is provided, check if it exists and use it
+    if (existingWorkerId) {
+      try {
+        const existingWorker = await this.workerRepository.findById(existingWorkerId);
+        if (existingWorker) {
+          // Update existing worker
+          await this.workerRepository.update(existingWorker.id, {
+            hostname,
+            ip_address: ipAddress,
+            status: 'online',
+            last_seen: new Date().toISOString(),
+            resources: JSON.stringify(resources)
+          });
+
+          // Update resources record
+          if (resources.cpu_cores !== undefined || resources.ram_gb !== undefined || 
+              resources.disk_gb !== undefined || resources.network_mbps !== undefined) {
+            await this.workerRepository.upsertResource(existingWorker.id, {
+              cpu_cores: resources.cpu_cores || 0,
+              ram_gb: resources.ram_gb || 0,
+              disk_gb: resources.disk_gb || 0,
+              network_mbps: resources.network_mbps || 0
+            });
+          }
+
+          return await this.workerRepository.findByIdWithResources(existingWorker.id);
+        }
+      } catch (error) {
+        // Worker ID doesn't exist, continue with normal registration
+        console.log(`[WorkerService] Worker ID ${existingWorkerId} not found, creating new worker`);
+      }
     }
 
     // Check if worker already exists (by hostname or IP)

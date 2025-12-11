@@ -1,0 +1,21 @@
+# macOS-specific docker-compose override
+# This file excludes cgroup mount which isn't available on macOS Docker Desktop
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.mac.yml up
+
+version: '3.8'
+
+services:
+  worker:
+    volumes:
+      # Exclude cgroup mount for macOS (not available on Mac host filesystem)
+      # All other mounts remain the same as docker-compose.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /dev:/host/dev:ro
+      - /tmp/worker-resources.env:/tmp/worker-resources.env:ro
+      # Note: cgroup mount excluded for macOS compatibility
+

@@ -25,10 +25,14 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock  # For Docker container management
       - .:/app  # Mount code for development
       - /app/node_modules
+      - ./data:/app/data  # Persist worker ID file
       # Mount host filesystems read-only to detect actual device resources
       - /proc:/host/proc:ro  # CPU and process info
       - /sys:/host/sys:ro  # System info
       - /dev:/host/dev:ro  # Device info
+      # Note: Cgroup mount removed - Docker Compose fails if source doesn't exist (macOS)
+      # Code gracefully handles missing cgroups and falls back to systeminformation
+      # On Linux, you can manually add: - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
       # Optional: Mount resources file if detect-host-resources.sh was run on host
       - /tmp/worker-resources.env:/tmp/worker-resources.env:ro
     networks:

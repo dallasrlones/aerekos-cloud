@@ -16,6 +16,15 @@ class ResourceDetector {
   }
 
   /**
+   * Check if cgroup filesystem is available (Linux hosts only)
+   * On macOS Docker, cgroups may not be mounted - that's OK, we fall back gracefully
+   * @returns {boolean} True if cgroup is mounted and accessible
+   */
+  isCgroupAvailable() {
+    return fs.existsSync('/host/sys/fs/cgroup');
+  }
+
+  /**
    * Read CPU info directly from host /proc/cpuinfo
    * Prioritizes WORKER_CPU_CORES from entrypoint script detection
    * @returns {Promise<object>} CPU info
@@ -124,76 +133,68 @@ class ResourceDetector {
 
   /**
    * Read RAM info directly from host /proc/meminfo
-   * Prioritizes WORKER_RAM_GB from entrypoint script detection
+   * Auto-detects Mac RAM and applies real-time usage
    * @returns {Promise<object>} RAM info
    */
   async readHostRAMInfo() {
     try {
-      // Priority 1: Use WORKER_RAM_GB from entrypoint script (detected from host)
+      // Always read from /host/proc/meminfo for real-time usage
+      const meminfo = fs.readFileSync('/host/proc/meminfo', 'utf8');
+      const lines = meminfo.split('\n');
+      
+      let totalKB = 0, availableKB = 0, freeKB = 0, buffersKB = 0, cachedKB = 0;
+      
+      for (const line of lines) {
+        if (line.startsWith('MemTotal:')) {
+          totalKB = parseInt(line.split(/\s+/)[1]) || 0;
+        } else if (line.startsWith('MemAvailable:')) {
+          availableKB = parseInt(line.split(/\s+/)[1]) || 0;
+        } else if (line.startsWith('MemFree:')) {
+          freeKB = parseInt(line.split(/\s+/)[1]) || 0;
+        } else if (line.startsWith('Buffers:')) {
+          buffersKB = parseInt(line.split(/\s+/)[1]) || 0;
+        } else if (line.startsWith('Cached:')) {
+          cachedKB = parseInt(line.split(/\s+/)[1]) || 0;
+        }
+      }
+      
+      // Convert KB to GB
+      let totalGB = totalKB / 1024 / 1024;
+      const availableGB = availableKB / 1024 / 1024;
+      const freeGB = freeKB / 1024 / 1024;
+      const usedGB = totalGB - availableGB;
+      
+      // Auto-detect: If WORKER_RAM_GB is set and significantly higher than /host/proc,
+      // we're on macOS Docker and need to scale usage to actual Mac RAM
       const workerRAM = process.env.WORKER_RAM_GB;
       if (workerRAM) {
-        const totalGB = parseInt(workerRAM);
-        if (totalGB && totalGB > 0) {
-          // Try to get available memory from /host/proc/meminfo if available
-          let availableGB = 0;
-          let usedGB = 0;
-          try {
-            const meminfo = fs.readFileSync('/host/proc/meminfo', 'utf8');
-            const lines = meminfo.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('MemAvailable:')) {
-                const availableKB = parseInt(line.split(/\s+/)[1]);
-                // Scale available memory proportionally to actual RAM
-                const detectedTotalKB = parseInt(
-                  meminfo.split('\n').find(l => l.startsWith('MemTotal:'))?.split(/\s+/)[1] || '0'
-                );
-                if (detectedTotalKB > 0) {
-                  availableGB = (availableKB / detectedTotalKB) * totalGB;
-                  usedGB = totalGB - availableGB;
-                } else {
-                  // Estimate used as 50% if we can't calculate
-                  usedGB = totalGB * 0.5;
-                  availableGB = totalGB - usedGB;
-                }
-                break;
-              }
-            }
-          } catch (e) {
-            // If we can't read meminfo, estimate used as 50% (conservative)
-            usedGB = totalGB * 0.5;
-            availableGB = totalGB - usedGB;
-          }
+        const envRAM = parseInt(workerRAM);
+        // If WORKER_RAM_GB is >20% higher than /host/proc, it's Mac RAM vs Docker VM RAM
+        if (envRAM && envRAM > totalGB * 1.2) {
+          // Calculate real-time usage percentage from Docker VM
+          // The VM's memory pressure reflects Mac's memory pressure
+          const usagePercent = totalGB > 0 ? (usedGB / totalGB) : 0;
+          
+          // Apply usage percentage to actual Mac RAM for real-time updates
+          const finalTotalGB = envRAM;
+          const finalUsedGB = finalTotalGB * usagePercent;
+          const finalAvailableGB = finalTotalGB - finalUsedGB;
           
           return {
-            total: Math.round(totalGB),
-            available: Math.round(availableGB),
-            used: Math.round(usedGB),
-            free: Math.round(availableGB)
+            total: Math.round(finalTotalGB),
+            available: Math.round(finalAvailableGB),
+            used: Math.round(finalUsedGB),
+            free: Math.round(finalAvailableGB * 0.3) // Estimate free based on available
           };
         }
       }
       
-      // Priority 2: Read from /host/proc/meminfo (Linux or Docker VM)
-      const meminfo = fs.readFileSync('/host/proc/meminfo', 'utf8');
-      const lines = meminfo.split('\n');
-      
-      let total = 0, available = 0, free = 0;
-      
-      for (const line of lines) {
-        if (line.startsWith('MemTotal:')) {
-          total = parseInt(line.split(/\s+/)[1]) / 1024 / 1024; // Convert KB to GB
-        } else if (line.startsWith('MemAvailable:')) {
-          available = parseInt(line.split(/\s+/)[1]) / 1024 / 1024;
-        } else if (line.startsWith('MemFree:')) {
-          free = parseInt(line.split(/\s+/)[1]) / 1024 / 1024;
-        }
-      }
-      
+      // Use values directly from /host/proc/meminfo (Linux host or Docker VM)
       return {
-        total: Math.round(total),
-        available: Math.round(available),
-        used: Math.round(total - available),
-        free: Math.round(free)
+        total: Math.round(totalGB),
+        available: Math.round(availableGB),
+        used: Math.round(usedGB),
+        free: Math.round(freeGB)
       };
     } catch (error) {
       console.error('Error reading host RAM info:', error);
@@ -203,25 +204,91 @@ class ResourceDetector {
 
   /**
    * Get RAM information from host (if mounted) or container
+   * Always reads fresh data from /host/proc/meminfo for real-time updates
    * @returns {Promise<object>} RAM info (total, available, used)
    */
   async getRAMInfo() {
     try {
-      if (this.isHostFilesystemAvailable()) {
-        const hostRAM = await this.readHostRAMInfo();
-        if (hostRAM) {
-          return hostRAM;
+      // Always use systeminformation for real-time, dynamic readings
+      // It reads from container's /proc/meminfo which updates frequently
+      // Force fresh read by calling mem() each time (no caching)
+      const mem = await si.mem();
+      const containerTotalGB = mem.total / 1024 / 1024 / 1024;
+      const containerUsedGB = mem.used / 1024 / 1024 / 1024;
+      const containerAvailableGB = mem.available / 1024 / 1024 / 1024;
+      const containerFreeGB = mem.free / 1024 / 1024 / 1024;
+      
+      // Calculate usage percentage from real-time container memory
+      const usagePercent = containerTotalGB > 0 ? (containerUsedGB / containerTotalGB) : 0;
+      
+      // Priority 1: Try cgroup for more accurate host memory stats (Linux only)
+      let cgroupMemoryUsed = null;
+      let cgroupMemoryLimit = null;
+      
+      // Check for cgroup v1 (older Linux systems)
+      if (fs.existsSync('/host/sys/fs/cgroup/memory/memory.usage_in_bytes')) {
+        try {
+          cgroupMemoryUsed = parseInt(fs.readFileSync('/host/sys/fs/cgroup/memory/memory.usage_in_bytes', 'utf8').trim());
+          const limitStr = fs.readFileSync('/host/sys/fs/cgroup/memory/memory.limit_in_bytes', 'utf8').trim();
+          cgroupMemoryLimit = parseInt(limitStr);
+          // Max value means unlimited, ignore it
+          if (cgroupMemoryLimit >= Number.MAX_SAFE_INTEGER - 1 || cgroupMemoryLimit === -1) {
+            cgroupMemoryLimit = null;
+          }
+        } catch (e) {
+          // Cgroup v1 not available, try v2
         }
       }
       
-      // Fallback to container/system info
-      const mem = await si.mem();
+      // Check for cgroup v2 (newer Linux systems)
+      if (!cgroupMemoryUsed && fs.existsSync('/host/sys/fs/cgroup/memory.current')) {
+        try {
+          cgroupMemoryUsed = parseInt(fs.readFileSync('/host/sys/fs/cgroup/memory.current', 'utf8').trim());
+          const limitStr = fs.readFileSync('/host/sys/fs/cgroup/memory.max', 'utf8').trim();
+          if (limitStr !== 'max') {
+            cgroupMemoryLimit = parseInt(limitStr);
+          }
+        } catch (e2) {
+          // Cgroup v2 not available either, fall through
+        }
+      }
       
+      // Use cgroup memory if available (more accurate) - update usage percentage
+      let finalUsagePercent = usagePercent;
+      if (cgroupMemoryUsed && cgroupMemoryLimit && cgroupMemoryLimit < Number.MAX_SAFE_INTEGER) {
+        // Cgroup limit is set and not max - use cgroup usage for more accurate percentage
+        const cgroupUsedGB = cgroupMemoryUsed / 1024 / 1024 / 1024;
+        const cgroupLimitGB = cgroupMemoryLimit / 1024 / 1024 / 1024;
+        finalUsagePercent = cgroupLimitGB > 0 ? (cgroupUsedGB / cgroupLimitGB) : usagePercent;
+      }
+      
+      // Auto-detect: If WORKER_RAM_GB is set and significantly higher, we're on macOS Docker
+      // Scale container usage percentage to actual Mac RAM for real-time updates
+      const workerRAM = process.env.WORKER_RAM_GB;
+      if (workerRAM) {
+        const envRAM = parseInt(workerRAM);
+        if (envRAM && envRAM > containerTotalGB * 1.2) {
+          // Mac RAM detected - scale usage percentage to Mac RAM
+          // Use real-time usage percentage from container memory (updates every heartbeat)
+          // Keep 2 decimal places for precision so small changes are visible
+          const macUsedGB = Math.round((envRAM * finalUsagePercent) * 100) / 100;
+          const macAvailableGB = Math.round((envRAM - macUsedGB) * 100) / 100;
+          
+          return {
+            total: envRAM,
+            available: macAvailableGB,
+            used: macUsedGB,
+            free: Math.round((macAvailableGB * (containerFreeGB / containerAvailableGB)) * 100) / 100
+          };
+        }
+      }
+      
+      // Use container/host values directly
       return {
-        total: Math.round(mem.total / 1024 / 1024 / 1024), // Convert to GB
-        available: Math.round(mem.available / 1024 / 1024 / 1024), // Convert to GB
-        used: Math.round(mem.used / 1024 / 1024 / 1024), // Convert to GB
-        free: Math.round(mem.free / 1024 / 1024 / 1024) // Convert to GB
+        total: Math.round(containerTotalGB),
+        available: Math.round(containerAvailableGB),
+        used: Math.round(containerUsedGB),
+        free: Math.round(containerFreeGB)
       };
     } catch (error) {
       console.error('Error getting RAM info:', error);
@@ -236,44 +303,154 @@ class ResourceDetector {
 
   /**
    * Read disk info from host filesystems
-   * Prioritizes WORKER_DISK_GB from entrypoint script detection
+   * Reads actual host disk usage, not container filesystem
    * @returns {Promise<object>} Disk info
    */
   async readHostDiskInfo() {
     try {
+      const { execSync } = require('child_process');
+      
       // Priority 1: Use WORKER_DISK_GB from entrypoint script
       const workerDisk = process.env.WORKER_DISK_GB;
       if (workerDisk) {
         const totalGB = parseInt(workerDisk);
         if (totalGB && totalGB > 0) {
-          // Try to get used/available from /host/proc/mounts and df
+          // Try to get used/available from host's actual root filesystem
           let availableGB = 0;
           let usedGB = 0;
+          
           try {
-            const { execSync } = require('child_process');
-            const dfOutput = execSync('df -BG /', { encoding: 'utf8' }).trim();
-            const lines = dfOutput.split('\n');
-            if (lines.length > 1) {
-              const stats = lines[1].split(/\s+/);
-              if (stats.length >= 4) {
-                const usedBytes = parseInt(stats[2].replace('G', '')) || 0;
-                const availBytes = parseInt(stats[3].replace('G', '')) || 0;
-                // Scale proportionally to actual disk size
-                const detectedTotal = parseInt(stats[1].replace('G', '')) || totalGB;
-                if (detectedTotal > 0) {
-                  usedGB = (usedBytes / detectedTotal) * totalGB;
-                  availableGB = (availBytes / detectedTotal) * totalGB;
-                } else {
-                  // Estimate if we can't calculate
-                  usedGB = totalGB * 0.7;
-                  availableGB = totalGB - usedGB;
+            // Auto-detect: Try to read host disk usage from multiple sources
+            // Priority 1: Try reading from host's root filesystem via /host/proc/mounts
+            const hostMounts = fs.readFileSync('/host/proc/mounts', 'utf8');
+            const mountLines = hostMounts.split('\n');
+            
+            // Find the host's root filesystem mount point
+            let hostRootDevice = null;
+            for (const line of mountLines) {
+              const parts = line.split(/\s+/);
+              if (parts.length >= 2 && parts[1] === '/') {
+                hostRootDevice = parts[0];
+                break;
+              }
+            }
+            
+            if (hostRootDevice) {
+              // Try multiple methods to get host disk usage
+              let dfOutput = null;
+              let dfPaths = ['/host', '/host/proc', '/host/sys'];
+              
+              // Try each path to find one that shows host filesystem
+              for (const dfPath of dfPaths) {
+                try {
+                  dfOutput = execSync(`df -BG ${dfPath} 2>/dev/null`, { encoding: 'utf8' }).trim();
+                  if (dfOutput && dfOutput.includes('Filesystem')) {
+                    break;
+                  }
+                } catch (e) {
+                  continue;
+                }
+              }
+              
+              if (dfOutput) {
+                const lines = dfOutput.split('\n');
+                if (lines.length > 1) {
+                  const stats = lines[1].split(/\s+/);
+                  if (stats.length >= 4) {
+                    const detectedTotal = parseInt(stats[1].replace('G', '')) || 0;
+                    const usedBytes = parseInt(stats[2].replace('G', '')) || 0;
+                    const availBytes = parseInt(stats[3].replace('G', '')) || 0;
+                    
+                    // Auto-detect: If WORKER_DISK_GB is significantly different from detected,
+                    // we're on macOS Docker - scale usage percentage to actual Mac disk
+                    const workerDisk = process.env.WORKER_DISK_GB;
+                    if (workerDisk) {
+                      const envDisk = parseInt(workerDisk);
+                      if (envDisk && Math.abs(envDisk - detectedTotal) > detectedTotal * 0.2) {
+                        // Mac disk vs Docker VM disk - scale usage percentage
+                        const usagePercent = detectedTotal > 0 ? (usedBytes / detectedTotal) : 0;
+                        usedGB = envDisk * usagePercent;
+                        availableGB = envDisk - usedGB;
+                      } else {
+                        // Close match or no WORKER_DISK_GB - use detected values directly
+                        usedGB = usedBytes;
+                        availableGB = availBytes;
+                      }
+                    } else {
+                      // No WORKER_DISK_GB - use detected values
+                      usedGB = usedBytes;
+                      availableGB = availBytes;
+                    }
+                  }
                 }
               }
             }
+            
+            // If we couldn't get values above, try df directly without checking mounts
+            if (usedGB === 0 && availableGB === 0) {
+              try {
+                // Try df on /host directly
+                const dfOutput = execSync('df -BG /host 2>/dev/null || df -BG / 2>/dev/null', { encoding: 'utf8' }).trim();
+                const lines = dfOutput.split('\n');
+                if (lines.length > 1) {
+                  const stats = lines[1].split(/\s+/).filter(s => s.length > 0);
+                  if (stats.length >= 4) {
+                    const detectedTotal = parseInt(stats[1].replace('G', '')) || 0;
+                    const usedBytes = parseInt(stats[2].replace('G', '')) || 0;
+                    const availBytes = parseInt(stats[3].replace('G', '')) || 0;
+                    
+                    if (detectedTotal > 0) {
+                      const envDisk = parseInt(workerDisk);
+                      if (envDisk && Math.abs(envDisk - detectedTotal) > detectedTotal * 0.2) {
+                        // Mac disk vs Docker VM - scale usage percentage
+                        const usagePercent = detectedTotal > 0 ? (usedBytes / detectedTotal) : 0;
+                        usedGB = envDisk * usagePercent;
+                        availableGB = envDisk - usedGB;
+                      } else {
+                        usedGB = usedBytes;
+                        availableGB = availBytes;
+                      }
+                    }
+                  }
+                }
+              } catch (dfError) {
+                // Final fallback: estimate
+                const usagePercent = 0.7;
+                usedGB = totalGB * usagePercent;
+                availableGB = totalGB - usedGB;
+              }
+            }
           } catch (e) {
-            // Estimate if we can't calculate
-            usedGB = totalGB * 0.7;
-            availableGB = totalGB - usedGB;
+            // If we can't read host disk usage, try df directly
+            try {
+              const dfOutput = execSync('df -BG /host 2>/dev/null || df -BG / 2>/dev/null', { encoding: 'utf8' }).trim();
+              const lines = dfOutput.split('\n');
+              if (lines.length > 1) {
+                const stats = lines[1].split(/\s+/).filter(s => s.length > 0);
+                if (stats.length >= 4) {
+                  const detectedTotal = parseInt(stats[1].replace('G', '')) || 0;
+                  const usedBytes = parseInt(stats[2].replace('G', '')) || 0;
+                  const availBytes = parseInt(stats[3].replace('G', '')) || 0;
+                  
+                  if (detectedTotal > 0) {
+                    const envDisk = parseInt(workerDisk);
+                    if (envDisk && Math.abs(envDisk - detectedTotal) > detectedTotal * 0.2) {
+                      const usagePercent = detectedTotal > 0 ? (usedBytes / detectedTotal) : 0;
+                      usedGB = envDisk * usagePercent;
+                      availableGB = envDisk - usedGB;
+                    } else {
+                      usedGB = usedBytes;
+                      availableGB = availBytes;
+                    }
+                  }
+                }
+              }
+            } catch (dfError) {
+              // Final fallback: estimate
+              const usagePercent = 0.7;
+              usedGB = totalGB * usagePercent;
+              availableGB = totalGB - usedGB;
+            }
           }
           
           return {
@@ -284,8 +461,31 @@ class ResourceDetector {
         }
       }
       
-      // Priority 2: Read from /host/sys/block or df
-      const { execSync } = require('child_process');
+      // If WORKER_DISK_GB not set, try to read from df anyway
+      try {
+        const dfOutput = execSync('df -BG /host 2>/dev/null || df -BG / 2>/dev/null', { encoding: 'utf8' }).trim();
+        const lines = dfOutput.split('\n');
+        if (lines.length > 1) {
+          const stats = lines[1].split(/\s+/).filter(s => s.length > 0);
+          if (stats.length >= 4) {
+            const totalGB = parseInt(stats[1].replace('G', '')) || 0;
+            const usedGB = parseInt(stats[2].replace('G', '')) || 0;
+            const availGB = parseInt(stats[3].replace('G', '')) || 0;
+            
+            if (totalGB > 0) {
+              return {
+                total: totalGB,
+                available: availGB,
+                used: usedGB
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Fall through to return null
+      }
+      
+      // Priority 2: Read from /host/sys/block
       const mounts = fs.readFileSync('/host/proc/mounts', 'utf8');
       const lines = mounts.split('\n');
       
@@ -306,9 +506,9 @@ class ResourceDetector {
           const totalBytes = sectors * 512;
           const totalGB = Math.round(totalBytes / 1024 / 1024 / 1024);
           
-          // Get used/available from df
+          // Get used/available from host's df
           try {
-            const dfOutput = execSync('df -BG /', { encoding: 'utf8' }).trim();
+            const dfOutput = execSync('df -BG /host 2>/dev/null || df -BG / 2>/dev/null', { encoding: 'utf8' }).trim();
             const dfLines = dfOutput.split('\n');
             if (dfLines.length > 1) {
               const stats = dfLines[1].split(/\s+/);
@@ -335,35 +535,50 @@ class ResourceDetector {
 
   /**
    * Get disk information from host (if mounted) or container
+   * Always reads fresh data from host filesystem for real-time updates
    * @returns {Promise<object>} Disk info (total, available, used)
    */
   async getDiskInfo() {
     try {
-      if (this.isHostFilesystemAvailable()) {
-        const hostDisk = await this.readHostDiskInfo();
-        if (hostDisk) {
-          return hostDisk;
+      // Always use systeminformation for real-time, dynamic readings
+      // It reads from container's filesystem which updates frequently
+      // Force fresh read by calling fsSize() each time (no caching)
+      const fsSize = await si.fsSize();
+      
+      // Get root filesystem (usually first one or mount === '/')
+      const rootFS = fsSize.find(fs => fs.mount === '/') || fsSize[0] || {};
+      const containerTotalGB = (rootFS.size || 0) / 1024 / 1024 / 1024;
+      const containerUsedGB = (rootFS.used || 0) / 1024 / 1024 / 1024;
+      const containerAvailableGB = (rootFS.available || 0) / 1024 / 1024 / 1024;
+      
+      // Calculate usage percentage from real-time container disk
+      const usagePercent = containerTotalGB > 0 ? (containerUsedGB / containerTotalGB) : 0;
+      
+      // Auto-detect: If WORKER_DISK_GB is set and significantly different, we're on macOS Docker
+      // Scale container usage percentage to actual Mac disk for real-time updates
+      const workerDisk = process.env.WORKER_DISK_GB;
+      if (workerDisk) {
+        const envDisk = parseInt(workerDisk);
+        if (envDisk && Math.abs(envDisk - containerTotalGB) > containerTotalGB * 0.2) {
+          // Mac disk detected - scale container usage percentage to Mac disk
+          // Use real-time usage percentage from container filesystem (updates every heartbeat)
+          // Keep 2 decimal places for precision so small changes are visible
+          const macUsedGB = Math.round((envDisk * usagePercent) * 100) / 100;
+          const macAvailableGB = Math.round((envDisk - macUsedGB) * 100) / 100;
+          
+          return {
+            total: envDisk,
+            available: macAvailableGB,
+            used: macUsedGB
+          };
         }
       }
       
-      // Fallback to container/system info
-      const fsSize = await si.fsSize();
-      
-      // Sum up all filesystems
-      let total = 0;
-      let available = 0;
-      let used = 0;
-      
-      fsSize.forEach(fs => {
-        total += fs.size || 0;
-        available += fs.available || 0;
-        used += fs.used || 0;
-      });
-      
+      // Use container/host values directly (Linux host or no WORKER_DISK_GB set)
       return {
-        total: Math.round(total / 1024 / 1024 / 1024), // Convert to GB
-        available: Math.round(available / 1024 / 1024 / 1024), // Convert to GB
-        used: Math.round(used / 1024 / 1024 / 1024) // Convert to GB
+        total: Math.round(containerTotalGB),
+        available: Math.round(containerAvailableGB),
+        used: Math.round(containerUsedGB)
       };
     } catch (error) {
       console.error('Error getting disk info:', error);
@@ -553,4 +768,3 @@ class ResourceDetector {
 }
 
 module.exports = new ResourceDetector();
-

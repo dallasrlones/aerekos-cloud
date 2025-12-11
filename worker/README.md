@@ -17,6 +17,24 @@ The worker node for aerekos-cloud. Workers are slave devices that host and run s
 - ⏳ Docker container management (coming soon)
 - ⏳ Service deployment handling (coming soon)
 
+## Real-time Resource Usage (macOS)
+
+For macOS Docker users, to get real-time RAM and disk usage updates (not just Docker VM stats), run the usage detection script periodically:
+
+```bash
+# Run once to test
+./detect-host-usage.sh
+
+# Set up a cron job to run every 5 seconds (for real-time updates)
+# Add this to your crontab (crontab -e):
+*/5 * * * * /Users/dallaslones/work/aerekos-cloud/worker/detect-host-usage.sh
+
+# Or use launchd for more frequent updates (every 5 seconds)
+# Create ~/Library/LaunchAgents/com.aerekos.worker-usage.plist:
+```
+
+The script writes Mac's actual RAM and disk usage to `/tmp/worker-usage.env`, which is mounted into the Docker container. The worker will read this file to get real-time Mac resource usage instead of Docker VM stats.
+
 ## Quick Start
 
 ### Prerequisites
@@ -45,9 +63,37 @@ CONDUCTOR_TOKEN=<token-from-conductor>
 PORT=3001
 ```
 
-**Note:** All device info (hostname, IP, CPU, RAM, disk) is automatically detected by the entrypoint script. No manual configuration needed! For macOS Docker users, run `./detect-host-resources.sh` before starting for best results.
+**Note:** All device info (hostname, IP, CPU, RAM, disk) is automatically detected by the entrypoint script. No manual configuration needed! 
 
-4. **For macOS Docker users (optional but recommended):**
+**Platform-Specific Setup:**
+- **macOS Docker Desktop**: 
+  - Run `./detect-host-resources.sh` before starting for best results
+  - Use `docker-compose -f docker-compose.yml -f docker-compose.mac.yml up` to exclude cgroup mount (not available on Mac)
+  - Code gracefully handles missing cgroups - falls back to systeminformation
+- **Ubuntu/Linux**: 
+  - Use standard `docker-compose up` - cgroup mount works automatically
+  - Full cgroup support for accurate resource monitoring
+  - No additional setup needed
+
+4. **For macOS Docker users - Real-time Resource Usage:**
+
+   To get **real-time** RAM and disk usage updates (not just Docker VM stats), run the usage detection script periodically:
+   
+   ```bash
+   # Run once to test
+   ./detect-host-usage.sh
+   
+   # Set up to run every 5 seconds (for real-time updates)
+   # Option 1: Use a simple loop (for testing)
+   while true; do ./detect-host-usage.sh; sleep 5; done &
+   
+   # Option 2: Use launchd (recommended for production)
+   # Create ~/Library/LaunchAgents/com.aerekos.worker-usage.plist
+   ```
+   
+   The script writes Mac's actual RAM and disk usage to `/tmp/worker-usage.env`, which is automatically mounted into the Docker container. The worker will read this file to get real-time Mac resource usage instead of Docker VM stats.
+
+5. **For macOS Docker users (optional but recommended):**
    ```bash
    # Detect actual Mac resources and write to file
    ./detect-host-resources.sh
@@ -67,9 +113,21 @@ npm run dev
 ### Docker
 
 Build and run with Docker Compose:
+
 ```bash
-docker-compose up --build
+# First, detect Mac resources (optional but recommended on macOS)
+./detect-host-resources.sh
+
+# Then start - works on both Mac and Linux automatically
+docker compose up --build
 ```
+
+**Note**: The cgroup mount is not included by default (Docker Compose fails if source doesn't exist on macOS).
+- **macOS**: Code gracefully handles missing cgroups and falls back to systeminformation
+- **Linux**: Code works without cgroups, but you can manually add the mount to docker-compose.yml for more accurate resource monitoring:
+  ```yaml
+  - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+  ```
 
 **Note**: Make sure the `aerekos-network` network exists:
 ```bash

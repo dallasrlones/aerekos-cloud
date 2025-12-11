@@ -34,19 +34,20 @@ class WorkerSocketService {
       // Handle worker registration via socket
       socket.on('worker:register', async (data) => {
         try {
-          const { token, hostname, ip_address, resources } = data;
+          const { token, hostname, ip_address, resources, worker_id } = data;
           
           if (!token) {
             socket.emit('error', { message: 'Registration token is required' });
             return;
           }
 
-          // Register worker
+          // Register worker (pass existing worker_id if provided)
           const worker = await WorkerService.registerWorker(
             token,
             hostname,
             ip_address,
-            resources || {}
+            resources || {},
+            worker_id || null
           );
 
           // Associate socket with worker
@@ -97,7 +98,7 @@ class WorkerSocketService {
             });
             
             // Broadcast resource update to frontend clients (all)
-            this.io.to('frontend').emit('worker:resources:updated', {
+            this.io.of('/frontend').to('frontend').emit('worker:resources:updated', {
               workerId,
               resources: {
                 cpu_cores: resources.cpu_cores,
@@ -113,7 +114,8 @@ class WorkerSocketService {
             });
 
             // Also emit to worker-specific room for live view (detailed metrics)
-            this.io.to(`worker:${workerId}`).emit('worker:live:update', {
+            // Emit to /frontend namespace where frontend clients are connected
+            const liveUpdateData = {
               workerId,
               resources: {
                 cpu: resources.cpu,
@@ -122,19 +124,9 @@ class WorkerSocketService {
                 network: resources.network
               },
               timestamp: resources.timestamp || new Date().toISOString()
-            });
-
-            // Also emit to worker-specific room for live view
-            this.io.to(`worker:${workerId}`).emit('worker:live:update', {
-              workerId,
-              resources: {
-                cpu: resources.cpu,
-                ram: resources.ram,
-                disk: resources.disk,
-                network: resources.network
-              },
-              timestamp: resources.timestamp || new Date().toISOString()
-            });
+            };
+            console.log(`[Socket] Emitting worker:live:update to worker:${workerId} room in /frontend namespace`);
+            this.io.of('/frontend').to(`worker:${workerId}`).emit('worker:live:update', liveUpdateData);
           }
           
           socket.emit('worker:pong', { timestamp: new Date().toISOString() });
@@ -157,7 +149,7 @@ class WorkerSocketService {
           await WorkerService.updateResources(workerId, resources);
           
           // Broadcast resource update to frontend clients
-          this.io.to('frontend').emit('worker:resources:updated', {
+          this.io.of('/frontend').to('frontend').emit('worker:resources:updated', {
             workerId,
             resources
           });
@@ -179,7 +171,7 @@ class WorkerSocketService {
             await WorkerService.markWorkerOffline(workerId);
             
             // Notify frontend clients
-            this.io.to('frontend').emit('worker:offline', {
+            this.io.of('/frontend').to('frontend').emit('worker:offline', {
               workerId,
               timestamp: new Date().toISOString()
             });
@@ -261,7 +253,7 @@ class WorkerSocketService {
             await WorkerService.markWorkerOffline(workerId);
             
             // Notify frontend clients
-            this.io.to('frontend').emit('worker:offline', {
+            this.io.of('/frontend').to('frontend').emit('worker:offline', {
               workerId,
               timestamp: new Date().toISOString(),
               reason: 'heartbeat_timeout'
@@ -304,7 +296,7 @@ class WorkerSocketService {
               await WorkerService.markWorkerOffline(worker.id);
               
               // Notify frontend clients
-              this.io.to('frontend').emit('worker:offline', {
+              this.io.of('/frontend').to('frontend').emit('worker:offline', {
                 workerId: worker.id,
                 timestamp: new Date().toISOString(),
                 reason: 'database_timeout'
@@ -355,7 +347,7 @@ class WorkerSocketService {
    */
   broadcastToFrontend(event, data) {
     if (this.io) {
-      this.io.to('frontend').emit(event, data);
+      this.io.of('/frontend').to('frontend').emit(event, data);
     }
   }
 }

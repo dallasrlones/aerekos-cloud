@@ -10,21 +10,45 @@ class ConductorService {
   }
 
   /**
+   * Verify worker ID exists and is valid
+   * @param {string} workerId - Worker ID to verify
+   * @param {string} token - Registration token
+   * @returns {Promise<boolean>} True if worker exists and is valid
+   */
+  async verifyWorkerId(workerId, token) {
+    try {
+      const response = await axios.post(`${this.conductorUrl}/api/workers/verify`, {
+        worker_id: workerId,
+        token
+      });
+      return response.data.valid === true;
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        return false; // Worker not found
+      }
+      // For other errors, assume invalid (safer to re-register)
+      return false;
+    }
+  }
+
+  /**
    * Register worker with conductor
    * @param {string} token - Registration token
    * @param {string} hostname - Worker hostname (actual device hostname)
    * @param {string} ipAddress - Worker IP address (actual device IP)
    * @param {object} resources - Initial resource information
+   * @param {string} [existingWorkerId] - Optional existing worker ID to use
    * @returns {Promise<object>} Registered worker info
    * @throws {Error} If registration fails
    */
-  async registerWorker(token, hostname, ipAddress, resources) {
+  async registerWorker(token, hostname, ipAddress, resources, existingWorkerId = null) {
     try {
       const response = await axios.post(`${this.conductorUrl}/api/workers/register`, {
         token,
         hostname,
         ip_address: ipAddress,
-        resources
+        resources,
+        worker_id: existingWorkerId // Include existing worker ID if provided
       });
 
       this.workerId = response.data.worker.id;

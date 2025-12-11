@@ -3,6 +3,11 @@ set -e
 
 echo "🔍 Detecting host system resources..."
 
+# Check if cgroup mount is available (Linux) or not (macOS)
+if [ ! -d "/host/sys/fs/cgroup" ]; then
+    echo "  ℹ️  Cgroup mount not available (macOS or not mounted) - using fallback resource detection"
+fi
+
 # Initialize defaults
 CPU_CORES=""
 RAM_GB=""

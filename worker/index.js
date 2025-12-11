@@ -7,6 +7,7 @@ const ConductorSocketService = require('./api/services/ConductorSocketService');
 const ResourceDetector = require('./utils/resourceDetector');
 const ServiceManager = require('./docker/ServiceManager');
 const DeploymentHandler = require('./services/DeploymentHandler');
+const { getStoredWorkerId, storeWorkerId, clearWorkerId } = require('./utils/workerIdStorage');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,6 +29,13 @@ const conductorService = new ConductorService(CONDUCTOR_URL);
 const conductorSocket = new ConductorSocketService(CONDUCTOR_URL);
 const resourceDetector = ResourceDetector;
 const deploymentHandler = new DeploymentHandler(conductorService);
+
+// Set up reconnect handler to re-register worker when socket reconnects
+conductorSocket.setOnReconnect(() => {
+  console.log('Socket reconnected - re-registering worker...');
+  isRegistered = false;
+  registerWorker();
+});
 
 // State
 let isRegistered = false;
@@ -99,52 +107,99 @@ async function registerWorker() {
   }
 
   try {
-    console.log(`Connecting to conductor via WebSocket at ${CONDUCTOR_URL}...`);
+    // Check for stored worker ID first
+    const storedWorkerId = getStoredWorkerId();
+    let worker = null;
+    let isNewRegistration = false;
 
-    // Connect WebSocket first
-    if (!conductorSocket.getIsConnected()) {
-      await conductorSocket.connect();
+    if (storedWorkerId) {
+      console.log(`Found stored worker ID: ${storedWorkerId}`);
+      console.log('Verifying worker ID with conductor...');
+      
+      try {
+        // Try to verify worker exists by attempting registration with existing ID
+        // Connect WebSocket first
+        if (!conductorSocket.getIsConnected()) {
+          await conductorSocket.connect();
+        }
+
+        // Get initial resources
+        const resources = await resourceDetector.getAllResources();
+        lastResources = resources;
+
+        // Get actual device hostname and IP (not Docker internal)
+        const deviceInfo = await getDeviceInfo();
+        
+        // Try to register with existing worker ID
+        worker = await conductorSocket.registerWorker(
+          CONDUCTOR_TOKEN,
+          deviceInfo.hostname,
+          deviceInfo.ip,
+          resources,
+          storedWorkerId
+        );
+        
+        console.log(`✓ Verified existing worker ID: ${worker.id}`);
+      } catch (error) {
+        console.log(`✗ Worker ID ${storedWorkerId} is invalid or not found: ${error.message}`);
+        console.log('Clearing stored worker ID and registering as new worker...');
+        clearWorkerId();
+        isNewRegistration = true;
+      }
     }
 
-    // Get initial resources
-    const resources = await resourceDetector.getAllResources();
-    lastResources = resources;
+    // If no stored ID or verification failed, register as new worker
+    if (!worker) {
+      isNewRegistration = true;
+      console.log(`Connecting to conductor via WebSocket at ${CONDUCTOR_URL}...`);
 
-    // Get actual device hostname and IP (not Docker internal)
-    const deviceInfo = await getDeviceInfo();
-    console.log(`Detected device info - Hostname: ${deviceInfo.hostname}, IP: ${deviceInfo.ip}`);
+      // Connect WebSocket first
+      if (!conductorSocket.getIsConnected()) {
+        await conductorSocket.connect();
+      }
 
-    // Register with conductor via WebSocket (send actual device info)
-    const worker = await conductorSocket.registerWorker(
-      CONDUCTOR_TOKEN,
-      deviceInfo.hostname,
-      deviceInfo.ip,
-      resources
-    );
+      // Get initial resources
+      const resources = await resourceDetector.getAllResources();
+      lastResources = resources;
 
-    // Also register via HTTP for backward compatibility
-    try {
-      await conductorService.registerWorker(
+      // Get actual device hostname and IP (not Docker internal)
+      const deviceInfo = await getDeviceInfo();
+      console.log(`Detected device info - Hostname: ${deviceInfo.hostname}, IP: ${deviceInfo.ip}`);
+
+      // Register with conductor via WebSocket (send actual device info)
+      worker = await conductorSocket.registerWorker(
         CONDUCTOR_TOKEN,
         deviceInfo.hostname,
         deviceInfo.ip,
         resources
       );
-    } catch (httpError) {
-      // HTTP registration is optional if WebSocket works
-      console.warn('HTTP registration failed (using WebSocket only):', httpError.message);
+
+      // Also register via HTTP for backward compatibility
+      try {
+        await conductorService.registerWorker(
+          CONDUCTOR_TOKEN,
+          deviceInfo.hostname,
+          deviceInfo.ip,
+          resources
+        );
+      } catch (httpError) {
+        // HTTP registration is optional if WebSocket works
+        console.warn('HTTP registration failed (using WebSocket only):', httpError.message);
+      }
     }
+
+    // Store worker ID to file for persistence
+    storeWorkerId(worker.id);
 
     // Store IP and hostname returned by conductor (in memory only)
     WORKER_HOSTNAME = worker.hostname;
     WORKER_IP = worker.ip_address;
 
-    console.log(`✓ Worker registered successfully via WebSocket!`);
+    console.log(`✓ Worker ${isNewRegistration ? 'registered' : 'verified'} successfully via WebSocket!`);
     console.log(`  Worker ID: ${worker.id}`);
     console.log(`  Hostname: ${WORKER_HOSTNAME}`);
     console.log(`  IP Address: ${WORKER_IP}`);
     console.log(`  Status: ${worker.status}`);
-    console.log(`  Resources: ${resources.cpu_cores} CPU cores, ${resources.ram_gb} GB RAM, ${resources.disk_gb} GB disk`);
 
     isRegistered = true;
     registrationAttempts = 0;
@@ -179,7 +234,7 @@ async function sendHeartbeat() {
   }
 
   try {
-    // Get current resources for real-time monitoring
+    // Get current resources for real-time monitoring (fresh read every heartbeat)
     const resources = await resourceDetector.getAllResources();
     
     // Send heartbeat with resources

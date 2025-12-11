@@ -45,6 +45,9 @@ const AppContent = () => {
   // Initialize screen from URL on mount and when auth changes (web only)
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // Don't redirect while loading auth state (prevents redirect on refresh)
+      if (loading) return;
+      
       if (isAuthenticated) {
         const pathname = window.location.pathname;
         const screenData = getScreenFromPath(pathname);
@@ -57,14 +60,14 @@ const AppContent = () => {
           setScreenParams({});
           setPreviousScreen(screenData);
         }
-      } else {
+      } else if (!loading) {
         // When logged out, ensure URL is /login
         if (window.location.pathname !== '/login') {
           window.history.replaceState({}, '', '/login');
         }
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading]);
 
   // Handle browser back/forward navigation (web only)
   useEffect(() => {

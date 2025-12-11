@@ -9,7 +9,7 @@ const WorkerService = require('../services/WorkerService');
  */
 router.post('/register', async (req, res, next) => {
   try {
-    const { token, hostname, ip_address, resources } = req.body;
+    const { token, hostname, ip_address, resources, worker_id } = req.body;
 
     if (!token) {
       return res.status(400).json({
@@ -19,6 +19,8 @@ router.post('/register', async (req, res, next) => {
         }
       });
     }
+
+    // If worker_id is provided, pass it to registerWorker to use existing worker if valid
 
     // Use provided hostname/IP if available (actual device info), otherwise detect from request
     let workerHostname = hostname;
@@ -44,7 +46,7 @@ router.post('/register', async (req, res, next) => {
       workerIP = workerIP || detectedIP;
     }
 
-    const worker = await WorkerService.registerWorker(token, workerHostname, workerIP, resources || {});
+    const worker = await WorkerService.registerWorker(token, workerHostname, workerIP, resources || {}, worker_id);
     
     res.status(201).json({
       worker: {

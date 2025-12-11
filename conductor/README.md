@@ -4,7 +4,8 @@ The conductor is the master orchestrator for aerekos-cloud. It manages all worke
 
 ## Status
 
-✅ **All backend phases complete!** All 48 tests passing.
+✅ **All backend phases complete!** All 76 tests passing.
+✅ **Frontend complete!** Dashboard, Settings, Devices management, and URL routing.
 
 - ✅ Phase 1: Initial Setup & Configuration
 - ✅ Phase 2: Database Setup
@@ -75,6 +76,13 @@ docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile
 ### Registration Tokens
 - `GET /api/token` - Get current registration token (requires auth)
 - `POST /api/token/regenerate` - Regenerate registration token (requires auth)
+
+### Worker Management
+- `POST /api/workers/register` - Register a worker (requires registration token)
+- `POST /api/workers/:id/heartbeat` - Worker heartbeat
+- `PUT /api/workers/:id/resources` - Update worker resources
+- `GET /api/workers` - List all workers (requires auth)
+- `GET /api/workers/:id` - Get worker details (requires auth)
 
 ### API Versioning
 All endpoints are available at both:

@@ -68,77 +68,98 @@ Third-Party Apps → Conductor API → Service APIs → Workers → Docker Conta
 
 ```
 aerekos-cloud/
-├── conductor/              # Conductor service (master)
-│   ├── index.js           # Conductor API server
-│   ├── docker-compose.yml # Conductor container config
-│   └── .env_example       # Environment variables template
-├── worker/                 # Worker services (slaves)
-│   ├── index.js           # Worker registration client
-│   ├── docker-compose.yml # Base worker config
-│   └── [service_name]/    # Individual service folders
-│       └── docker-compose.yml
-├── services/               # Shared services
-│   └── aerekos-record/    # SQLite ORM (copied from aerekos-utils)
-├── aerekos-sdk/           # SDK for third-party integrations
-├── README.md              # This file
-└── plan.md                # Implementation plan and task list
+├── conductor/             # Conductor service (master)
+│   ├── index.js          # Conductor API server
+│   ├── docker-compose.yml # Conductor + Frontend docker-compose
+│   ├── Dockerfile.dev     # Development Dockerfile
+│   └── .env_example       # Conductor environment variables
+├── worker/                # Worker (slave)
+│   ├── index.js          # Worker registration client
+│   ├── docker-compose.yml # Primary worker container docker-compose
+│   ├── Dockerfile.dev     # Development Dockerfile
+│   ├── .env_example       # Worker environment variables
+│   └── [service_name]/   # Individual services (each has own docker-compose.yml)
+│       ├── docker-compose.yml # Service-specific docker-compose
+│       └── ...
+├── services/              # Shared services
+│   └── aerekos-record/   # SQLite ORM
+├── aerekos-sdk/          # SDK for third-party integrations
+├── README.md             # This file
+├── DOCKER.md             # Docker setup guide
+├── TESTING.md            # Testing guide
+└── plan.md               # Implementation plan
 ```
 
-## Quick Start
+## Quick Start (Docker Compose - Recommended)
 
 ### Prerequisites
 
-- Node.js (v16+)
 - Docker and Docker Compose
-- Network connectivity between conductor and workers
+- Network access for ports 3000, 3001, 19006
 
-### Conductor Setup
+### Complete Setup (All Services)
 
-1. **Clone the repository**
+1. **Clone and setup**
    ```bash
    cd aerekos-cloud
-   ```
-
-2. **Set up conductor**
-   ```bash
+   cp .env_example .env
+   
+   # Setup conductor .env
    cd conductor
    cp .env_example .env
-   # Edit .env with your configuration
+   # Edit .env with JWT_SECRET
+   cd ..
    ```
 
-3. **Start conductor**
+2. **Start conductor and frontend**
    ```bash
-   docker-compose up -d
+   docker-compose up --build
    ```
 
-4. **Get registration token**
+3. **Get registration token**
+   - Open http://localhost:19006 in browser
+   - Login: `admin` / `admin`
+   - Go to Settings → View registration token
+   - Copy token
+
+4. **Configure and start worker**
    ```bash
-   # Token will be generated on startup and available via API
-   curl http://localhost:3000/api/token
+   # Add WORKER_TOKEN=<your-token> to root .env
+   # Then start worker
+   docker-compose up -d worker
    ```
 
-5. **Note conductor IP address**
-   - Find the conductor's IP address on your network
-   - This will be used by workers to register
+5. **Verify registration**
+   - Check http://localhost:19006/devices
+   - Worker should appear with status "online"
 
-### Worker Setup
+**All services are now running:**
+- Conductor API: http://localhost:3000
+- Frontend: http://localhost:19006
+- Worker API: http://localhost:3001
 
-1. **Configure worker**
-   ```bash
-   cd worker
-   # Set environment variables
-   export CONDUCTOR_TOKEN=<token-from-conductor>
-   export CONDUCTOR_IP=<conductor-ip-address>
-   ```
+See [DOCKER.md](./DOCKER.md) for detailed Docker setup instructions.
 
-2. **Start worker**
-   ```bash
-   docker-compose up -d
-   ```
+### Alternative: Local Development
 
-3. **Verify registration**
-   - Check conductor dashboard or API to confirm worker registration
-   - Worker will automatically report its resources
+If you prefer to run services locally (without Docker):
+
+**Conductor:**
+```bash
+cd conductor
+npm install
+cp .env_example .env
+npm start
+```
+
+**Worker:**
+```bash
+cd worker
+npm install
+cp .env_example .env
+# Edit .env with CONDUCTOR_URL and CONDUCTOR_TOKEN
+npm start
+```
 
 ### Service Management
 

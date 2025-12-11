@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { initializeDatabase } = require('./api/utils/dbInit');
+const WorkerSocketService = require('./api/services/WorkerSocketService');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Export app for testing (before routes are registered)
@@ -16,6 +19,9 @@ const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
+
+// Trust proxy for accurate IP detection
+app.set('trust proxy', true);
 
 // Middleware
 app.use(cors({
@@ -101,7 +107,8 @@ app.get('/api/v1', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/v1/auth',
-      token: '/api/v1/token'
+      token: '/api/v1/token',
+      workers: '/api/v1/workers'
     }
   });
 });
@@ -109,14 +116,17 @@ app.get('/api/v1', (req, res) => {
 // API Routes with versioning
 const authRoutes = require('./api/routes/auth');
 const tokenRoutes = require('./api/routes/token');
+const workerRoutes = require('./api/routes/worker');
 
 // API v1 routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/token', tokenRoutes);
+app.use('/api/v1/workers', workerRoutes);
 
 // Legacy routes (for backward compatibility)
 app.use('/api/auth', authRoutes);
 app.use('/api/token', tokenRoutes);
+app.use('/api/workers', workerRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -168,8 +178,12 @@ async function startServer() {
       }
     }
     
-    app.listen(PORT, () => {
+    // Initialize WebSocket server
+    WorkerSocketService.initialize(server);
+
+    server.listen(PORT, () => {
       console.log(`Conductor API server running on port ${PORT}`);
+      console.log(`WebSocket server initialized`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Database: ${process.env.DATABASE_PATH || './data/conductor.db'}`);
     });

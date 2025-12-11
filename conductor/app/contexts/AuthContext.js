@@ -91,6 +91,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Get token for WebSocket auth
+  const getToken = async () => {
+    return await getStoredToken();
+  };
+
   const value = {
     user,
     loading,
@@ -99,6 +104,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     checkAuth,
+    getToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

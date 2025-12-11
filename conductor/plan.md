@@ -307,6 +307,35 @@ This plan details the implementation of the conductor (master orchestrator) for 
 - [x] Mount code directories as volumes for hot reload
 - [x] Document nodemon usage in README.md
 
+### 7.12 Worker Registration Improvements
+- [x] Update worker registration endpoint to detect IP/hostname from request
+- [x] Add `trust proxy` setting to Express for accurate IP detection
+- [x] Remove requirement for worker to send IP/hostname in registration request
+- [x] Conductor detects IP from `X-Forwarded-For`, `req.ip`, or `req.connection.remoteAddress`
+- [x] Conductor detects hostname from request headers or uses IP as fallback
+- [x] Worker stores IP/hostname in memory only (returned by conductor)
+
+### 7.13 Devices Management UI
+- [x] Create deviceService (`services/deviceService.js`) for API calls
+- [x] Create Devices list screen (`screens/Devices/Devices.jsx`)
+  - [x] Display all registered devices/workers
+  - [x] Show device status (online/offline/degraded) with color coding
+  - [x] Show device resources (CPU, RAM, disk)
+  - [x] Show last seen timestamp
+  - [x] Add pull-to-refresh functionality
+  - [x] Navigate to device details on tap
+- [x] Create Device Details screen (`screens/DeviceDetails/DeviceDetails.jsx`)
+  - [x] Display device information (hostname, IP, status, ID)
+  - [x] Display device resources (CPU, RAM, disk, network)
+  - [x] Display registration and last seen timestamps
+  - [x] Add pull-to-refresh functionality
+- [x] Add registration token display to Dashboard
+  - [x] Show token with hide/show toggle (eye icon)
+  - [x] Display token hint text
+  - [x] Load token on dashboard mount
+- [x] Update App.js routing to support `/devices` and `/devices/:id` paths
+- [x] Add link from Dashboard to Devices screen
+
 ## Phase 8: Testing ✅ COMPLETE
 
 ### 8.1 Unit Tests

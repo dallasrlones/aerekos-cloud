@@ -89,4 +89,13 @@ export const DashboardStyles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textMuted,
   },
+  linkButton: {
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  linkText: {
+    ...typography.body,
+    color: colors.accent,
+    fontWeight: '500',
+  },
 });

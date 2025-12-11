@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Box } from '../../components/Box/Box';
 import apiClient from '../../utils/api';
@@ -83,12 +83,12 @@ export const Dashboard = ({ navigation }) => {
 
       {/* Workers Section */}
       <Box title="Workers">
-        <View style={DashboardStyles.emptyState}>
-          <Text style={DashboardStyles.emptyStateText}>No workers registered</Text>
-          <Text style={DashboardStyles.emptyStateSubtext}>
-            Workers will appear here once they register with the conductor
-          </Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('devices')}
+          style={DashboardStyles.linkButton}
+        >
+          <Text style={DashboardStyles.linkText}>View All Devices →</Text>
+        </TouchableOpacity>
       </Box>
 
       {/* Services Section */}

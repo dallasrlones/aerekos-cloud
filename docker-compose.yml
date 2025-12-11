@@ -1,0 +1,98 @@
+# OPTIONAL: Root docker-compose.yml for convenience/testing
+# 
+# NOTE: The actual architecture uses separate docker-compose files:
+# - conductor/docker-compose.yml (conductor + frontend)
+# - worker/docker-compose.yml (primary worker container)
+# - worker/[service_name]/docker-compose.yml (each service)
+#
+# This root file is provided for convenience when testing all services together.
+# For production, use the individual docker-compose files in each directory.
+
+version: '3.8'
+
+services:
+  conductor:
+    build:
+      context: ./conductor
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-cloud-conductor
+    ports:
+      - "${CONDUCTOR_PORT:-3000}:3000"
+    volumes:
+      - ./conductor/data:/app/data
+      - ./conductor/api:/app/api
+      - ./conductor/scripts:/app/scripts
+      - ./conductor/index.js:/app/index.js
+      - ./conductor/nodemon.json:/app/nodemon.json
+    env_file:
+      - ./conductor/.env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      - DATABASE_PATH=/app/data/conductor.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "-O", "-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - aerekos-cloud-network
+
+  frontend:
+    build:
+      context: ./conductor/app
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-cloud-frontend
+    ports:
+      - "${FRONTEND_PORT:-19006}:19006"
+      - "19000:19000"  # Expo dev server
+      - "19001:19001"  # Expo dev server
+    environment:
+      - EXPO_PUBLIC_API_URL=http://localhost:3000
+      - NODE_ENV=development
+    volumes:
+      - ./conductor/app:/app
+      - /app/node_modules
+    depends_on:
+      - conductor
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - aerekos-cloud-network
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-cloud-worker
+    restart: unless-stopped
+    environment:
+      - CONDUCTOR_URL=http://conductor:3000
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30}
+      - RESOURCE_CHECK_INTERVAL=${RESOURCE_CHECK_INTERVAL:-60}
+      - PORT=3001
+      - NODE_ENV=${NODE_ENV:-development}
+    ports:
+      - "${WORKER_PORT:-3001}:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker container management
+      - ./worker:/app  # Mount code for development
+      - /app/node_modules
+    depends_on:
+      - conductor
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - aerekos-cloud-network
+
+networks:
+  aerekos-cloud-network:
+    driver: bridge

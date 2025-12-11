@@ -68,5 +68,45 @@ export const SettingsStyles = StyleSheet.create({
   submitButton: {
     marginTop: spacing.sm,
   },
+  tokenSection: {
+    marginTop: spacing.sm,
+  },
+  tokenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 4,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tokenText: {
+    ...typography.body,
+    fontFamily: 'monospace',
+    fontSize: 12,
+    color: colors.textPrimary,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  toggleButton: {
+    padding: spacing.xs,
+  },
+  tokenHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginBottom: spacing.md,
+  },
+  regenerateButton: {
+    marginTop: spacing.sm,
+  },
+  loadingText: {
+    ...typography.bodySecondary,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+  },
 });
 

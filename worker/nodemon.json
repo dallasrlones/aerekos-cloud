@@ -1,0 +1,8 @@
+{
+  "watch": ["api", "services", "docker", "utils", "index.js"],
+  "ext": "js,json",
+  "ignore": ["node_modules", "data", "tests", "*.test.js"],
+  "delay": 1000,
+  "verbose": false
+}
+

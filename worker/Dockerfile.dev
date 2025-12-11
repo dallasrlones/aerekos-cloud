@@ -1,0 +1,29 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install curl for health checks and coreutils for better compatibility
+RUN apk add --no-cache curl coreutils
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (including dev dependencies for nodemon)
+RUN npm ci
+
+# Copy application files
+COPY . .
+
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Expose worker API port
+EXPOSE 3001
+
+# Use entrypoint script to detect resources before starting
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Start worker with nodemon for auto-restart
+CMD ["npx", "nodemon", "index.js"]
+

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - CONDUCTOR_URL=${CONDUCTOR_URL:-http://host.docker.internal:3000}
+      - CONDUCTOR_TOKEN=${CONDUCTOR_TOKEN}
+      # Device info is auto-detected by entrypoint script
+      # No need to set WORKER_HOSTNAME, WORKER_IP, WORKER_CPU_CORES, WORKER_RAM_GB, WORKER_DISK_GB
+      # Entrypoint script handles all detection automatically
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30}
+      - RESOURCE_CHECK_INTERVAL=${RESOURCE_CHECK_INTERVAL:-60}
+      - PORT=${PORT:-3001}
+      - NODE_ENV=${NODE_ENV:-development}
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker container management
+      - .:/app  # Mount code for development
+      - /app/node_modules
+      # Mount host filesystems read-only to detect actual device resources
+      - /proc:/host/proc:ro  # CPU and process info
+      - /sys:/host/sys:ro  # System info
+      - /dev:/host/dev:ro  # Device info
+      # Optional: Mount resources file if detect-host-resources.sh was run on host
+      - /tmp/worker-resources.env:/tmp/worker-resources.env:ro
+    networks:
+      - aerekos-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  aerekos-network:
+    driver: bridge
+

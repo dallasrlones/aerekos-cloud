@@ -1,0 +1,14 @@
+{
+  "tagOwners": {
+    "tag:platform": ["tag:admin"],
+    "tag:worker": ["autogroup:member"],
+    "tag:project": ["tag:admin"],
+    "tag:lab": ["tag:admin"]
+  },
+  "acls": [
+    { "action": "accept", "src": ["tag:platform"], "dst": ["tag:worker:*"] },
+    { "action": "accept", "src": ["tag:worker"], "dst": ["tag:platform:*"] },
+    { "action": "accept", "src": ["tag:worker"], "dst": ["tag:worker:*"] },
+    { "action": "accept", "src": ["tag:lab"], "dst": ["tag:lab:*"] }
+  ]
+}

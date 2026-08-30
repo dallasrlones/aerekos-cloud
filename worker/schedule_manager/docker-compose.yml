@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  schedule_manager:
+    build:
+      context: ..
+      dockerfile: schedule_manager/Dockerfile.dev
+    container_name: aerekos-schedule_manager
+    ports:
+      - "${PORT:-3102}:${PORT:-3102}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

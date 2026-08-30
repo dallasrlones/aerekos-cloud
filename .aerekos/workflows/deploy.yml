@@ -1,0 +1,5 @@
+# Loaded by cicd_manager after a fast-forward merge (from the merged SHA).
+# test runs first; fleet/deploy only if test is ok or omitted.
+jobs:
+  - test
+  - fleet

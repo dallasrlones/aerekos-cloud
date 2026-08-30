@@ -1,0 +1,328 @@
+# Always-on control-plane managers (one process per conductor-role device).
+# Use WITH core, never --remove-orphans:
+#   docker compose -f docker-compose.core.yml -f docker-compose.platform.yml up -d --build --no-deps <svc>
+#
+# Data is still project_id-scoped. Do not start these on orin (GPU) or as a second copy per project.
+# billing / ai / comms / app / function stay out of this file.
+services:
+  queue_manager:
+    build: { context: ./worker, dockerfile: queue_manager/Dockerfile }
+    container_name: aerekos-queue_manager
+    restart: unless-stopped
+    environment: &platenv
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3101
+      - SERVICE_NAME=queue_manager
+    ports: ["3101:3101"]
+    volumes: [queue_manager-data:/app/queue_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  schedule_manager:
+    build: { context: ./worker, dockerfile: schedule_manager/Dockerfile }
+    container_name: aerekos-schedule_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3102
+      - SERVICE_NAME=schedule_manager
+    ports: ["3102:3102"]
+    volumes: [schedule_manager-data:/app/schedule_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  network_manager:
+    build: { context: ./worker, dockerfile: network_manager/Dockerfile }
+    container_name: aerekos-network_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3103
+      - SERVICE_NAME=network_manager
+    ports: ["3103:3103"]
+    volumes:
+      - network_manager-data:/app/network_manager/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  iam_manager:
+    build: { context: ./worker, dockerfile: iam_manager/Dockerfile }
+    container_name: aerekos-iam_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3106
+      - SERVICE_NAME=iam_manager
+    ports: ["3106:3106"]
+    volumes: [iam_manager-data:/app/iam_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  security_manager:
+    build: { context: ./worker, dockerfile: security_manager/Dockerfile }
+    container_name: aerekos-security_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3108
+      - SERVICE_NAME=security_manager
+    ports: ["3108:3108"]
+    volumes: [security_manager-data:/app/security_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  tunnel_manager:
+    build: { context: ./worker, dockerfile: tunnel_manager/Dockerfile }
+    container_name: aerekos-tunnel_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - SKIP_CLOUDFLARE=${SKIP_CLOUDFLARE:-}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}
+      - PORT=3110
+      - SERVICE_NAME=tunnel_manager
+    ports: ["3110:3110"]
+    volumes: [tunnel_manager-data:/app/tunnel_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  domain_manager:
+    build: { context: ./worker, dockerfile: domain_manager/Dockerfile }
+    container_name: aerekos-domain_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - SKIP_CLOUDFLARE=${SKIP_CLOUDFLARE:-}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
+      - PORT=3111
+      - SERVICE_NAME=domain_manager
+    ports: ["3111:3111"]
+    volumes: [domain_manager-data:/app/domain_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  webhook_manager:
+    build: { context: ./worker, dockerfile: webhook_manager/Dockerfile }
+    container_name: aerekos-webhook_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3112
+      - SERVICE_NAME=webhook_manager
+    ports: ["3112:3112"]
+    volumes: [webhook_manager-data:/app/webhook_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  host_manager:
+    build: { context: ./worker, dockerfile: host_manager/Dockerfile }
+    container_name: aerekos-host_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3122
+      - SERVICE_NAME=host_manager
+    ports: ["3122:3122"]
+    volumes: [host_manager-data:/app/host_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  mcp_manager:
+    build: { context: ./worker, dockerfile: mcp_manager/Dockerfile }
+    container_name: aerekos-mcp_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3123
+      - SERVICE_NAME=mcp_manager
+    ports: ["3123:3123"]
+    volumes: [mcp_manager-data:/app/mcp_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  system_manager:
+    build: { context: ./worker, dockerfile: system_manager/Dockerfile }
+    container_name: aerekos-system_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3127
+      - SERVICE_NAME=system_manager
+    ports: ["3127:3127"]
+    volumes: [system_manager-data:/app/system_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  worker_manager:
+    build: { context: ./worker, dockerfile: worker_manager/Dockerfile }
+    container_name: aerekos-worker_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3128
+      - SERVICE_NAME=worker_manager
+    ports: ["3128:3128"]
+    volumes: [worker_manager-data:/app/worker_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  event_manager:
+    build: { context: ./worker, dockerfile: event_manager/Dockerfile }
+    container_name: aerekos-event_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3132
+      - SERVICE_NAME=event_manager
+    ports: ["3132:3132"]
+    volumes: [event_manager-data:/app/event_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  config_manager:
+    build: { context: ./worker, dockerfile: config_manager/Dockerfile }
+    container_name: aerekos-config_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3136
+      - SERVICE_NAME=config_manager
+    ports: ["3136:3136"]
+    volumes: [config_manager-data:/app/config_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  cert_manager:
+    build: { context: ./worker, dockerfile: cert_manager/Dockerfile }
+    container_name: aerekos-cert_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3137
+      - SERVICE_NAME=cert_manager
+    ports: ["3137:3137"]
+    volumes: [cert_manager-data:/app/cert_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  trace_manager:
+    build: { context: ./worker, dockerfile: trace_manager/Dockerfile }
+    container_name: aerekos-trace_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3143
+      - SERVICE_NAME=trace_manager
+    ports: ["3143:3143"]
+    volumes: [trace_manager-data:/app/trace_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  audit_manager:
+    build: { context: ./worker, dockerfile: audit_manager/Dockerfile }
+    container_name: aerekos-audit_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3149
+      - SERVICE_NAME=audit_manager
+    ports: ["3149:3149"]
+    volumes: [audit_manager-data:/app/audit_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+  status_manager:
+    build: { context: ./worker, dockerfile: status_manager/Dockerfile }
+    container_name: aerekos-status_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3150
+      - SERVICE_NAME=status_manager
+    ports: ["3150:3150"]
+    volumes: [status_manager-data:/app/status_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+
+networks:
+  aerekos:
+    name: aerekos-cloud_aerekos
+    external: true
+
+volumes:
+  queue_manager-data:
+  schedule_manager-data:
+  network_manager-data:
+  iam_manager-data:
+  security_manager-data:
+  tunnel_manager-data:
+  domain_manager-data:
+  webhook_manager-data:
+  host_manager-data:
+  mcp_manager-data:
+  system_manager-data:
+  worker_manager-data:
+  event_manager-data:
+  config_manager-data:
+  cert_manager-data:
+  trace_manager-data:
+  audit_manager-data:
+  status_manager-data:

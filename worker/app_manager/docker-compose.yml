@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  app_manager:
+    build:
+      context: ..
+      dockerfile: app_manager/Dockerfile.dev
+    container_name: aerekos-app_manager
+    ports:
+      - "${PORT:-3125}:${PORT:-3125}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

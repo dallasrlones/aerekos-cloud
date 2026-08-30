@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  webhook_manager:
+    build:
+      context: ..
+      dockerfile: webhook_manager/Dockerfile.dev
+    container_name: aerekos-webhook_manager
+    ports:
+      - "${PORT:-3112}:${PORT:-3112}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

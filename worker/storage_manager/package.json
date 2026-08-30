@@ -1,0 +1,63 @@
+{
+  "name": "storage_manager",
+  "version": "1.0.0",
+  "description": "S3-compatible object storage service for aerekos-cloud",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest --testEnvironment=node",
+    "test:watch": "jest --watch --testEnvironment=node",
+    "test:coverage": "jest --coverage --testEnvironment=node"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "maxWorkers": 1,
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "api/**/*.js",
+      "!api/routes/**",
+      "!**/node_modules/**"
+    ],
+    "coverageDirectory": "coverage",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/helpers/setup.js"
+    ]
+  },
+  "keywords": [
+    "storage",
+    "s3",
+    "object-storage",
+    "aerekos-cloud"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.19.1",
+    "aerekos-record": "^0.1.4",
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^9.6.0",
+    "busboy": "^1.6.0",
+    "chromadb": "^1.10.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "joi": "^17.11.0",
+    "lodash": "^4.17.21",
+    "mime-types": "^2.1.35",
+    "mongodb": "^6.21.0",
+    "neo4j-driver": "^5.28.2",
+    "pg": "^8.16.3",
+    "redis": "^4.7.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}

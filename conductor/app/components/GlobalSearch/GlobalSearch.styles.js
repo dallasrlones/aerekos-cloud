@@ -1,0 +1,88 @@
+import { Platform, StyleSheet } from 'react-native';
+import { colors, spacing, typography, borderRadius } from '../../styles/theme';
+
+export const GlobalSearchStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 1000,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+    paddingTop: 0,
+    paddingHorizontal: 0,
+  },
+  panel: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    marginTop: 0,
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.2)' }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.2,
+          shadowRadius: 24,
+          elevation: 8,
+        }),
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    gap: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: spacing.sm,
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  list: { maxHeight: 480, flex: 1 },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  itemActive: { backgroundColor: colors.background },
+  itemMain: { flex: 1 },
+  itemTitle: { ...typography.body, fontWeight: '500' },
+  itemSub: { ...typography.caption, marginTop: 2 },
+  empty: {
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  emptyText: { ...typography.caption, textAlign: 'center' },
+  kbd: {
+    ...typography.caption,
+    color: colors.textMuted,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+});

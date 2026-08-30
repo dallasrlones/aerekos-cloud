@@ -1,0 +1,59 @@
+name: Deploy
+
+# Manual deploy to the self-hosted fleet. Each device runs a self-hosted runner
+# (see scripts/deploy/setup-runner.sh) labelled `self-hosted,aerekos,<host>`.
+# A job lands on its device's runner and runs scripts/deploy/deploy.sh, which
+# syncs the device's clone to this exact commit and (re)builds the right stack.
+#
+#   prod   → full stack  (conductor + frontend + local worker + all managers)
+#   oculus → worker only
+#   dev    → worker only
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which device(s) to deploy
+        type: choice
+        default: all
+        options:
+          - all
+          - prod
+          - oculus
+          - dev
+
+# Never run two deploys of the same ref at once; let an in-flight deploy finish.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    if: ${{ inputs.target == 'all' || inputs.target == 'prod' }}
+    runs-on: [self-hosted, aerekos, prod]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy full stack
+        run: bash scripts/deploy/deploy.sh full
+
+  deploy-oculus:
+    if: ${{ inputs.target == 'all' || inputs.target == 'oculus' }}
+    runs-on: [self-hosted, aerekos, oculus]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy worker
+        run: bash scripts/deploy/deploy.sh worker
+
+  deploy-dev:
+    if: ${{ inputs.target == 'all' || inputs.target == 'dev' }}
+    runs-on: [self-hosted, aerekos, dev]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy worker
+        run: bash scripts/deploy/deploy.sh worker

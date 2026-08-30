@@ -1,0 +1,97 @@
+# --- Dependencies ---
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env_example
+!.env.example
+# Auto-detected host resources for the worker (host-specific, do not commit)
+.worker-host.env
+# Deployed-version marker written by scripts/deploy/deploy.sh (per-device)
+VERSION
+**/.env
+**/.env.*
+!**/.env_example
+!**/.env.example
+
+# --- Build / dist output ---
+dist/
+build/
+out/
+.next/
+.expo/
+.expo-shared/
+*.tgz
+
+# --- Test / coverage artifacts ---
+coverage/
+**/coverage/
+.nyc_output/
+*.lcov
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Runtime / database / data files ---
+data/
+**/data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# --- Caches ---
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.turbo/
+.npm/
+.yarn/cache/
+.yarn/install-state.gz
+.pnpm-store/
+
+# --- React Native / Metro ---
+.metro-health-check*
+.haste_cache
+
+# --- Docker ---
+*.pid
+docker-compose.override.yml
+
+# --- IDE / editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- Cursor / agent transcripts (local only) ---
+.cursor/
+
+# --- Misc ---
+*.bak
+*.tmp
+*.orig

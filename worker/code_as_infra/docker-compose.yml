@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  code_as_infra:
+    build:
+      context: ..
+      dockerfile: code_as_infra/Dockerfile.dev
+    container_name: aerekos-code_as_infra
+    ports:
+      - "${PORT:-3120}:${PORT:-3120}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

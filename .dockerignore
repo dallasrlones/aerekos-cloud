@@ -1,0 +1,12 @@
+# Keep host (often macOS) artifacts out of build contexts so native modules
+# like better-sqlite3 are always (re)built for the Linux/Node 20 image.
+**/node_modules
+**/coverage
+**/.git
+.git
+**/*.log
+**/data/*.db
+**/data/*.db-*
+**/.env
+**/.DS_Store
+npm-debug.log*

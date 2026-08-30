@@ -1,0 +1,31 @@
+services:
+  key_manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: key-manager
+    ports:
+      - "${PORT:-3002}:${PORT:-3002}"
+    volumes:
+      - ./data:/app/data
+      - ./api:/app/api
+      - ./index.js:/app/index.js
+      - /dev:/dev  # Access to USB devices
+    devices:
+      - /dev/sdX1:/dev/usb:ro  # USB device (adjust device name)
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "-O", "-", "http://localhost:${PORT:-3002}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aerekos-cloud-network
+
+networks:
+  aerekos-cloud-network:
+    external: true

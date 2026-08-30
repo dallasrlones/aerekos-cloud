@@ -1,0 +1,6 @@
+# One-command bring-up: vLLM server + ai_manager on Orin.
+#
+#   docker compose -p aerekos-ai -f worker/docker-compose.ai-vllm.yml up -d --build
+include:
+  - path: docker-compose.vllm.yml
+  - path: docker-compose.ai.yml

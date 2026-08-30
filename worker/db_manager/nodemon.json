@@ -1,0 +1,9 @@
+{
+  "watch": ["api", "index.js"],
+  "ext": "js,json",
+  "ignore": ["tests", "node_modules", "data", "coverage"],
+  "exec": "node index.js",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

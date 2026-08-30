@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  registry_manager:
+    build:
+      context: ..
+      dockerfile: registry_manager/Dockerfile.dev
+    container_name: aerekos-registry_manager
+    ports:
+      - "${PORT:-3129}:${PORT:-3129}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

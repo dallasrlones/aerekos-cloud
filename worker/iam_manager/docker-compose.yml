@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  iam_manager:
+    build:
+      context: ..
+      dockerfile: iam_manager/Dockerfile.dev
+    container_name: aerekos-iam_manager
+    ports:
+      - "${PORT:-3106}:${PORT:-3106}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

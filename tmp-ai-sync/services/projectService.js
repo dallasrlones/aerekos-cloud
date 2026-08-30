@@ -1,0 +1,355 @@
+import apiClient from '../utils/api';
+
+/**
+ * Project Service - API calls for project management
+ */
+export const projectService = {
+  /**
+   * Get all available services
+   */
+  async getAllServices() {
+    try {
+      const response = await apiClient.get('/api/services');
+      return {
+        success: true,
+        services: response.data.services || []
+      };
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch services'
+      };
+    }
+  },
+
+  /**
+   * Get all available workers
+   */
+  async getAllWorkers() {
+    try {
+      const response = await apiClient.get('/api/workers');
+      return {
+        success: true,
+        workers: response.data.workers || []
+      };
+    } catch (error) {
+      console.error('Error fetching workers:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch workers'
+      };
+    }
+  },
+  /**
+   * Get all projects
+   */
+  async getProjects() {
+    try {
+      const response = await apiClient.get('/api/projects');
+      return {
+        success: true,
+        projects: response.data.projects || []
+      };
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch projects'
+      };
+    }
+  },
+
+  /**
+   * Get project by ID
+   */
+  async getProject(id) {
+    try {
+      const response = await apiClient.get(`/api/projects/${id}`);
+      return {
+        success: true,
+        project: response.data.project
+      };
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch project'
+      };
+    }
+  },
+
+  /**
+   * Create new project
+   */
+  async createProject(projectData) {
+    try {
+      const response = await apiClient.post('/api/projects', projectData);
+      return {
+        success: true,
+        project: response.data.project,
+        isFirst: response.data.project.isFirst || false
+      };
+    } catch (error) {
+      console.error('Error creating project:', error);
+      // Handle 409 Conflict (duplicate name) specifically
+      if (error.response?.status === 409) {
+        return {
+          success: false,
+          error: error.response?.data?.error?.message || 'A project with this name already exists. Please choose a different name.'
+        };
+      }
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to create project'
+      };
+    }
+  },
+
+  /**
+   * Update project
+   */
+  async updateProject(id, projectData) {
+    try {
+      const response = await apiClient.put(`/api/projects/${id}`, projectData);
+      return {
+        success: true,
+        project: response.data.project
+      };
+    } catch (error) {
+      console.error('Error updating project:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to update project'
+      };
+    }
+  },
+
+  /**
+   * Delete project
+   */
+  async deleteProject(id) {
+    try {
+      const response = await apiClient.delete(`/api/projects/${id}`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to delete project'
+      };
+    }
+  },
+
+  /**
+   * Assign worker to project
+   */
+  async assignWorker(projectId, workerId) {
+    try {
+      const response = await apiClient.post(`/api/projects/${projectId}/workers/${workerId}`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error assigning worker:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to assign worker'
+      };
+    }
+  },
+
+  /**
+   * Unassign worker from project
+   */
+  async unassignWorker(projectId, workerId) {
+    try {
+      const response = await apiClient.delete(`/api/projects/${projectId}/workers/${workerId}`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error unassigning worker:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to unassign worker'
+      };
+    }
+  },
+
+  /**
+   * Assign service to project
+   */
+  async assignService(projectId, serviceId) {
+    try {
+      const response = await apiClient.post(`/api/projects/${projectId}/services/${serviceId}`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error assigning service:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to assign service'
+      };
+    }
+  },
+
+  /**
+   * Unassign service from project
+   */
+  async unassignService(projectId, serviceId) {
+    try {
+      const response = await apiClient.delete(`/api/projects/${projectId}/services/${serviceId}`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error unassigning service:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to unassign service'
+      };
+    }
+  },
+
+  /**
+   * Get project deployments
+   */
+  async getProjectDeployments(projectId) {
+    try {
+      const response = await apiClient.get(`/api/projects/${projectId}/deployments`);
+      return {
+        success: true,
+        deployments: response.data.deployments || []
+      };
+    } catch (error) {
+      console.error('Error fetching project deployments:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch deployments'
+      };
+    }
+  },
+
+  /**
+   * Enable service for project
+   */
+  async enableServiceForProject(projectId, serviceId) {
+    try {
+      const response = await apiClient.post(`/api/projects/${projectId}/services/${serviceId}/enable`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error enabling service:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to enable service'
+      };
+    }
+  },
+
+  /**
+   * Disable service for project
+   */
+  async disableServiceForProject(projectId, serviceId) {
+    try {
+      const response = await apiClient.post(`/api/projects/${projectId}/services/${serviceId}/disable`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error disabling service:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to disable service'
+      };
+    }
+  },
+
+  /**
+   * Update service config for project
+   */
+  async updateServiceConfig(projectId, serviceId, config) {
+    try {
+      const response = await apiClient.put(`/api/projects/${projectId}/services/${serviceId}/config`, { config });
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error updating service config:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to update service config'
+      };
+    }
+  },
+
+  /**
+   * Update scaling policy for project
+   */
+  async updateScalingPolicy(projectId, serviceId, scalingPolicy) {
+    try {
+      const response = await apiClient.put(`/api/projects/${projectId}/services/${serviceId}/scaling`, scalingPolicy);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error updating scaling policy:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to update scaling policy'
+      };
+    }
+  },
+
+  /**
+   * Get service assignments
+   */
+  async getServiceAssignments(projectId, serviceId) {
+    try {
+      const response = await apiClient.get(`/api/projects/${projectId}/services/${serviceId}/assignments`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error fetching service assignments:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch service assignments'
+      };
+    }
+  },
+
+  /**
+   * Get load balancer statistics
+   */
+  async getLoadBalancerStats(projectId, serviceId) {
+    try {
+      const response = await apiClient.get(`/api/projects/${projectId}/services/${serviceId}/load-balancer/statistics`);
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      console.error('Error fetching load balancer stats:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message || 'Failed to fetch load balancer stats'
+      };
+    }
+  }
+};

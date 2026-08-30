@@ -1,0 +1,65 @@
+# KMS slice for prod-mini (key_manager + secrets_manager only).
+# Joins the existing aerekos-cloud compose network — no host port on key_manager
+# (3002 is taken by storage admin); secrets_manager publishes 3107 for LAN access.
+#
+#   docker compose -f docker-compose.kms.yml up -d --build
+services:
+  key_manager:
+    build:
+      context: ./worker
+      dockerfile: key_manager/Dockerfile
+    container_name: aerekos-key_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3002
+      - SERVICE_NAME=key_manager
+      - CONDUCTOR_URL=http://aerekos-conductor:3000
+      - MASTER_KEY=${KEY_MANAGER_MASTER_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+    volumes:
+      - key_manager-data:/app/key_manager/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3002/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - aerekos
+
+  secrets_manager:
+    build:
+      context: ./worker
+      dockerfile: secrets_manager/Dockerfile
+    container_name: aerekos-secrets_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3107
+      - SERVICE_NAME=secrets_manager
+      - CONDUCTOR_URL=http://aerekos-conductor:3000
+      - MOCK_KEY_MANAGER=${SECRETS_MOCK_KEY_MANAGER:-false}
+    ports:
+      - "3107:3107"
+    volumes:
+      - secrets_manager-data:/app/secrets_manager/data
+    depends_on:
+      key_manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3107/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - aerekos
+
+networks:
+  aerekos:
+    external: true
+    name: aerekos-cloud_aerekos
+
+volumes:
+  key_manager-data:
+  secrets_manager-data:

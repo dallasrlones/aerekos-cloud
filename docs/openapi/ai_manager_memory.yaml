@@ -1,0 +1,38 @@
+# ai_manager conversational memory routes (fragment)
+paths:
+  /api/v1/memory/setup:
+    post:
+      summary: Provision four memory stores (st/lt meta + vectors)
+      tags: [memory]
+  /api/v1/memory/status:
+    get:
+      summary: Memory store health and config
+      tags: [memory]
+  /api/v1/memory/config:
+    put:
+      summary: Upsert MemoryStoreConfig for project
+      tags: [memory]
+  /api/v1/memory/ingest:
+    post:
+      summary: Ingest a chat message (idempotent by message_id)
+      tags: [memory]
+  /api/v1/memory/search:
+    post:
+      summary: Retrieve memory context for RAG
+      tags: [memory]
+  /api/v1/memory/promote:
+    post:
+      summary: Promote high-importance short-term chunks to long-term
+      tags: [memory]
+  /api/v1/memory/backfill:
+    post:
+      summary: Bulk ingest historical sessions
+      tags: [memory]
+  /api/v1/memory/backup:
+    post:
+      summary: Backup all four memory databases via db_manager
+      tags: [memory]
+  /api/v1/memory/restore:
+    post:
+      summary: Restore memory stores from backup ids
+      tags: [memory]

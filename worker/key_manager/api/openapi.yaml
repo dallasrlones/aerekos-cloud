@@ -1,0 +1,368 @@
+openapi: 3.0.0
+info:
+  title: Key Manager Service API
+  version: 1.0.0
+  description: Enterprise key management service for aerekos-cloud
+
+servers:
+  - url: http://localhost:3002
+    description: Local development
+  - url: https://conductor.example.com/api/services/key_manager
+    description: Production (via conductor)
+
+paths:
+  /api/keys:
+    post:
+      summary: Create a new encryption key
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, algorithm]
+              properties:
+                name:
+                  type: string
+                  description: Unique key identifier
+                  example: "storage-encryption-key"
+                type:
+                  type: string
+                  enum: [symmetric, asymmetric, master]
+                  example: "symmetric"
+                algorithm:
+                  type: string
+                  enum: [AES-256-GCM, AES-128-GCM, RSA-4096, RSA-2048]
+                  example: "AES-256-GCM"
+                metadata:
+                  type: object
+                  description: Additional key metadata
+                  example: {"description": "Key for storage encryption"}
+      responses:
+        '201':
+          description: Key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '409':
+          description: Key already exists
+    
+    get:
+      summary: List all keys
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [symmetric, asymmetric, master]
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Key'
+                  total:
+                    type: integer
+
+  /api/keys/{name}:
+    get:
+      summary: Get key by name (latest version)
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Key details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Key'
+                  - type: object
+                    properties:
+                      key_material:
+                        type: string
+                        description: Decrypted key material (only in get response)
+        '404':
+          description: Key not found
+
+    delete:
+      summary: Delete key (all versions)
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Key deleted
+        '404':
+          description: Key not found
+
+  /api/keys/{name}/versions:
+    get:
+      summary: Get all versions of a key
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: All versions of the key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  versions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Key'
+
+  /api/keys/{name}/{version}:
+    get:
+      summary: Get specific key version
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Key version details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Key'
+                  - type: object
+                    properties:
+                      key_material:
+                        type: string
+        '404':
+          description: Key version not found
+
+    delete:
+      summary: Delete specific key version
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Key version deleted
+        '404':
+          description: Key version not found
+
+  /api/keys/{name}/rotate:
+    post:
+      summary: Rotate a key
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Key rotated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        '404':
+          description: Key not found
+
+  /api/keys/{name}/archive:
+    post:
+      summary: Archive a key (mark as inactive)
+      tags: [Keys]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Key archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Key'
+        '404':
+          description: Key not found
+
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  service:
+                    type: string
+                  timestamp:
+                    type: string
+        '503':
+          description: Service is unhealthy
+
+  /ready:
+    get:
+      summary: Readiness check
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+        '503':
+          description: Service is not ready
+
+  /metrics:
+    get:
+      summary: Service metrics
+      tags: [Health]
+      responses:
+        '200':
+          description: Service metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys_total:
+                    type: integer
+                  keys_active:
+                    type: integer
+                  keys_archived:
+                    type: integer
+                  service:
+                    type: string
+                  timestamp:
+                    type: string
+
+components:
+  schemas:
+    Key:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [symmetric, asymmetric, master]
+        algorithm:
+          type: string
+        key_version:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        rotated_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+
+  securitySchemes:
+    ServiceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Service-to-service token issued by conductor

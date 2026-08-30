@@ -1,0 +1,39 @@
+{
+  "name": "aerekos-cloud",
+  "version": "1.0.0",
+  "description": "AWS-like cloud infrastructure platform",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces",
+    "test:docker": "bash scripts/test-in-docker.sh",
+    "test:worker": "cd worker && npm test",
+    "test:conductor": "cd conductor && npm test",
+    "test:coverage": "npm run test:coverage --workspaces",
+    "e2e": "bash scripts/e2e-everything.sh",
+    "e2e:full": "node e2e/run.js",
+    "e2e:waves": "node e2e/run-waves.js",
+    "e2e:core": "bash scripts/e2e-full-stack.sh",
+    "e2e:orchestration": "bash test-orchestration.sh",
+    "e2e:docker": "bash scripts/e2e-docker.sh",
+    "e2e:docker:up": "docker compose -f docker/e2e-compose.yml --env-file docker/e2e.env up -d --build",
+    "e2e:docker:down": "docker compose -f docker/e2e-compose.yml --env-file docker/e2e.env down",
+    "e2e:data-api": "node e2e/data-api.js",
+    "e2e:data-api:http": "node e2e/data-api-http.js",
+    "prepare": "husky",
+    "audit": "npm audit --omit=dev",
+    "sbom": "npm ls --all --json > sbom.json"
+  },
+  "workspaces": [
+    "worker",
+    "conductor"
+  ],
+  "dependencies": {
+    "better-sqlite3": "^9.6.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

@@ -1,0 +1,22 @@
+#!/bin/sh
+# Run the worker + conductor test suites inside a Node 20 container so commits
+# are validated in the same environment as CI/production, regardless of the
+# host's Node version or better-sqlite3 ABI.
+echo "🧪 Running tests in Docker (Node 20)..."
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+cd "$ROOT_DIR" || exit 1
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "⚠️  Docker not found — skipping containerized tests for this commit."
+  echo "   Install Docker (or run 'npm run test:docker') to validate before pushing."
+  exit 0
+fi
+
+if ! sh scripts/test-in-docker.sh; then
+  echo ""
+  echo "❌ Tests failed. Fix them, or run 'npm run test:docker' to reproduce."
+  exit 1
+fi
+
+echo "✅ All tests passed! Proceeding with commit..."

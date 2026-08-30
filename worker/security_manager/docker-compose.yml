@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  security_manager:
+    build:
+      context: ..
+      dockerfile: security_manager/Dockerfile.dev
+    container_name: aerekos-security_manager
+    ports:
+      - "${PORT:-3108}:${PORT:-3108}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

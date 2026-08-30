@@ -1,0 +1,121 @@
+# AI stack for a GPU host (e.g. Jetson Orin / oculus).
+#
+# Runs ai_manager + auth_manager. Ollama uses the host's native GPU daemon
+# (external mode) OR shares the host model directory with a containerized Ollama.
+# TTS/STT proxy to the existing tools/ voice stack on the Orin (do NOT stop
+# tts-cache-gen — dictionary generation is complete and idle).
+#
+#   docker compose -p aerekos-ai -f worker/docker-compose.ai.yml up -d --build
+services:
+  auth_manager:
+    build:
+      context: .
+      dockerfile: auth_manager/Dockerfile
+    container_name: aerekos-auth_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3116
+      - SERVICE_NAME=auth_manager
+      # Workers register over LAN; browsers use https://cloudapi.aerekos.com
+      - CONDUCTOR_URL=${CONDUCTOR_URL}
+      - AUTH_MANAGER_SECRET_NAME=${AUTH_MANAGER_SECRET_NAME:-auth_manager.signing_secret}
+      - CONDUCTOR_CLIENT_SECRET_NAME=${CONDUCTOR_CLIENT_SECRET_NAME:-conductor.client_secret}
+      - SECRETS_MANAGER_URL=${SECRETS_MANAGER_URL:-}
+      - DEFAULT_PROJECT_ID=${DEFAULT_PROJECT_ID:-}
+      - SKIP_SERVICE_REGISTRATION=${SKIP_SERVICE_REGISTRATION:-false}
+    ports:
+      - "3116:3116"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
+  ai_manager:
+    build:
+      context: .
+      dockerfile: ai_manager/Dockerfile
+    container_name: aerekos-ai_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3126
+      - SERVICE_NAME=ai_manager
+      # Workers register over LAN; browsers use https://cloudapi.aerekos.com
+      - CONDUCTOR_URL=${CONDUCTOR_URL}
+      # Ollama — external native GPU daemon on the host
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - OLLAMA_MODELS_DIR=${OLLAMA_MODELS_DIR:-/host-ollama}
+      - VLLM_HOST=${VLLM_HOST:-http://host.docker.internal:8000}
+      - VLLM_DEFAULT_MODEL=${VLLM_DEFAULT_MODEL:-cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit}
+      - VLLM_API_KEY=${VLLM_API_KEY:-}
+      - VLLM_REQUEST_TIMEOUT_MS=${VLLM_REQUEST_TIMEOUT_MS:-1800000}
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
+      # Voice — icarus contract upstreams on the Orin host
+      - TTS_BACKEND=${TTS_BACKEND:-cache}
+      - TTS_CACHE_URL=${TTS_CACHE_URL:-http://host.docker.internal:8015}
+      - TTS_KOKORO_URL=${TTS_KOKORO_URL:-http://host.docker.internal:8013}
+      - TTS_XTTS_URL=${TTS_XTTS_URL:-http://host.docker.internal:8002}
+      - TTS_VOICE=${TTS_VOICE:-af_heart}
+      - TTS_LANGUAGE=${TTS_LANGUAGE:-en}
+      - STT_URL=${STT_URL:-http://host.docker.internal:8001}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-mxbai-embed-large}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL}
+      - AUTH_REQUIRED=${AI_AUTH_REQUIRED:-false}
+      - MEMORY_DB_FALLBACK=${MEMORY_DB_FALLBACK:-1}
+      - SKIP_SERVICE_REGISTRATION=${SKIP_SERVICE_REGISTRATION:-false}
+      # Auto-benchmark new Ollama models (speed + JSON command compliance)
+      - LLM_BENCH_ENABLED=${LLM_BENCH_ENABLED:-true}
+      - LLM_BENCH_POLL_MS=${LLM_BENCH_POLL_MS:-900000}
+      - LLM_BENCH_STARTUP_DELAY_MS=${LLM_BENCH_STARTUP_DELAY_MS:-45000}
+      - LLM_BENCH_KEEP_ALIVE=${LLM_BENCH_KEEP_ALIVE:-0}
+      - LLM_BENCH_GAP_MS=${LLM_BENCH_GAP_MS:-500}
+      - BENCH_MAX_B=${BENCH_MAX_B:-12}
+    ports:
+      - "3126:3126"
+    volumes:
+      - ai_manager-data:/app/ai_manager/data
+      # Shared with native Ollama — models pulled in either place are visible to both.
+      - ${OLLAMA_MODELS_HOST:-/home/aerekos/.ollama}:/host-ollama
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Read-only: existing dictionary word cache (tts-cache-gen data). Do not mount
+      # writable — we never touch the running generator's DB from ai_manager.
+      - ${TTS_CACHE_DATA:-/home/aerekos/work/tools/tts-cache/data}:/tts-cache-data:ro
+    depends_on:
+      - auth_manager
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
+  # GPU PEFT LoRA trainer. Shares ai_manager-data. Do not attach this to the
+  # running vLLM container — separate process, tiny base model, idle until queued.
+  lora_trainer:
+    image: ${VLLM_IMAGE:-ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin}
+    container_name: aerekos-lora_trainer
+    restart: unless-stopped
+    runtime: nvidia
+    working_dir: /jobs
+    entrypoint: ["python3"]
+    command: ["/jobs/lora_worker.py"]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/root/.cache/huggingface
+      - LORA_JOBS_DIR=/data/lora-jobs
+      - LORA_PIP_DIR=/data/lora-pip
+      - LORA_BASE_MODEL=${LORA_BASE_MODEL:-sshleifer/tiny-gpt2}
+      - LORA_MAX_STEPS=${LORA_MAX_STEPS:-8}
+      - LORA_POLL_S=${LORA_POLL_S:-2}
+    volumes:
+      - ai_manager-data:/data
+      - ./ai_manager/jobs:/jobs:ro
+      - ${HF_HOME:-/home/aerekos/.cache/huggingface}:/root/.cache/huggingface
+    networks:
+      - ainet
+
+networks:
+  ainet:
+    driver: bridge
+
+volumes:
+  ai_manager-data:

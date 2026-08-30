@@ -1,0 +1,72 @@
+# Full-stack E2E: conductor + worker (Docker socket for service images).
+# From repo root:
+#   npm run e2e:docker
+#   npm run e2e:docker:up
+#   npm run e2e:docker:down
+#
+# Host ports are set in docker/e2e.env (defaults 38470 / 38471).
+
+name: aerekos-e2e
+
+services:
+  conductor:
+    build:
+      context: ../conductor
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-e2e-conductor
+    ports:
+      - "${AEREKOS_CONDUCTOR_PORT:-38470}:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_PATH=/app/data/conductor.db
+      - CORS_ORIGIN=*
+      - WORKER_REGISTRATION_TOKEN=${WORKER_REGISTRATION_TOKEN}
+    volumes:
+      - aerekos_e2e_conductor_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    networks:
+      - aerekos-e2e
+
+  worker:
+    build:
+      context: ../worker
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-e2e-worker
+    # Start after conductor container exists (conductor is usually up within a few seconds).
+    # Avoid `service_healthy` here so `docker compose up` does not block on some Docker setups.
+    depends_on:
+      - conductor
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - CONDUCTOR_URL=http://conductor:3000
+      - CONDUCTOR_TOKEN=${WORKER_REGISTRATION_TOKEN}
+      - HEARTBEAT_INTERVAL=5
+      - RESOURCE_CHECK_INTERVAL=60
+    ports:
+      - "${AEREKOS_WORKER_PORT:-38471}:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - aerekos_e2e_worker_data:/app/data
+    networks:
+      - aerekos-e2e
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+volumes:
+  aerekos_e2e_conductor_data:
+  aerekos_e2e_worker_data:
+
+networks:
+  aerekos-e2e:
+    driver: bridge

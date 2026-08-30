@@ -1,0 +1,899 @@
+openapi: 3.0.0
+info:
+  title: Storage Manager Service API (S3-Compatible)
+  version: 1.0.0
+  description: S3-compatible object storage service for aerekos-cloud with automatic encryption, chunked uploads, and signed URLs
+
+servers:
+  - url: http://localhost:3003
+    description: Local development
+  - url: https://conductor.example.com/api/services/storage_manager
+    description: Production (via conductor)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service is unhealthy
+
+  /ready:
+    get:
+      summary: Readiness check
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is ready
+        '503':
+          description: Service is not ready
+
+  /metrics:
+    get:
+      summary: Service metrics
+      tags: [Metrics]
+      security:
+        - ServiceToken: []
+      responses:
+        '200':
+          description: Service metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+
+  /api/projects:
+    post:
+      summary: Create a project
+      tags: [Projects]
+      security:
+        - ServiceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '409':
+          description: Project already exists
+
+    get:
+      summary: List all projects
+      tags: [Projects]
+      security:
+        - ServiceToken: []
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+
+  /api/projects/{projectId}:
+    get:
+      summary: Get project details
+      tags: [Projects]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+
+    delete:
+      summary: Delete project
+      tags: [Projects]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+        '404':
+          description: Project not found
+        '409':
+          description: Project has buckets
+
+    patch:
+      summary: Update project
+      tags: [Projects]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /api/projects/{projectId}/buckets:
+    post:
+      summary: Create a bucket
+      tags: [Buckets]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                encryption_key_name:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Bucket created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bucket'
+        '404':
+          description: Project not found
+        '409':
+          description: Bucket already exists
+
+    get:
+      summary: List buckets in project
+      tags: [Buckets]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of buckets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  buckets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bucket'
+
+  /api/projects/{projectId}/buckets/{bucketName}:
+    get:
+      summary: Get bucket details
+      tags: [Buckets]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bucket details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bucket'
+        '404':
+          description: Bucket not found
+
+    delete:
+      summary: Delete bucket
+      tags: [Buckets]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Bucket deleted
+        '404':
+          description: Bucket not found
+        '409':
+          description: Bucket has files
+
+    patch:
+      summary: Update bucket
+      tags: [Buckets]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                encryption_key_name:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Bucket updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bucket'
+
+  /api/projects/{projectId}/buckets/{bucketName}/files:
+    get:
+      summary: List files in bucket
+      tags: [Files]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          schema:
+            type: string
+        - name: maxKeys
+          in: query
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/File'
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}:
+    post:
+      summary: Upload file
+      tags: [Files]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: string
+      responses:
+        '200':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+
+    get:
+      summary: Download file
+      tags: [Files]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
+
+    head:
+      summary: Get file metadata
+      tags: [Files]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File metadata
+        '404':
+          description: File not found
+
+    delete:
+      summary: Delete file
+      tags: [Files]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: File deleted
+        '404':
+          description: File not found
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/upload/initiate:
+    post:
+      summary: Initiate chunked upload
+      tags: [ChunkedUploads]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [total_size]
+              properties:
+                total_size:
+                  type: integer
+                chunk_size:
+                  type: integer
+                  default: 5242880
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Chunked upload initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChunkedUpload'
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/upload/{uploadId}/chunk/{chunkNumber}:
+    put:
+      summary: Upload chunk
+      tags: [ChunkedUploads]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chunkNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [chunk]
+              properties:
+                chunk:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Chunk uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chunk_number:
+                    type: integer
+                  etag:
+                    type: string
+                  size:
+                    type: integer
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/upload/{uploadId}/complete:
+    post:
+      summary: Complete chunked upload
+      tags: [ChunkedUploads]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chunk_etags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Chunked upload completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/upload/{uploadId}:
+    delete:
+      summary: Abort chunked upload
+      tags: [ChunkedUploads]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Upload aborted
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/upload/{uploadId}/status:
+    get:
+      summary: Get upload status
+      tags: [ChunkedUploads]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Upload status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload_id:
+                    type: string
+                  status:
+                    type: string
+                  total_chunks:
+                    type: integer
+                  uploaded_chunks:
+                    type: integer
+                  progress:
+                    type: number
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/signed-url/upload:
+    post:
+      summary: Generate signed upload URL
+      tags: [SignedUrls]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ttl_seconds:
+                  type: integer
+                  default: 3600
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Signed URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  expires_at:
+                    type: string
+                  file_id:
+                    type: string
+
+  /api/projects/{projectId}/buckets/{bucketName}/files/{key}/signed-url/download:
+    post:
+      summary: Generate signed download URL
+      tags: [SignedUrls]
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bucketName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ttl_seconds:
+                  type: integer
+                  default: 3600
+      responses:
+        '201':
+          description: Signed URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  expires_at:
+                    type: string
+                  file_id:
+                    type: string
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Metrics:
+      type: object
+      properties:
+        buckets:
+          type: integer
+        files:
+          type: integer
+        storage_bytes:
+          type: integer
+        storage_gb:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_by:
+          type: string
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Bucket:
+      type: object
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        name:
+          type: string
+        encryption_key_name:
+          type: string
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    File:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        size:
+          type: integer
+        content_type:
+          type: string
+        etag:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ChunkedUpload:
+      type: object
+      properties:
+        upload_id:
+          type: string
+        file_id:
+          type: string
+        chunk_count:
+          type: integer
+        chunk_size:
+          type: integer
+
+  securitySchemes:
+    ServiceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Service-to-service token issued by conductor

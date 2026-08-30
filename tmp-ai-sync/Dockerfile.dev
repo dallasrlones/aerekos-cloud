@@ -1,0 +1,18 @@
+# Development Dockerfile for Expo web
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy app source
+COPY . .
+
+# Expose Expo dev server port
+EXPOSE 19006
+
+# Start Expo in web dev mode
+# The --web flag should automatically start the web server
+CMD ["npx", "expo", "start", "--web", "--port", "19006", "--host", "lan"]

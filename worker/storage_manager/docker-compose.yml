@@ -1,0 +1,15 @@
+# Local dev — see worker/docker-compose.yml for the worker agent and
+# docker-compose.full.yml (repo root) for the full one-command stack.
+services:
+  storage_manager:
+    build:
+      context: ..
+      dockerfile: storage_manager/Dockerfile.dev
+    container_name: aerekos-storage_manager
+    ports:
+      - "${PORT:-3003}:${PORT:-3003}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

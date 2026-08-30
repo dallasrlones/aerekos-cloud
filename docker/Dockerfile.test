@@ -1,0 +1,24 @@
+# Runs the worker + conductor Jest suites on Node 20 (matches .nvmrc / CI),
+# so `npm test` and the pre-commit hook work regardless of the host's Node
+# version or better-sqlite3 ABI. Built/run via scripts/test-in-docker.sh.
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+# Toolchain so better-sqlite3 can build from source if a prebuild is unavailable.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install workspace deps first so this layer is cached unless a manifest changes.
+COPY package.json package-lock.json* ./
+COPY conductor/package.json conductor/package.json
+COPY worker/package.json worker/package.json
+RUN npm install
+
+# Bring in the sources (node_modules excluded via .dockerignore).
+COPY . .
+
+# aerekos-record bundles a macOS better-sqlite3 binary; re-fetch the Linux build.
+RUN npm rebuild better-sqlite3
+
+CMD ["bash", "scripts/run-tests.sh"]

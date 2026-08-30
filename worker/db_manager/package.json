@@ -1,0 +1,51 @@
+{
+  "name": "db_manager",
+  "version": "1.0.0",
+  "description": "Database Manager Service for aerekos-cloud",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node --max-old-space-size=4096 node_modules/.bin/jest",
+    "test:integration": "DB_MANAGER_INTEGRATION=1 node --max-old-space-size=4096 node_modules/.bin/jest tests/integration/databases/ --runInBand",
+    "test:watch": "node --max-old-space-size=4096 node_modules/.bin/jest --watch",
+    "test:coverage": "node --max-old-space-size=4096 node_modules/.bin/jest --coverage"
+  },
+  "keywords": [
+    "database-management",
+    "postgresql",
+    "mongodb",
+    "neo4j"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.19.1",
+    "@neo4j/graphql": "^4.0.0",
+    "aerekos-record": "^0.1.4",
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.6.0",
+    "cors": "^2.8.5",
+    "dockerode": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "generic-pool": "^3.9.0",
+    "graphql": "^16.8.1",
+    "ioredis": "^5.8.2",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^6.21.0",
+    "neo4j-driver": "^5.28.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.16.3",
+    "redis": "^4.7.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}

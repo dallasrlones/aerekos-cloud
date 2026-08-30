@@ -1,0 +1,390 @@
+[
+  {
+    "name": "websocket_manager",
+    "port": 3131,
+    "aws": "API Gateway WebSocket",
+    "category": "Dev tools",
+    "segment": "channels",
+    "title": "WebSocket channels",
+    "extraFields": {
+      "auth_mode": "string"
+    },
+    "defaultName": "app",
+    "capabilities": [
+      "realtime",
+      "websocket"
+    ]
+  },
+  {
+    "name": "event_manager",
+    "port": 3132,
+    "aws": "EventBridge",
+    "category": "Integrations",
+    "segment": "buses",
+    "title": "Event buses",
+    "extraFields": {
+      "description": "string"
+    },
+    "defaultName": "default",
+    "capabilities": [
+      "events",
+      "bus"
+    ]
+  },
+  {
+    "name": "download_manager",
+    "port": 3133,
+    "aws": "MediaConvert + ingest",
+    "category": "Storage & Content",
+    "segment": "lists",
+    "title": "Download lists",
+    "extraFields": {
+      "bucket": "string",
+      "prefix": "string",
+      "window_id": "string"
+    },
+    "defaultName": "inbox",
+    "capabilities": [
+      "download",
+      "torrent",
+      "yt-dlp"
+    ]
+  },
+  {
+    "name": "backup_manager",
+    "port": 3134,
+    "aws": "AWS Backup",
+    "category": "Storage & Content",
+    "segment": "vaults",
+    "title": "Backup vaults",
+    "extraFields": {
+      "schedule": "string",
+      "targets": "string"
+    },
+    "defaultName": "default",
+    "capabilities": [
+      "backup"
+    ]
+  },
+  {
+    "name": "workflow_manager",
+    "port": 3135,
+    "aws": "Step Functions",
+    "category": "Compute",
+    "segment": "machines",
+    "title": "State machines",
+    "extraFields": {
+      "definition": "string",
+      "status": "string"
+    },
+    "defaultName": "hello",
+    "capabilities": [
+      "workflow"
+    ]
+  },
+  {
+    "name": "config_manager",
+    "port": 3136,
+    "aws": "AppConfig",
+    "category": "Identity",
+    "segment": "namespaces",
+    "title": "Config namespaces",
+    "extraFields": {
+      "flags": "string"
+    },
+    "defaultName": "app",
+    "capabilities": [
+      "config",
+      "flags"
+    ]
+  },
+  {
+    "name": "cert_manager",
+    "port": 3137,
+    "aws": "ACM",
+    "category": "Identity",
+    "segment": "certs",
+    "title": "Certificates",
+    "extraFields": {
+      "pem": "string",
+      "hostnames": "string",
+      "status": "string"
+    },
+    "defaultName": "default",
+    "capabilities": [
+      "certs",
+      "tls"
+    ]
+  },
+  {
+    "name": "billing_manager",
+    "port": 3138,
+    "aws": "Cost Explorer",
+    "category": "Management",
+    "segment": "meters",
+    "title": "Usage meters",
+    "extraFields": {
+      "unit": "string",
+      "value": "string"
+    },
+    "defaultName": "compute_seconds",
+    "capabilities": [
+      "billing",
+      "quotas"
+    ]
+  },
+  {
+    "name": "function_manager",
+    "port": 3139,
+    "aws": "Lambda",
+    "category": "Compute",
+    "segment": "functions",
+    "title": "Functions",
+    "extraFields": {
+      "runtime": "string",
+      "handler": "string",
+      "timeout_ms": "string",
+      "code_key": "string"
+    },
+    "defaultName": "hello",
+    "capabilities": [
+      "lambda",
+      "functions"
+    ]
+  },
+  {
+    "name": "iot_manager",
+    "port": 3140,
+    "aws": "IoT Core",
+    "category": "Edge",
+    "segment": "things",
+    "title": "IoT things",
+    "extraFields": {
+      "topic": "string",
+      "status": "string"
+    },
+    "defaultName": "device-1",
+    "capabilities": [
+      "iot",
+      "mqtt"
+    ]
+  },
+  {
+    "name": "graphql_manager",
+    "port": 3141,
+    "aws": "AppSync",
+    "category": "Dev tools",
+    "segment": "apis",
+    "title": "GraphQL APIs",
+    "extraFields": {
+      "schema": "string",
+      "data_app": "string"
+    },
+    "defaultName": "app",
+    "capabilities": [
+      "graphql"
+    ]
+  },
+  {
+    "name": "notebook_manager",
+    "port": 3142,
+    "aws": "SageMaker notebook",
+    "category": "AI",
+    "segment": "notebooks",
+    "title": "Notebooks",
+    "extraFields": {
+      "image": "string",
+      "url": "string",
+      "status": "string"
+    },
+    "defaultName": "lab",
+    "capabilities": [
+      "notebook"
+    ]
+  },
+  {
+    "name": "trace_manager",
+    "port": 3143,
+    "aws": "X-Ray",
+    "category": "Observability",
+    "segment": "traces",
+    "title": "Traces",
+    "extraFields": {
+      "trace_id": "string",
+      "spans": "string"
+    },
+    "defaultName": "sample",
+    "capabilities": [
+      "tracing"
+    ]
+  },
+  {
+    "name": "search_manager",
+    "port": 3144,
+    "aws": "OpenSearch",
+    "category": "Database",
+    "segment": "indexes",
+    "title": "Search indexes",
+    "extraFields": {
+      "prefix": "string",
+      "engine": "string"
+    },
+    "defaultName": "docs",
+    "capabilities": [
+      "search"
+    ]
+  },
+  {
+    "name": "query_manager",
+    "port": 3145,
+    "aws": "Athena",
+    "category": "Observability",
+    "segment": "queries",
+    "title": "SQL queries",
+    "extraFields": {
+      "sql": "string",
+      "bucket": "string",
+      "status": "string"
+    },
+    "defaultName": "sample",
+    "capabilities": [
+      "athena",
+      "sql"
+    ]
+  },
+  {
+    "name": "waf_manager",
+    "port": 3146,
+    "aws": "WAF",
+    "category": "Edge",
+    "segment": "rules",
+    "title": "WAF rules",
+    "extraFields": {
+      "action": "string",
+      "cidr": "string",
+      "path": "string",
+      "rate": "string"
+    },
+    "defaultName": "default-rate",
+    "capabilities": [
+      "waf"
+    ]
+  },
+  {
+    "name": "vpn_manager",
+    "port": 3147,
+    "aws": "Client VPN",
+    "category": "Edge",
+    "segment": "peers",
+    "title": "VPN peers",
+    "extraFields": {
+      "config": "string",
+      "status": "string"
+    },
+    "defaultName": "laptop",
+    "capabilities": [
+      "vpn"
+    ]
+  },
+  {
+    "name": "transfer_manager",
+    "port": 3148,
+    "aws": "Transfer Family",
+    "category": "Storage & Content",
+    "segment": "endpoints",
+    "title": "SFTP endpoints",
+    "extraFields": {
+      "bucket": "string",
+      "protocol": "string"
+    },
+    "defaultName": "sftp",
+    "capabilities": [
+      "sftp",
+      "transfer"
+    ]
+  },
+  {
+    "name": "audit_manager",
+    "port": 3149,
+    "aws": "CloudTrail",
+    "category": "Observability",
+    "segment": "events",
+    "title": "Audit events",
+    "extraFields": {
+      "actor": "string",
+      "action": "string",
+      "detail": "string"
+    },
+    "defaultName": "bootstrap",
+    "capabilities": [
+      "audit"
+    ]
+  },
+  {
+    "name": "status_manager",
+    "port": 3150,
+    "aws": "Statuspage",
+    "category": "Observability",
+    "segment": "incidents",
+    "title": "Status incidents",
+    "extraFields": {
+      "severity": "string",
+      "message": "string",
+      "state": "string"
+    },
+    "defaultName": "all-clear",
+    "capabilities": [
+      "status"
+    ]
+  },
+  {
+    "name": "cluster_manager",
+    "port": 3151,
+    "aws": "EKS",
+    "category": "Compute",
+    "segment": "clusters",
+    "title": "Clusters",
+    "extraFields": {
+      "kubeconfig": "string",
+      "status": "string"
+    },
+    "defaultName": "k3s",
+    "capabilities": [
+      "k8s",
+      "k3s"
+    ]
+  },
+  {
+    "name": "vector_manager",
+    "port": 3152,
+    "aws": "OpenSearch kNN",
+    "category": "AI",
+    "segment": "indexes",
+    "title": "Vector indexes",
+    "extraFields": {
+      "dim": "string",
+      "backend": "string"
+    },
+    "defaultName": "rag",
+    "capabilities": [
+      "vector",
+      "embeddings"
+    ]
+  },
+  {
+    "name": "push_manager",
+    "port": 3153,
+    "aws": "SNS mobile",
+    "category": "Integrations",
+    "segment": "subscriptions",
+    "title": "Push subscriptions",
+    "extraFields": {
+      "endpoint": "string",
+      "kind": "string"
+    },
+    "defaultName": "web",
+    "capabilities": [
+      "push"
+    ]
+  }
+]

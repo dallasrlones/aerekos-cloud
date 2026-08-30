@@ -1,0 +1,43 @@
+# Fleet VPC (Layer A). Start with --no-deps. Never --remove-orphans.
+#   docker compose -f docker-compose.headscale.yml up -d --no-deps
+# Admin API is localhost-only. Store headscale.api_key in secrets_manager.
+services:
+  headscale:
+    image: headscale/headscale:0.23.0
+    container_name: aerekos-headscale
+    restart: unless-stopped
+    command: serve
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/headscale:/etc/headscale:ro
+      - headscale-data:/var/lib/headscale
+    networks:
+      - aerekos-overlay
+
+  tailscale:
+    image: tailscale/tailscale:v1.76.1
+    container_name: aerekos-tailscale-conductor
+    restart: unless-stopped
+    hostname: conductor
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_EXTRA_ARGS: --login-server=${HEADSCALE_URL:-http://127.0.0.1:8080} --accept-dns=true --advertise-tags=tag:platform --advertise-exit-node=false
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    profiles:
+      - sidecar
+
+volumes:
+  headscale-data:
+  tailscale-state:
+
+networks:
+  aerekos-overlay:
+    driver: bridge

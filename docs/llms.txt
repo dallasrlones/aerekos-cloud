@@ -1,0 +1,10 @@
+# aerekos-cloud — notes for language models
+
+Auth: POST /api/auth/login {username,password} → JWT. Icarus C0: POST /api/v1/auth/token on auth_manager.
+Proxy: {CONDUCTOR}/api/services/{manager}{path}?project_id=
+SDK: aerekos-sdk AerekosClient — backup.run/jobs/restore, iac.status/hookup/apply, edge.status/hookup, systems.check/update, graphql.execute, search.query.
+CLI: aerekos backup run | iac hookup | systems update --target os|docker | graphql execute | search query
+Email/SMS/Slack/Push: queued; outbound send disabled. Do not retry live send.
+Never hit production project ea370977-3aff-4c76-95a6-a0c50fd2bce7 from e2e.
+Never --remove-orphans on the mixed stack. vLLM only on orin. k3s is opt-in, not a conductor migration.
+Catalog: docs/catalog.js. Docs: make docs. Agents: AGENTS.md, docs/agents.md.

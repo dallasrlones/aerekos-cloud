@@ -1,0 +1,59 @@
+# Download sidecars for a disk-heavy worker. Do not proxy qBittorrent/Jackett UIs.
+# Publish torrent ports on the host. restart: unless-stopped for power-on.
+# One-time: sudo systemctl enable docker
+#
+# Start: docker compose -f worker/docker-compose.download.yml up -d
+# Never use docker-compose.full.yml / --remove-orphans.
+
+services:
+  download_manager:
+    image: aerekos-download_manager:latest
+    container_name: aerekos-download_manager
+    restart: unless-stopped
+    environment:
+      PORT: "3133"
+      SERVICE_NAME: download_manager
+      CONDUCTOR_URL: ${CONDUCTOR_URL:-}
+      CONDUCTOR_TOKEN: ${CONDUCTOR_TOKEN:-}
+      QBIT_URL: http://qbittorrent:8080
+      JACKETT_URL: http://jackett:9117
+    ports:
+      - "3133:3133"
+    networks: [download_net]
+    depends_on: [qbittorrent, jackett]
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: aerekos-qbittorrent
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      WEBUI_PORT: "8080"
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+    volumes:
+      - qbit_config:/config
+      - qbit_downloads:/downloads
+    networks: [download_net]
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: aerekos-jackett
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - jackett_config:/config
+    networks: [download_net]
+
+networks:
+  download_net:
+    driver: bridge
+
+volumes:
+  qbit_config:
+  qbit_downloads:
+  jackett_config:

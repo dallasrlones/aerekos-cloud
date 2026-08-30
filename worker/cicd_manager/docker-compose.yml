@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  cicd_manager:
+    build:
+      context: ..
+      dockerfile: cicd_manager/Dockerfile.dev
+    container_name: aerekos-cicd_manager
+    ports:
+      - "${PORT:-3119}:${PORT:-3119}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

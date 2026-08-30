@@ -1,0 +1,32 @@
+{
+  "name": "aerekos-sdk",
+  "version": "0.1.0",
+  "description": "Dependency-free JavaScript client for the aerekos-cloud conductor API (auth, workers, services, and manager proxying).",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "aerekos": "bin/aerekos.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "managers.generated.js",
+    "bin/aerekos.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "aerekos",
+    "aerekos-cloud",
+    "sdk",
+    "self-hosted",
+    "cloud",
+    "client"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

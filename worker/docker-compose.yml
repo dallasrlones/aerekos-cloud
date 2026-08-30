@@ -1,0 +1,75 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-worker
+    restart: unless-stopped
+    # Share the host PID namespace so the activity monitor sees the device's real
+    # processes (not just the container's own). Pairs with the /proc mount below.
+    pid: host
+    env_file:
+      - .env
+      # Optional: real host specs (hostname/IP/CPU/RAM/disk/network) produced by
+      # detect-host-resources.sh. Generated automatically by ./up.sh (or `make
+      # worker` from the repo root). Absent is fine — the entrypoint detects from
+      # the mounted host /proc and /sys.
+      - path: .worker-host.env
+        required: false
+    environment:
+      - CONDUCTOR_URL=${CONDUCTOR_URL:-https://cloudapi.aerekos.com}
+      - CONDUCTOR_TOKEN=${CONDUCTOR_TOKEN}
+      # Device info (hostname, IP, CPU, RAM, disk, network) is auto-detected by the
+      # entrypoint from the mounted host /proc + /sys, or taken from .worker-host.env.
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-5}
+      - RESOURCE_CHECK_INTERVAL=${RESOURCE_CHECK_INTERVAL:-60}
+      - PORT=${PORT:-3001}
+      - NODE_ENV=${NODE_ENV:-development}
+      # Deployed version (git short SHA), set by scripts/deploy/deploy.sh.
+      - APP_VERSION=${APP_VERSION:-dev}
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # manage service containers
+      - .:/app                                      # hot-reload worker code
+      - /app/node_modules                           # keep the image's node_modules
+      - ./data:/app/data                            # persist the worker id file
+      # Mount host filesystems read-only so the worker reports the real machine's
+      # resources (CPU/RAM/disk/network/IP) instead of the container's view.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /dev:/host/dev:ro
+    networks:
+      - aerekos-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Pulls releases from the conductor and redeploys the worker (our own GitHub).
+  # Talks to the host Docker daemon and rebuilds every service except itself.
+  # AEREKOS_HOST_DIR must be the repo path ON THE HOST (mounted identically so
+  # compose bind-mounts/build contexts resolve to real host paths).
+  aerekos-updater:
+    build:
+      context: ../updater
+      dockerfile: Dockerfile
+    container_name: aerekos-updater
+    restart: unless-stopped
+    environment:
+      - CONDUCTOR_URL=${CONDUCTOR_URL:-https://cloudapi.aerekos.com}
+      - AEREKOS_AGENT_TOKEN=${CONDUCTOR_TOKEN}
+      - HOST_DIR=${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}
+      - ROLE=worker
+      - POLL_INTERVAL=${UPDATE_POLL_INTERVAL:-30}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}:${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}
+    networks:
+      - aerekos-network
+
+networks:
+  aerekos-network:
+    driver: bridge

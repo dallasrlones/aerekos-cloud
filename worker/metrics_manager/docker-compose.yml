@@ -1,0 +1,14 @@
+# Local dev — see worker/docker-compose.yml for full stack
+services:
+  metrics_manager:
+    build:
+      context: ..
+      dockerfile: metrics_manager/Dockerfile.dev
+    container_name: aerekos-metrics_manager
+    ports:
+      - "${PORT:-3105}:${PORT:-3105}"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped

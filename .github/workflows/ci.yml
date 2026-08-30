@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check catalog alignment
+        run: node scripts/check-catalog.mjs
+
+      - name: npm audit (production deps)
+        run: npm audit --omit=dev
+        continue-on-error: true
+
+      - name: SBOM snapshot
+        run: npm ls --all --json > sbom.json
+
+      - name: Test conductor
+        run: npm run test:conductor
+
+      - name: Test worker
+        run: npm run test:worker

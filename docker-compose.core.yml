@@ -1,0 +1,540 @@
+# Conductor host core stack — conductor + UI + worker + locally-enabled managers only.
+# Platform control-plane extras: docker-compose.platform.yml (same network; never --remove-orphans).
+#
+# Mixed-stack homelab (conductor from docker-compose.yml, managers from this file):
+# managers cannot DNS-resolve `aerekos-conductor` on a different Docker network.
+# Point them at the published conductor port via CONDUCTOR_INTERNAL_URL
+# (default http://host.docker.internal:3300).
+#
+#   docker compose -f docker-compose.core.yml up -d --build
+#   docker compose -f docker-compose.core.yml up -d --no-deps --build storage_manager
+services:
+  conductor:
+    build:
+      context: .
+      dockerfile: conductor/Dockerfile
+    container_name: aerekos-conductor
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - DATABASE_PATH=/app/data/conductor.db
+      - CONDUCTOR_INTERNAL_BASE_URL=${CONDUCTOR_INTERNAL_BASE_URL:-http://aerekos-conductor:3000}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - TOKEN_SECRET=${TOKEN_SECRET:-change-me-in-production}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_MANAGER_GATED_SERVICES=${AUTH_MANAGER_GATED_SERVICES:-ai_manager,api_manager,storage_manager,db_manager,secrets_manager,compute_manager,queue_manager,webhook_manager,git_manager}
+      - CONDUCTOR_CLIENT_SECRET_NAME=${CONDUCTOR_CLIENT_SECRET_NAME:-conductor.client_secret}
+      - SECRETS_MANAGER_URL=${SECRETS_MANAGER_URL:-http://secrets_manager:3107/api/v1}
+      - DEFAULT_PROJECT_ID=${DEFAULT_PROJECT_ID:-}
+      - AUTH_MANAGER_SECRET=${AUTH_MANAGER_SECRET:-}
+      - CONDUCTOR_CLIENT_SECRET=${CONDUCTOR_CLIENT_SECRET:-}
+      - SERVICE_DIRECT_HOSTS=${SERVICE_DIRECT_HOSTS:-}
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://cloudapi.aerekos.com}
+      - WORKER_REGISTRATION_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - APP_VERSION=${APP_VERSION:-dev}
+    ports:
+      - "${CONDUCTOR_PORT:-3000}:3000"
+    volumes:
+      - conductor-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  frontend:
+    build:
+      context: ./conductor/app
+      dockerfile: Dockerfile.dev
+    container_name: aerekos-frontend
+    restart: unless-stopped
+    environment:
+      - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://cloudapi.aerekos.com}
+      - NODE_ENV=development
+    ports:
+      - "${FRONTEND_PORT:-19006}:19006"
+    volumes:
+      - ./conductor/app:/app
+      - /app/node_modules
+    depends_on:
+      conductor:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: aerekos-worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-2}
+      - RESOURCE_CHECK_INTERVAL=${RESOURCE_CHECK_INTERVAL:-60}
+      - APP_VERSION=${APP_VERSION:-dev}
+      - WORKER_AGENT_PORT=${WORKER_PORT:-3001}
+    env_file:
+      - path: .worker-host.env
+        required: false
+    ports:
+      - "${WORKER_PORT:-3001}:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - worker-data:/app/data
+    depends_on:
+      conductor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  aerekos-updater:
+    build:
+      context: ./updater
+      dockerfile: Dockerfile
+    container_name: aerekos-updater
+    restart: unless-stopped
+    environment:
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AEREKOS_AGENT_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - HOST_DIR=${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}
+      - ROLE=core
+      - POLL_INTERVAL=${UPDATE_POLL_INTERVAL:-30}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}:${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}
+    depends_on:
+      conductor:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  key_manager:
+    build:
+      context: ./worker
+      dockerfile: key_manager/Dockerfile
+    container_name: aerekos-key_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3002
+      - SERVICE_NAME=key_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - MASTER_KEY=${KEY_MANAGER_MASTER_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+    volumes:
+      - key_manager-data:/app/key_manager/data
+    depends_on:
+      conductor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:3002/health\",r=>process.exit(r.statusCode===200?0:1)).on(\"error\",()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  auth_manager:
+    build:
+      context: ./worker
+      dockerfile: auth_manager/Dockerfile
+    container_name: aerekos-auth_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3116
+      - SERVICE_NAME=auth_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_SECRET_NAME=${AUTH_MANAGER_SECRET_NAME:-auth_manager.signing_secret}
+      - CONDUCTOR_CLIENT_SECRET_NAME=${CONDUCTOR_CLIENT_SECRET_NAME:-conductor.client_secret}
+      - SECRETS_MANAGER_URL=${SECRETS_MANAGER_URL:-http://aerekos-secrets_manager:3107/api/v1}
+      - DEFAULT_PROJECT_ID=${DEFAULT_PROJECT_ID:-}
+      - AUTH_MANAGER_SECRET=${AUTH_MANAGER_SECRET:-}
+    ports:
+      - "3116:3116"
+    volumes:
+      - auth_manager-data:/app/auth_manager/data
+    depends_on:
+      conductor:
+        condition: service_healthy
+      secrets_manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:3116/health\",r=>process.exit(r.statusCode===200?0:1)).on(\"error\",()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  storage_manager:
+    build:
+      context: ./worker
+      dockerfile: storage_manager/Dockerfile
+    container_name: aerekos-storage_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3003
+      - SERVICE_NAME=storage_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+    ports:
+      - "3003:3003"
+    volumes:
+      - storage_manager-data:/app/storage_manager/data
+    depends_on:
+      conductor:
+        condition: service_healthy
+      key_manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:3003/health\",r=>process.exit(r.statusCode===200?0:1)).on(\"error\",()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  secrets_manager:
+    build:
+      context: ./worker
+      dockerfile: secrets_manager/Dockerfile
+    container_name: aerekos-secrets_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3107
+      - SERVICE_NAME=secrets_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+      - MOCK_KEY_MANAGER=${SECRETS_MOCK_KEY_MANAGER:-false}
+    ports:
+      - "3107:3107"
+    volumes:
+      - secrets_manager-data:/app/secrets_manager/data
+    depends_on:
+      conductor:
+        condition: service_healthy
+      key_manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://127.0.0.1:3107/health\",r=>process.exit(r.statusCode===200?0:1)).on(\"error\",()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  db_manager:
+    build:
+      context: ./worker
+      dockerfile: db_manager/Dockerfile
+    container_name: aerekos-db_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3004
+      - SERVICE_NAME=db_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+    ports:
+      - "3004:3004"
+    volumes:
+      - db_manager-data:/app/db_manager/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  api_manager:
+    build:
+      context: ./worker
+      dockerfile: api_manager/Dockerfile
+    container_name: aerekos-api_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3124
+      - SERVICE_NAME=api_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+    ports:
+      - "3124:3124"
+    volumes:
+      - api_manager-data:/app/api_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  backup_manager:
+    build:
+      context: ./worker
+      dockerfile: backup_manager/Dockerfile
+    container_name: aerekos-backup_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3134
+      - SERVICE_NAME=backup_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+    ports:
+      - "3134:3134"
+    volumes:
+      - backup_manager-data:/app/backup_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  graphql_manager:
+    build:
+      context: ./worker
+      dockerfile: graphql_manager/Dockerfile
+    container_name: aerekos-graphql_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3141
+      - SERVICE_NAME=graphql_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+    ports:
+      - "3141:3141"
+    volumes:
+      - graphql_manager-data:/app/graphql_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  search_manager:
+    build:
+      context: ./worker
+      dockerfile: search_manager/Dockerfile
+    container_name: aerekos-search_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3144
+      - SERVICE_NAME=search_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+    ports:
+      - "3144:3144"
+    volumes:
+      - search_manager-data:/app/search_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  code_as_infra:
+    build:
+      context: ./worker
+      dockerfile: code_as_infra/Dockerfile
+    container_name: aerekos-code_as_infra
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3120
+      - SERVICE_NAME=code_as_infra
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+    ports:
+      - "3120:3120"
+    volumes:
+      - code_as_infra-data:/app/code_as_infra/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  compute_manager:
+    build:
+      context: ./worker
+      dockerfile: compute_manager/Dockerfile
+    container_name: aerekos-compute_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3100
+      - SERVICE_NAME=compute_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+    ports:
+      - "3100:3100"
+    volumes:
+      - compute_manager-data:/app/compute_manager/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  logs_manager:
+    build:
+      context: ./worker
+      dockerfile: logs_manager/Dockerfile
+    container_name: aerekos-logs_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3104
+      - SERVICE_NAME=logs_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+    ports:
+      - "3104:3104"
+    volumes:
+      - logs_manager-data:/app/logs_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  metrics_manager:
+    build:
+      context: ./worker
+      dockerfile: metrics_manager/Dockerfile
+    container_name: aerekos-metrics_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3105
+      - SERVICE_NAME=metrics_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+    ports:
+      - "3105:3105"
+    volumes:
+      - metrics_manager-data:/app/metrics_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  cicd_manager:
+    build:
+      context: ./worker
+      dockerfile: cicd_manager/Dockerfile
+    container_name: aerekos-cicd_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3119
+      - SERVICE_NAME=cicd_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+    ports:
+      - "3119:3119"
+    volumes:
+      - cicd_manager-data:/app/cicd_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  git_manager:
+    build:
+      context: ./worker
+      dockerfile: git_manager/Dockerfile
+    container_name: aerekos-git_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3130
+      - SERVICE_NAME=git_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - PUBLIC_GIT_URL=${PUBLIC_GIT_URL:-https://git.aerekos.com}
+    ports:
+      - "3130:3130"
+    volumes:
+      - git_manager-data:/app/git_manager/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  registry_manager:
+    build:
+      context: ./worker
+      dockerfile: registry_manager/Dockerfile
+    container_name: aerekos-registry_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3129
+      - SERVICE_NAME=registry_manager
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+    ports:
+      - "3129:3129"
+    volumes:
+      - registry_manager-data:/app/registry_manager/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+networks:
+  aerekos:
+    name: aerekos-cloud_aerekos
+
+volumes:
+  conductor-data:
+  worker-data:
+  key_manager-data:
+  storage_manager-data:
+  secrets_manager-data:
+  auth_manager-data:
+  db_manager-data:
+  api_manager-data:
+  backup_manager-data:
+  graphql_manager-data:
+  search_manager-data:
+  code_as_infra-data:
+  compute_manager-data:
+  logs_manager-data:
+  metrics_manager-data:
+  cicd_manager-data:
+  git_manager-data:
+  registry_manager-data:

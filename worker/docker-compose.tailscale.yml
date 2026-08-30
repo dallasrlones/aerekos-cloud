@@ -1,0 +1,21 @@
+# Worker Tailscale sidecar — join the fleet Headscale mesh.
+#   docker compose -f worker/docker-compose.tailscale.yml up -d --no-deps
+# Set TAILSCALE_AUTHKEY from network_manager POST /mesh/preauth (shown once).
+services:
+  tailscale:
+    image: tailscale/tailscale:v1.76.1
+    container_name: aerekos-tailscale-worker
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_EXTRA_ARGS: --login-server=${HEADSCALE_URL:?set HEADSCALE_URL} --accept-dns=true --advertise-tags=tag:worker --advertise-exit-node=false
+    volumes:
+      - tailscale-worker-state:/var/lib/tailscale
+
+volumes:
+  tailscale-worker-state:

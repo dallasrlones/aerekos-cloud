@@ -1,0 +1,1 @@
+export { ResourceCrud } from './ResourceCrud';

@@ -1,0 +1,40 @@
+# WARNING: This docker-compose.yml is for LOCAL DEVELOPMENT ONLY
+# Project-specific deployments should use the ServiceManager/DeploymentHandler
+# which creates containers with project-prefixed names (e.g., aerekos-{project}-storage_manager)
+# DO NOT use this for production or project deployments!
+
+services:
+  storage_manager:
+    build:
+      context: ..
+      dockerfile: storage_manager/Dockerfile.dev
+    container_name: aerekos-storage_manager
+    ports:
+      - "${PORT:-3003}:${PORT:-3003}"
+    volumes:
+      # Storage mount - configure STORAGE_PATH environment variable
+      # Example: STORAGE_PATH=/mnt/storage -> mount /mnt/storage:/app/storage
+      - "${STORAGE_PATH:-./storage}:/app/storage:rw"
+      # Data directory for SQLite database
+      - ./data:/app/data
+      # Source code for development
+      - ./api:/app/api
+      - ./index.js:/app/index.js
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - CONDUCTOR_URL=http://host.docker.internal:3000
+      - STORAGE_PATH=/app/storage
+    restart: "no"  # Changed from "unless-stopped" to prevent auto-restart - only project containers should auto-restart
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "-O", "-", "http://localhost:${PORT:-3003}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aerekos-cloud-network
+
+networks:
+  aerekos-cloud-network:
+    external: true

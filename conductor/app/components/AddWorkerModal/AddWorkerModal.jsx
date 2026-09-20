@@ -33,6 +33,7 @@ export const AddWorkerModal = ({ visible, onClose, projectId, onWorkerAdded }) =
       const query = searchQuery.toLowerCase();
       setFilteredWorkers(
         workers.filter(worker =>
+          (worker.display_name || '').toLowerCase().includes(query) ||
           worker.hostname.toLowerCase().includes(query) ||
           worker.ip_address.toLowerCase().includes(query)
         )
@@ -150,7 +151,7 @@ export const AddWorkerModal = ({ visible, onClose, projectId, onWorkerAdded }) =
                   onPress={() => toggleWorker(worker.id)}
                 >
                   <View style={AddWorkerModalStyles.workerItemContent}>
-                    <Text style={AddWorkerModalStyles.workerHostname}>{worker.hostname}</Text>
+                    <Text style={AddWorkerModalStyles.workerHostname}>{worker.display_name || worker.hostname}</Text>
                     <Text style={AddWorkerModalStyles.workerIP}>{worker.ip_address}</Text>
                     <View style={AddWorkerModalStyles.workerStatus}>
                       <View style={[

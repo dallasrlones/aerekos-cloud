@@ -30,6 +30,8 @@ export const HeaderStyles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     marginHorizontal: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   iconButton: {
     padding: spacing.sm,

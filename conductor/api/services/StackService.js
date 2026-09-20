@@ -1,6 +1,7 @@
 'use strict';
 
-const { ProjectStack, PlatformJob } = require('../models');
+const { ProjectStack } = require('../models');
+const JobService = require('./JobService');
 const { requireShared } = require('../utils/loadWorkerShared');
 const {
   emptyStack,
@@ -123,6 +124,12 @@ class StackService {
   }
 
   async apply(projectId) {
+    const PROD = 'ea370977-3aff-4c76-95a6-a0c50fd2bce7';
+    if (projectId === PROD) {
+      const e = new Error('never apply to the production project');
+      e.status = 403;
+      throw e;
+    }
     const cur = await this.current(projectId);
     const rows = await ProjectStack.findAll({ where: { project_id: projectId } });
     rows.sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0));
@@ -143,15 +150,32 @@ class StackService {
       lock_holder: '',
     });
     const content = parse(latest.content, emptyStack(projectId));
+    const wantedEnabled = await this.enableWanted(projectId, content.wanted || []);
     const provisioned = await this.provision(projectId, content);
-    const job = await PlatformJob.create({
+    const job = await JobService.create({
       project_id: projectId,
       kind: 'stack-apply',
       status: 'succeeded',
       summary: `applied revision ${latest.revision}`,
-      detail: JSON.stringify(provisioned),
+      detail: JSON.stringify({ provisioned, wantedEnabled }),
     });
-    return { ...(await this.current(projectId)), job, provisioned };
+    return { ...(await this.current(projectId)), job, provisioned, wantedEnabled };
+  }
+
+  async enableWanted(projectId, wanted = []) {
+    const names = (wanted || []).map(String).filter((n) => n && n !== 'auth_manager' && n !== 'vllm');
+    const enabled = [];
+    if (skipFlag('SKIP_STACK_PROVISION') || !names.length) return { skipped: skipFlag('SKIP_STACK_PROVISION'), enabled: names };
+    const SetupService = require('./SetupService');
+    for (const name of names) {
+      try {
+        await SetupService.enableWithDependencies(projectId, name, { with_dependencies: true, defaults: true });
+        enabled.push(name);
+      } catch (e) {
+        enabled.push({ name, error: e.message });
+      }
+    }
+    return { skipped: false, enabled };
   }
 
   async provision(projectId, stack) {

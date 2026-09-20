@@ -12,7 +12,7 @@ describe('mcp_manager', () => {
     expect(res.status).toBe(200);
     const names = (res.body.items || []).map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining([
-      'backup.run', 'iac.hookup', 'edge.hookup', 'systems.check', 'graphql.execute', 'search.query',
+      'backup.run', 'iac.hookup', 'iac.apply', 'edge.hookup', 'systems.check', 'graphql.execute', 'search.query',
     ]));
     expect(res.body.note).toMatch(/outbound send disabled/);
   });

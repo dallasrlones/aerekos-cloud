@@ -242,9 +242,9 @@ export const projectService = {
   /**
    * Enable service for project
    */
-  async enableServiceForProject(projectId, serviceId) {
+  async enableServiceForProject(projectId, serviceId, workerId = null) {
     try {
-      const response = await apiClient.post(`/api/projects/${projectId}/services/${serviceId}/enable`);
+      const response = await apiClient.post(`/api/projects/${projectId}/services/${serviceId}/enable`, workerId ? { worker_id: workerId } : {});
       return {
         success: true,
         ...response.data
@@ -391,5 +391,13 @@ export const projectService = {
   async createEnvironment(projectId, body) {
     const response = await apiClient.post(`/api/projects/${projectId}/environments`, body || {});
     return response.data?.environment;
+  },
+
+  async duplicateEnvironment(projectId, name, target) {
+    const response = await apiClient.post(
+      `/api/projects/${projectId}/environments/${encodeURIComponent(name)}/duplicate`,
+      { target }
+    );
+    return response.data;
   },
 };

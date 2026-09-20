@@ -6,6 +6,7 @@ const WorkerSocketService = require('./WorkerSocketService');
 
 const SOCKET_TIMEOUT_MS = 15 * 1000;
 const HTTP_TIMEOUT_MS = 8 * 1000;
+const CREATE_TIMEOUT_MS = 180 * 1000;
 
 function httpError(status, message) {
   const err = new Error(message);
@@ -35,7 +36,7 @@ class ContainerService {
     return [...new Set(hosts)];
   }
 
-  async http(worker, method, path, data) {
+  async http(worker, method, path, data, timeoutMs) {
     let last = null;
     for (const base of this.bases(worker)) {
       try {
@@ -43,7 +44,7 @@ class ContainerService {
           method,
           url: `${base}${path}`,
           data,
-          timeout: HTTP_TIMEOUT_MS,
+          timeout: timeoutMs || HTTP_TIMEOUT_MS,
           validateStatus: () => true,
         });
         if (res.status >= 200 && res.status < 300) return res.data;
@@ -132,6 +133,75 @@ class ContainerService {
       async () => {
         const reply = await this.socket(workerId, 'containers:logs', { containerId, tail });
         return { logs: reply.logs || '' };
+      },
+    );
+  }
+
+  async stats(workerId, containerId) {
+    return this.via(
+      workerId,
+      async (worker) => {
+        const data = await this.http(worker, 'GET', `/api/containers/${encodeURIComponent(containerId)}/stats`);
+        return { stats: data.stats || data };
+      },
+      async () => {
+        const reply = await this.socket(workerId, 'containers:stats', { containerId });
+        return { stats: reply.stats };
+      },
+    );
+  }
+
+  async inspect(workerId, containerId) {
+    return this.via(
+      workerId,
+      async (worker) => {
+        const data = await this.http(worker, 'GET', `/api/containers/${encodeURIComponent(containerId)}`);
+        return { container: data.container || data };
+      },
+      async () => {
+        const reply = await this.socket(workerId, 'containers:inspect', { containerId });
+        return { container: reply.container };
+      },
+    );
+  }
+
+  async pull(workerId, image) {
+    const worker = await this.assertOnline(workerId);
+    try {
+      const data = await this.http(worker, 'POST', '/api/containers/pull', { image }, CREATE_TIMEOUT_MS);
+      return { pulled: data.pulled || image };
+    } catch (httpErr) {
+      try {
+        const reply = await this.socket(workerId, 'containers:pull', { image });
+        return { pulled: reply.pulled || image };
+      } catch (sockErr) {
+        throw httpErr.status ? httpErr : sockErr;
+      }
+    }
+  }
+
+  async create(workerId, spec) {
+    const worker = await this.assertOnline(workerId);
+    try {
+      const data = await this.http(worker, 'POST', '/api/containers', spec, CREATE_TIMEOUT_MS);
+      return { container: data.container || data };
+    } catch (httpErr) {
+      try {
+        const reply = await this.socket(workerId, 'containers:create', { spec });
+        return { container: reply.container };
+      } catch (sockErr) {
+        throw httpErr.status ? httpErr : sockErr;
+      }
+    }
+  }
+
+  async remove(workerId, containerId, { force = true } = {}) {
+    return this.via(
+      workerId,
+      async (worker) => this.http(worker, 'DELETE', `/api/containers/${encodeURIComponent(containerId)}?force=${force ? '1' : '0'}`),
+      async () => {
+        const reply = await this.socket(workerId, 'containers:remove', { containerId, force });
+        return { deleted: true, ...(reply || {}) };
       },
     );
   }

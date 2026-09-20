@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 
 # Set build-time environment variable (can be overridden)
-ARG EXPO_PUBLIC_API_URL=http://localhost:3000
+ARG EXPO_PUBLIC_API_URL=https://cloudapi.aerekos.com
 ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
 
 # Install Expo CLI if needed and build for web production

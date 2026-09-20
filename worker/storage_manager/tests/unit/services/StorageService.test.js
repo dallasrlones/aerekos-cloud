@@ -43,11 +43,14 @@ describe('StorageService', () => {
       findByBucketAndKey: jest.fn(),
       findByBucket: jest.fn(),
       delete: jest.fn(),
+      update: jest.fn(),
       logAccess: jest.fn()
     };
     
     mockBucketRepo = {
-      findByProjectAndName: jest.fn()
+      findByProjectAndName: jest.fn(),
+      findBySystemAndName: jest.fn(),
+      findBySystem: jest.fn()
     };
     
     mockEncryptionService = {
@@ -161,7 +164,8 @@ describe('StorageService', () => {
   });
 
   describe('deleteFile', () => {
-    it('should delete file and physical storage', async () => {
+    it('should delete file and physical storage (hard delete)', async () => {
+      process.env.STORAGE_HARD_DELETE = '1';
       const bucket = { id: 'bucket1', name: 'test-bucket' };
       const file = {
         id: 'file1',
@@ -179,6 +183,7 @@ describe('StorageService', () => {
 
       expect(fsp.unlink).toHaveBeenCalledWith('/test/path');
       expect(mockFileRepo.delete).toHaveBeenCalledWith('file1');
+      delete process.env.STORAGE_HARD_DELETE;
     });
   });
 

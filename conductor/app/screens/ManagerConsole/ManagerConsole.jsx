@@ -16,6 +16,8 @@ import { ManagerConsoleStyles as S } from './ManagerConsole.styles';
 import { ServiceInstancesPanel } from '../../components/ServiceInstancesPanel/ServiceInstancesPanel';
 import { useProject } from '../../contexts/ProjectContext';
 import { useToast } from '../../components/Toast/ToastProvider';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
+import { ObservabilityPanel } from '../../components/ObservabilityPanel/ObservabilityPanel';
 
 const ALWAYS_ON = new Set(['code_as_infra', 'system_manager']);
 
@@ -32,6 +34,7 @@ export const ManagerConsole = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [backingUp, setBackingUp] = useState(false);
+  const [tab, setTab] = useState('overview');
 
   const loadAll = useCallback(async () => {
     try {
@@ -125,7 +128,19 @@ export const ManagerConsole = ({ navigation, route }) => {
         </Box>
       ) : null}
 
-      <Box title="Service status">
+      <ScreenTabs
+        tabs={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'resources', label: 'Resources' },
+          { id: 'monitoring', label: 'Monitoring' },
+          { id: 'access', label: 'Access' },
+          { id: 'settings', label: 'Settings' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'overview' ? <Box title="Service status">
         {status ? (
           <>
             <ServiceStatus
@@ -145,24 +160,30 @@ export const ManagerConsole = ({ navigation, route }) => {
             <ServiceInstancesPanel
               instances={status.deployed ? [{ service: serviceName, status: status.health?.status || 'running', hostname: status.worker_id }] : []}
             />
-            <Button title="Backup" variant="secondary" onPress={runBackup} loading={backingUp} />
           </>
         ) : (
           <ActivityIndicator size="small" color={colors.primary} />
         )}
-      </Box>
+      </Box> : null}
 
+      {tab === 'settings' ? <>
       <ServiceSetupWizard serviceName={serviceName} navigation={navigation} onEnabled={loadAll} />
+      <Box title="Backup">
+        <Button title="Backup" variant="secondary" onPress={runBackup} loading={backingUp} />
+      </Box>
+      </> : null}
 
+      {tab === 'resources' ? (
       <ResourceCrud serviceName={serviceName} enabled={!!status?.enabled || alwaysOn} />
+      ) : null}
 
-      {status?.enabled ? (
+      {tab === 'access' && status?.enabled ? (
         <Box title="App access">
           <ManagerAppAccessSection serviceName={serviceName} />
         </Box>
       ) : null}
 
-      {status?.enabled ? (
+      {tab === 'monitoring' && status?.enabled ? (
         <Box title="Health">
           {health ? (
             <>
@@ -183,9 +204,11 @@ export const ManagerConsole = ({ navigation, route }) => {
         </Box>
       ) : null}
 
-      {status?.enabled ? (
+      {tab === 'monitoring' && status?.enabled ? (
         <Box title="Metrics">{renderMetrics() || <Text style={S.hintText}>No metrics reported.</Text>}</Box>
       ) : null}
+
+      {tab === 'monitoring' ? <ObservabilityPanel serviceName={serviceName} /> : null}
     </Page>
   );
 };

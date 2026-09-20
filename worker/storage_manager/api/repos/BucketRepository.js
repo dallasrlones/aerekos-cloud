@@ -19,6 +19,22 @@ class BucketRepository {
     return results.length > 0 ? results[0] : null;
   }
   
+  async findBySystemAndName(systemId, name) {
+    const { Bucket } = await getModels();
+    const results = await Bucket.findAll({ 
+      where: { system_id: systemId, name } 
+    });
+    return results.length > 0 ? results[0] : null;
+  }
+  
+  async findBySystem(systemId, filter = {}) {
+    const { Bucket } = await getModels();
+    return await Bucket.findAll({ 
+      where: { system_id: systemId, ...(filter.where || {}) },
+      ...filter
+    });
+  }
+  
   async findByProject(projectId, filter = {}) {
     const { Bucket } = await getModels();
     return await Bucket.findAll({ 

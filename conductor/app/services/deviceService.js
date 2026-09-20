@@ -108,6 +108,16 @@ export const deviceService = {
     const response = await api.patch(`/api/workers/${deviceId}/vpc`, { vpc_id: vpcId });
     return response.data.worker;
   },
+
+  async getNetwork(deviceId) {
+    const response = await api.get(`/api/workers/${deviceId}/network`);
+    return response.data;
+  },
+
+  async joinMesh(deviceId, projectId) {
+    const response = await api.post(`/api/workers/${deviceId}/mesh/join`, { project_id: projectId });
+    return response.data;
+  },
 };
 
 /**
@@ -115,6 +125,11 @@ export const deviceService = {
  * @param {object|null} part
  * @returns {string|null}
  */
+export function deviceLabel(device) {
+  if (!device) return '';
+  return device.display_name || device.hostname || device.id || '';
+}
+
 export function hostPartLabel(part) {
   if (!part) return null;
   if (part.supported === false) return 'unsupported';

@@ -35,10 +35,15 @@ describe('git_manager /repos CRUD', () => {
 
     const upd = await request(app)
       .patch(`/api/v1/repos/${id}?${Q(projectId)}`)
-      .send({ description: 'updated', visibility: 'public' });
+      .send({ description: 'updated', visibility: 'private' });
     expect(upd.status).toBe(200);
     expect(upd.body.repository.description).toBe('updated');
-    expect(upd.body.repository.visibility).toBe('public');
+    expect(upd.body.repository.visibility).toBe('private');
+
+    const pub = await request(app)
+      .patch(`/api/v1/repos/${id}?${Q(projectId)}`)
+      .send({ visibility: 'public' });
+    expect(pub.status).toBe(400);
 
     const list = await request(app).get(`/api/v1/repos?${Q(projectId)}`);
     expect(list.status).toBe(200);
@@ -50,6 +55,15 @@ describe('git_manager /repos CRUD', () => {
 
     const after = await request(app).get(`/api/v1/repos/${id}?${Q(projectId)}`);
     expect(after.status).toBe(404);
+  });
+
+  test('rejects visibility=public on create', async () => {
+    const res = await request(app).post('/api/v1/repos').send({
+      project_id: projectId,
+      name: 'open-sesame',
+      visibility: 'public',
+    });
+    expect(res.status).toBe(400);
   });
 
   test('rejects invalid repo names', async () => {

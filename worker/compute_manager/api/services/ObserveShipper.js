@@ -44,6 +44,19 @@ class ObserveShipper {
     this.quietUntil = Date.now() + ms;
   }
 
+  isMissingContainer(err) {
+    const code = err?.statusCode || err?.status;
+    return code === 404 || /no such container/i.test(String(err?.message || ''));
+  }
+
+  async markMissing(row) {
+    try {
+      if (this.tasks.Task && typeof this.tasks.Task.update === 'function') {
+        await this.tasks.Task.update(row.id, { status: 'stopped', error_message: 'container not found' });
+      }
+    } catch (_) { /* ignore */ }
+  }
+
   async tick() {
     if (this.busy || Date.now() < this.quietUntil) return;
     this.busy = true;
@@ -57,6 +70,7 @@ class ObserveShipper {
       });
       await this.shipMetrics(row).catch((e) => {
         console.warn('[observe] metrics', row.id, e.message);
+        if (/docker stats timeout/i.test(e.message || '')) return;
         if (/timeout|ECONN|401|503/i.test(e.message || '')) this.backoff();
       });
     }
@@ -67,10 +81,25 @@ class ObserveShipper {
 
   async shipLogs(row) {
     const since = this.lastTs.get(row.id);
-    const text = await this.docker.logs(row.container_id, {
-      tail: since ? 200 : 80,
-      since: since ? Math.floor(since / 1000) : undefined,
-    });
+    let text;
+    try {
+      const host = this.tasks.hostFromRow ? this.tasks.hostFromRow(row) : null;
+      const remote = host && this.tasks.fleet && !this.tasks.fleet.isLocal(host)
+        ? await this.tasks.fleet.logs(host, row.container_id, since ? 200 : 80)
+        : null;
+      text = remote?.logs != null
+        ? remote.logs
+        : await this.docker.logs(row.container_id, {
+          tail: since ? 200 : 80,
+          since: since ? Math.floor(since / 1000) : undefined,
+        });
+    } catch (e) {
+      if (this.isMissingContainer(e)) {
+        await this.markMissing(row);
+        return;
+      }
+      throw e;
+    }
     const lines = String(text || '')
       .split('\n')
       .map((l) => l.replace(/^\x1b\[[0-9;]*m/g, '').trim())
@@ -108,8 +137,20 @@ class ObserveShipper {
   }
 
   async shipMetrics(row) {
-    const snap = await this.docker.stats(row.container_id);
-    const ts = Date.now();
+    let snap;
+    try {
+      const host = this.tasks.hostFromRow ? this.tasks.hostFromRow(row) : null;
+      const remote = host && this.tasks.fleet && !this.tasks.fleet.isLocal(host)
+        ? await this.tasks.fleet.stats(host, row.container_id)
+        : null;
+      snap = remote || await this.docker.stats(row.container_id, { timeoutMs: 5000 });
+    } catch (e) {
+      if (this.isMissingContainer(e)) {
+        await this.markMissing(row);
+        return;
+      }
+      throw e;
+    }
     const labels = JSON.stringify({ task_id: row.id, container_id: String(row.container_id).slice(0, 12) });
     for (const [metric_name, value] of [
       ['compute.cpu_percent', snap.cpu_percent],
@@ -118,17 +159,17 @@ class ObserveShipper {
       const res = await proxy({
         service: 'metrics_manager',
         method: 'POST',
-        path: '/api/v1/series',
+        path: '/api/v1/series/sample',
         projectId: row.project_id,
         body: {
           project_id: row.project_id,
-          name: `${metric_name}/${row.id}/${ts}`,
+          name: `${metric_name}/${row.id}`,
           metric_name,
           value: String(value),
           labels,
         },
-          timeout: 3000,
-        });
+        timeout: 3000,
+      });
       if (res.status >= 400) {
         console.warn('[observe] metrics_manager', res.status, res.data?.error || '');
         if (res.status === 401 || res.status === 503 || res.status === 404) this.backoff();

@@ -12,7 +12,9 @@ Follows the [icarus voice contract](https://github.com/aerekos/icarus): `POST /s
 | `kokoro` | tts-kokoro (:8013) | GPU Kokoro-82M, preset voices |
 | `xtts` | tts-service (:8002) | GPU XTTS-v2 multilingual |
 
-The Orin dictionary generator (`tts-cache-gen`) is **not modified** by ai_manager — it completed and is idle. ai_manager only reads the shared `words.db` via tts-cache-api.
+The Orin dictionary generator (`aerekos-tts-cache-gen`) is **not modified** by ai_manager — it completed and is idle. ai_manager only reads the shared `words.db` via the cache API.
+
+**Deployer:** aerekos-cloud AI Manager **Engines** tab (`POST /api/v1/engines`). Place Whisper / Kokoro / cache / vLLM / XTTS / Ollama on a GPU worker. Apps only consume integrations (`orin-stt`, …). A new device is `docker run` the worker — no host Ollama/tools install. vLLM, XTTS, and Ollama never auto-start. Tools compose and Container Hosting are not the product path for these engines.
 
 ## Endpoints
 

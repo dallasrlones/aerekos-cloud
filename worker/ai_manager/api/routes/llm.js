@@ -4,6 +4,7 @@ const { requireAuth } = require('../../../shared/authManagerClient');
 const { requireResource } = require('../../../shared/requireResource');
 const { bench, kickModel } = require('../services/benchmarkRunner');
 const { endpointKey, DEFAULT_SUITE } = require('../services/LlmBenchmarkService');
+const { emitPull } = require('../utils/aiLive');
 
 const r = express.Router();
 
@@ -71,18 +72,20 @@ r.post('/models/pull', async (req, res, next) => {
     return res.status(202).json({ status: 'pulling', model, pull: active });
   }
   const entry = trackPull(model);
+  const projectId = req.body?.project_id || req.query.project_id || req.headers['x-project-id'] || '';
   try {
     const svc = await resolveOllama(req);
     if (svc.supportsModelManagement === false) {
       pulls.delete(model);
       return res.status(409).json({
         error: {
-          message: 'Pull is not supported on vLLM. Set the Hugging Face model on the endpoint and restart vLLM on the GPU host.',
+          message: 'Pull is not supported on vLLM. Load a Hugging Face id on the endpoint (apply recreates aerekos-vllm).',
           code: 'not_supported_for_vllm',
         },
       });
     }
     await svc.ensureRunning();
+    emitPull(entry, projectId, true);
     svc.pullModel(model, (p) => {
       entry.updated_at = new Date().toISOString();
       if (typeof p.total === 'number') entry.total = p.total;
@@ -90,6 +93,7 @@ r.post('/models/pull', async (req, res, next) => {
       if (entry.total > 0) entry.percent = Math.round((entry.completed / entry.total) * 100);
       if (p.status) entry.detail = p.status;
       if (p.error) { entry.status = 'error'; entry.error = p.error; }
+      emitPull(entry, projectId, Boolean(p.error));
     })
       .then(() => {
         if (entry.status !== 'error') {
@@ -98,8 +102,14 @@ r.post('/models/pull', async (req, res, next) => {
           kickModel(model, svc);
         }
         entry.updated_at = new Date().toISOString();
+        emitPull(entry, projectId, true);
       })
-      .catch((e) => { entry.status = 'error'; entry.error = e.message; entry.updated_at = new Date().toISOString(); });
+      .catch((e) => {
+        entry.status = 'error';
+        entry.error = e.message;
+        entry.updated_at = new Date().toISOString();
+        emitPull(entry, projectId, true);
+      });
     res.status(202).json({ status: 'pulling', model, pull: entry });
   } catch (e) { pulls.delete(model); err(res, e, next); }
 });
@@ -160,7 +170,8 @@ r.post('/benchmarks/run', requireResource({ requiredScope: 'ai:InvokeLlm' }), as
     const force = req.body?.force === true || req.query.force === 'true';
     const models = Array.isArray(req.body?.models) ? req.body.models : null;
     const suite = req.body?.suite || req.query.suite || DEFAULT_SUITE;
-    const result = bench.schedulePending(svc, { models, force, suite });
+    const projectId = req.query.project_id || req.body?.project_id || req.headers['x-project-id'];
+    const result = bench.schedulePending(svc, { models, force, suite, projectId });
     res.status(result.started ? 202 : 200).json(result);
   } catch (e) { err(res, e, next); }
 });

@@ -46,6 +46,20 @@ await client.systems.check(workerId);
 await client.graphql.execute('p-123', { name: 'app', query: '{ users { id } }' });
 await client.search.query('p-123', { q: 'hello' });
 
+// Queued intelligence (do not hold Cloudflare on chat)
+const job = await client.intelligence.submit('p-123', {
+  intelligence: 'my-bot',
+  messages: [{ role: 'user', content: 'hello' }],
+});
+const done = await client.intelligence.wait('p-123', job.job?.id || job.id);
+// HTTP apps: return 202 { job_id } and poll GET. CLI/workers: submit + wait.
+// subscribe() needs socket.io-client and joins ai:live:{projectId}.
+await client.intelligence.cancel('p-123', job.job?.id || job.id);
+
+await client.queue.create('p-123', { name: 'jobs', engine: 'standard' });
+const queues = await client.queue.list('p-123');
+await client.functions.attachQueue('p-123', 'hello', 'hello-inbox');
+
 // Anything else: generic proxy to any manager
 const queues = await client.proxy('queue_manager', {
   method: 'GET',

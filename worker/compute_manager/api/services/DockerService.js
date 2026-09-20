@@ -1,4 +1,5 @@
 const Docker = require('dockerode');
+const { applyGpuHostConfig } = require('../../../shared/dockerGpuHostConfig');
 
 /**
  * Thin dockerode wrapper for user-defined task containers.
@@ -39,6 +40,8 @@ class DockerService {
    * @param {Record<string, Array<{ HostPort: string }>>} [p.portBindings] — e.g. { '80/tcp': [{ HostPort: '18080' }] }
    * @param {Record<string, string>} [p.labels]
    * @param {string} [p.network] — optional network to attach
+   * @param {string} [p.runtime] — docker runtime, e.g. `nvidia` (also via resource_limits.runtime)
+   * @param {string|number} [p.shm_size] — /dev/shm size (`1g` or bytes)
    */
   async createAndStart(p) {
     const Env = p.env
@@ -60,7 +63,19 @@ class DockerService {
     if (Array.isArray(p.binds) && p.binds.length) {
       hostConfig.Binds = p.binds;
     }
+    const limits = p.resource_limits || p.resourceLimits || {};
+    if (limits.ram_gb) {
+      hostConfig.Memory = Math.floor(Number(limits.ram_gb) * 1024 * 1024 * 1024);
+    }
+    if (limits.cpu_cores) {
+      hostConfig.NanoCpus = Math.floor(Number(limits.cpu_cores) * 1e9);
+    }
     hostConfig.RestartPolicy = { Name: p.restartPolicy || 'unless-stopped' };
+    // Compose-style host alias; Linux Docker does not inject this unless asked.
+    hostConfig.ExtraHosts = Array.isArray(p.extra_hosts) && p.extra_hosts.length
+      ? p.extra_hosts
+      : ['host.docker.internal:host-gateway'];
+    applyGpuHostConfig(hostConfig, p);
 
     const createOpts = {
       name: p.name,
@@ -121,6 +136,17 @@ class DockerService {
     return c.inspect();
   }
 
+  async inspectByName(name) {
+    const n = String(name || '').replace(/^\//, '');
+    if (!n) return null;
+    try {
+      return await this.inspect(n);
+    } catch (e) {
+      if (e.statusCode === 404) return null;
+      throw e;
+    }
+  }
+
   async listContainers() {
     const rows = await this.docker.listContainers({ all: true });
     return rows.map((c) => ({
@@ -156,15 +182,70 @@ class DockerService {
     });
   }
 
-  async stats(containerId) {
+  async stats(containerId, { timeoutMs = 5000 } = {}) {
     const c = this.docker.getContainer(containerId);
-    const s = await c.stats({ stream: false });
-    const cpuDelta = (s.cpu_stats?.cpu_usage?.total_usage || 0) - (s.precpu_stats?.cpu_usage?.total_usage || 0);
-    const sysDelta = (s.cpu_stats?.system_cpu_usage || 0) - (s.precpu_stats?.system_cpu_usage || 0);
-    const ncpu = s.cpu_stats?.online_cpus || s.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
-    const cpu = sysDelta > 0 ? (cpuDelta / sysDelta) * ncpu * 100 : 0;
-    const memory = s.memory_stats?.usage || 0;
-    return { cpu_percent: Math.round(cpu * 100) / 100, memory_bytes: memory };
+    const started = Date.now();
+    const once = () => {
+      const remain = Math.max(400, timeoutMs - (Date.now() - started));
+      return Promise.race([
+        c.stats({ stream: false }),
+        new Promise((_, reject) => {
+          const t = setTimeout(() => {
+            const e = new Error('docker stats timeout');
+            e.status = 504;
+            reject(e);
+          }, remain);
+          if (t.unref) t.unref();
+        }),
+      ]);
+    };
+    const parse = (s) => {
+      const cpuDelta = (s.cpu_stats?.cpu_usage?.total_usage || 0) - (s.precpu_stats?.cpu_usage?.total_usage || 0);
+      const sysDelta = (s.cpu_stats?.system_cpu_usage || 0) - (s.precpu_stats?.system_cpu_usage || 0);
+      const ncpu = s.cpu_stats?.online_cpus || s.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
+      const cpu = sysDelta > 0 ? (cpuDelta / sysDelta) * ncpu * 100 : 0;
+      const usage = s.memory_stats?.usage || 0;
+      const cache = s.memory_stats?.stats?.inactive_file
+        || s.memory_stats?.stats?.cache
+        || 0;
+      return {
+        cpu_percent: Math.round(cpu * 100) / 100,
+        memory_bytes: Math.max(0, usage - cache),
+        _ready: sysDelta > 0,
+      };
+    };
+    let out = parse(await once());
+    if (!out._ready) {
+      await new Promise((r) => setTimeout(r, 250));
+      out = parse(await once());
+    }
+    return { cpu_percent: out.cpu_percent, memory_bytes: out.memory_bytes };
+  }
+
+  async hostName() {
+    try {
+      const info = await this.docker.info();
+      return String(info?.Name || '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  stripLogMux(buf) {
+    const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ''), 'utf8');
+    if (b.length < 8 || (b[0] !== 1 && b[0] !== 2) || b[1] !== 0 || b[2] !== 0 || b[3] !== 0) {
+      return b.toString('utf8');
+    }
+    const parts = [];
+    let i = 0;
+    while (i + 8 <= b.length) {
+      const size = b.readUInt32BE(i + 4);
+      const start = i + 8;
+      const end = Math.min(start + size, b.length);
+      if (end > start) parts.push(b.slice(start, end));
+      i = end;
+    }
+    return Buffer.concat(parts).toString('utf8');
   }
 
   async logs(containerId, { tail = 200, since } = {}) {
@@ -172,7 +253,7 @@ class DockerService {
     const opts = { stdout: true, stderr: true, tail: Number(tail) || 200, timestamps: true };
     if (since) opts.since = since;
     const buf = await c.logs(opts);
-    return Buffer.isBuffer(buf) ? buf.toString('utf8') : String(buf || '');
+    return this.stripLogMux(buf);
   }
 
   async buildImage({ contextDir, dockerfile = 'Dockerfile', tag }) {
@@ -185,6 +266,21 @@ class DockerService {
       { cwd: contextDir, timeout: 600000, maxBuffer: 8 * 1024 * 1024 }
     );
     return { tag, logs: `${stdout || ''}${stderr || ''}` };
+  }
+
+  async tagAndPush(localTag, registryHost) {
+    const host = String(registryHost || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!host || !localTag) return null;
+    const dest = `${host}/${localTag}`;
+    const { execFile } = require('child_process');
+    const { promisify } = require('util');
+    const execFileAsync = promisify(execFile);
+    await execFileAsync('docker', ['tag', localTag, dest], { timeout: 30000 });
+    const { stdout, stderr } = await execFileAsync('docker', ['push', dest], {
+      timeout: 300000,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    return { image: dest, logs: `${stdout || ''}${stderr || ''}` };
   }
 
   async loadImage(tarPath) {

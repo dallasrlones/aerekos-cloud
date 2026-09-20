@@ -1,6 +1,6 @@
 # Agent prompt — slack_manager
 
-Slack posts (channel/text). Queued; outbound send disabled.
+Slack posts (channel/text). Send when Slack secrets exist; otherwise queue-only.
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 

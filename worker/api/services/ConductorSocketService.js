@@ -191,6 +191,11 @@ class ConductorSocketService {
           container: await containerHost.stopContainer(data?.containerId),
         }));
       });
+      this.socket.on('containers:stats', async (data) => {
+        await emitContainer('containers:stats', data, async () => ({
+          stats: await containerHost.getStats(data?.containerId),
+        }));
+      });
       this.socket.on('containers:logs', async (data) => {
         await emitContainer('containers:logs', data, async () => ({
           logs: await containerHost.getLogs(data?.containerId, { tail: data?.tail }),
@@ -200,6 +205,27 @@ class ConductorSocketService {
         await emitContainer('containers:exec', data, async () => (
           containerHost.execContainer(data?.containerId, data?.cmd, { tty: data?.tty })
         ));
+      });
+      this.socket.on('containers:inspect', async (data) => {
+        await emitContainer('containers:inspect', data, async () => ({
+          container: await containerHost.getContainer(data?.containerId || data?.name),
+        }));
+      });
+      this.socket.on('containers:pull', async (data) => {
+        await emitContainer('containers:pull', data, async () => (
+          containerHost.ensureImage(data?.image)
+        ));
+      });
+      this.socket.on('containers:create', async (data) => {
+        await emitContainer('containers:create', data, async () => ({
+          container: await containerHost.createAndStart(data?.spec || data || {}),
+        }));
+      });
+      this.socket.on('containers:remove', async (data) => {
+        await emitContainer('containers:remove', data, async () => {
+          await containerHost.removeContainer(data?.containerId, { force: data?.force !== false });
+          return { deleted: true };
+        });
       });
 
       this.socket.on('host:update', async (data) => {

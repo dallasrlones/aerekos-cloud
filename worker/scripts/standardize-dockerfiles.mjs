@@ -31,6 +31,7 @@ const containerPort = (svc) => Object.values(portMap[svc])[0];
 // so it needs the `git` binary present at runtime.
 const EXTRA_APT = {
   git_manager: ['git'],
+  compute_manager: ['git', 'docker.io'],
   download_manager: ['ffmpeg'],
 };
 

@@ -62,6 +62,18 @@ async function appProxyAuth(req, res, next) {
     }
   } catch (_) { /* fall through */ }
 
+  const workerAllowed = [
+    process.env.WORKER_REGISTRATION_TOKEN,
+    process.env.WORKER_TOKEN,
+    process.env.CONDUCTOR_TOKEN,
+  ].filter(Boolean);
+  if (token && workerAllowed.includes(token)) {
+    req.service = { id: 'worker', name: 'worker', token };
+    req.tokenType = 'service';
+    req.isAppCredential = false;
+    return next();
+  }
+
   const payload = peekPayload(token);
   if (payload && payload.iss === AUTH_ISSUER && payload.typ === 'app') {
     const claims = await verifyAppToken(token);

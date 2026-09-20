@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
+const { authenticateWorkerOrUser } = require('../middleware/workerTokenAuth');
 const FleetHealthService = require('../services/FleetHealthService');
 
 router.get('/health', authenticate, async (req, res, next) => {
@@ -10,6 +11,44 @@ router.get('/health', authenticate, async (req, res, next) => {
     const projectId = req.query.project_id || null;
     const snap = await FleetHealthService.snapshot(projectId);
     res.json(snap);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/capacity', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    const CapacityService = require('../services/CapacityService');
+    const hosts = await CapacityService.hosts();
+    res.json({ hosts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/capacity/can-fit', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    const CapacityService = require('../services/CapacityService');
+    const workerId = req.body.worker_id || req.body.hostname;
+    const result = await CapacityService.canFitOn(workerId, {
+      requestGb: req.body.request_gb,
+      reserveGb: req.body.reserve_gb,
+      already: req.body.already,
+    });
+    const status = result.fit.ok ? 200 : 409;
+    res.status(status).json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
+router.post('/capacity/enqueue', authenticate, async (req, res, next) => {
+  try {
+    const CapacityService = require('../services/CapacityService');
+    const projectId = req.body.project_id || req.query.project_id;
+    if (!projectId) return res.status(400).json({ error: { message: 'project_id required' } });
+    res.json(await CapacityService.enqueue(projectId, req.body || {}));
   } catch (err) {
     next(err);
   }
@@ -26,6 +65,7 @@ router.get('/updates', authenticate, async (req, res, next) => {
       return {
         id: w.id,
         hostname: w.hostname,
+        display_name: w.display_name || '',
         current,
         desired: decision.version,
         update: decision.update,

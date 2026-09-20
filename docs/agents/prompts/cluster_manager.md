@@ -1,6 +1,6 @@
 # Agent prompt — cluster_manager
 
-Detect k3s on the worker host. Install only on explicit confirm — never auto-install on prod.
+Docker fleet inventory on the worker host. Optional k3s detect/install only on explicit confirm — never auto-install on prod.
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 
@@ -13,6 +13,7 @@ Base: `{VERB} {CONDUCTOR}/api/services/cluster_manager{path}`
 - `GET /api/v1/clusters/:id` — Get one cluster
 - `PATCH /api/v1/clusters/:id` — Update a cluster
 - `DELETE /api/v1/clusters/:id` — Delete a cluster
+- `GET /api/v1/clusters/:id/fleet` — List docker containers on this host
 - `GET /api/v1/clusters/:id/k3s/status` — Detect k3s on the host
 - `POST /api/v1/clusters/:id/k3s/install` — Install k3s only if { confirm: true }
 

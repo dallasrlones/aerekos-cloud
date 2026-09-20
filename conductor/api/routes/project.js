@@ -37,7 +37,12 @@ router.use('/:id', authenticate, requireProjectMember);
 router.get('/:id/environments', authenticate, async (req, res, next) => {
   try {
     const EnvironmentService = require('../services/EnvironmentService');
-    const environments = await EnvironmentService.ensureForProject(req.params.id);
+    const { isSystemProject } = require('../config/systemProject');
+    const project = await ProjectService.getProject(req.params.id);
+    const system = isSystemProject(req.params.id) || String(project?.name || '').toLowerCase() === 'system';
+    const environments = system
+      ? await EnvironmentService.ensureForProject(req.params.id, project?.name)
+      : await EnvironmentService.list(req.params.id);
     res.json({ environments });
   } catch (error) {
     next(error);
@@ -49,6 +54,22 @@ router.post('/:id/environments', authenticate, async (req, res, next) => {
     const EnvironmentService = require('../services/EnvironmentService');
     const environment = await EnvironmentService.create(req.params.id, req.body || {});
     res.status(201).json({ environment });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: { message: error.message, status: error.status } });
+    next(error);
+  }
+});
+
+router.post('/:id/environments/:name/duplicate', authenticate, async (req, res, next) => {
+  try {
+    const EnvironmentService = require('../services/EnvironmentService');
+    const result = await EnvironmentService.duplicate(
+      req.params.id,
+      req.params.name,
+      req.body?.target || req.body?.name,
+      { authorization: req.headers.authorization }
+    );
+    res.status(201).json(result);
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: { message: error.message, status: error.status } });
     next(error);
@@ -121,7 +142,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
  */
 router.post('/', authenticate, async (req, res, next) => {
   try {
-    const { name, description, enabled, config } = req.body;
+    const { name, description, enabled, config, default_environment } = req.body;
     
     if (!name || name.trim().length < 3) {
       return res.status(400).json({
@@ -136,7 +157,8 @@ router.post('/', authenticate, async (req, res, next) => {
       name: name.trim(),
       description: description || '',
       enabled: enabled !== undefined ? enabled : true,
-      config: config || {}
+      config: config || {},
+      default_environment
     });
     try {
       const IacHookupService = require('../services/IacHookupService');
@@ -205,13 +227,14 @@ router.post('/', authenticate, async (req, res, next) => {
 router.put('/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, enabled, config } = req.body;
+    const { name, description, enabled, config, default_environment } = req.body;
     
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (enabled !== undefined) updateData.enabled = enabled;
     if (config !== undefined) updateData.config = config;
+    if (default_environment !== undefined) updateData.default_environment = default_environment;
     
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
@@ -434,7 +457,7 @@ router.get('/:id/deployments', authenticate, async (req, res, next) => {
 router.post('/:id/services/:serviceId/enable', authenticate, async (req, res, next) => {
   try {
     const { id, serviceId } = req.params;
-    const result = await ProjectService.enableServiceForProject(id, serviceId);
+    const result = await ProjectService.enableServiceForProject(id, serviceId, req.body?.worker_id || null);
     
     res.json({
       success: true,

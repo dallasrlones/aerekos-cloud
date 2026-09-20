@@ -18,6 +18,7 @@ export const ProjectForm = ({ navigation, route }) => {
     name: '',
     description: '',
     enabled: true,
+    default_environment: 'dev',
   });
   
   const [errors, setErrors] = useState({});
@@ -72,6 +73,8 @@ export const ProjectForm = ({ navigation, route }) => {
           name: formData.name.trim(),
           description: formData.description.trim(),
           enabled: formData.enabled,
+          default_environment: formData.default_environment || 'dev',
+          config: { default_environment: formData.default_environment || 'dev' },
         });
         
         if (result.success) {
@@ -162,6 +165,25 @@ export const ProjectForm = ({ navigation, route }) => {
         numberOfLines={4}
         style={ProjectFormStyles.descriptionInput}
       />
+
+      {mode === 'create' ? (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={ProjectFormStyles.toggleLabel}>Starting environment</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 8 }}>
+            Only this environment is created. You can duplicate it later.
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {['dev', 'prod'].map((name) => (
+              <Button
+                key={name}
+                title={name}
+                variant={formData.default_environment === name ? 'primary' : 'secondary'}
+                onPress={() => setFormData({ ...formData, default_environment: name })}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={ProjectFormStyles.toggleContainer}>
         <Text style={ProjectFormStyles.toggleLabel}>Enabled</Text>

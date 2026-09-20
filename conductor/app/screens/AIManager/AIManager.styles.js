@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { colors, spacing, typography, borderRadius } from '../../styles/theme';
 
 export const AIManagerStyles = StyleSheet.create({
@@ -91,6 +91,65 @@ export const AIManagerStyles = StyleSheet.create({
   chatInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   chatInput: { minHeight: 44, maxHeight: 120 },
   sendBtn: { minWidth: 90 },
+
+  gptShell: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: borderRadius.lg || 12,
+    backgroundColor: colors.background,
+    minHeight: Platform.OS === 'web' ? 420 : 400,
+    height: Platform.OS === 'web' ? '48vh' : 480,
+    overflow: 'hidden',
+  },
+  gptHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  gptTitle: { ...typography.h3 },
+  gptSub: { ...typography.caption, marginTop: 2 },
+  llmLiveRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  gptModes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  gptAgentRow: { maxHeight: 44, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  gptThread: { flex: 1 },
+  gptThreadInner: { padding: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
+  gptEmpty: { paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.sm },
+  gptEmptyTitle: { ...typography.h2, textAlign: 'center' },
+  gptRow: { width: '100%', marginBottom: spacing.sm },
+  gptRowMine: { alignItems: 'flex-end' },
+  gptRowTheirs: { alignItems: 'flex-start' },
+  gptBubble: {
+    maxWidth: '78%',
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  gptBubbleMine: { backgroundColor: colors.primary },
+  gptBubbleTheirs: { backgroundColor: colors.surface },
+  gptBubbleText: { ...typography.body, lineHeight: 22 },
+  gptBubbleTextMine: { color: '#FFFFFF' },
+  gptAskCard: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  gptAskRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  gptBoardLink: { ...typography.caption, color: colors.primary, marginTop: 6 },
+  gptComposer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    padding: spacing.md,
+    backgroundColor: colors.cardBackground,
+  },
+  gptInput: { minHeight: 52, maxHeight: 140, marginBottom: spacing.sm },
+  gptComposerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   metaText: { ...typography.caption, marginTop: spacing.xs },
   tabRow: {
     flexDirection: 'row',
@@ -171,4 +230,26 @@ export const AIManagerStyles = StyleSheet.create({
   subTabTextActive: { color: colors.primary, fontWeight: '600' },
   rowBtn: { minHeight: 36, paddingVertical: 6, paddingHorizontal: 12, marginLeft: 4 },
   rowActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+  orbitWrap: {
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: borderRadius.lg || 12,
+    overflow: 'hidden',
+    backgroundColor: colors.cardBackground,
+  },
+  orbitCanvasWrap: {
+    height: Platform.OS === 'web' ? 200 : 72,
+    overflow: 'hidden',
+  },
+  orbitCanvas: { width: '100%', height: '100%' },
+  orbitHud: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  orbitHudText: { ...typography.caption, fontWeight: '600' },
+  orbitScrub: { paddingHorizontal: spacing.md, paddingVertical: 8, maxHeight: 120, overflow: 'auto' },
+  orbitScrubLine: { ...typography.bodySecondary, fontSize: 13, lineHeight: 18 },
 });

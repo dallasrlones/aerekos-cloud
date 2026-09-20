@@ -31,6 +31,27 @@ r.post('/:id/test', async (req, res, next) => {
   }
 });
 
+r.post('/:id/apply', async (req, res, next) => {
+  try {
+    const projectId = q(req);
+    let item = await s.get(req.params.id, projectId);
+    if (item.provider !== 'vllm') {
+      return res.status(409).json({ error: { message: 'apply is vLLM-only' } });
+    }
+    const patch = {};
+    if (req.body?.model) patch.model = req.body.model;
+    if (req.body?.options) patch.options = req.body.options;
+    if (Object.keys(patch).length) {
+      item = await s.update(req.params.id, projectId, patch);
+    }
+    const { VllmServeService } = require('../services/VllmServeService');
+    res.json(await new VllmServeService().apply(item, req.body || {}));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message, code: e.code, capacity: e.capacity } });
+    next(e);
+  }
+});
+
 r.post('/', async (req, res, next) => {
   try {
     const item = await s.create({ ...req.body, project_id: q(req) });

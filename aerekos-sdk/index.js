@@ -59,6 +59,8 @@ class AerekosClient {
     this.stt = new SttApi(this);
     this.tts = new TtsApi(this);
     this.memory = new MemoryApi(this);
+    this.agents = new AgentsApi(this);
+    this.connectors = new ConnectorsApi(this);
     this.compute = new ComputeApi(this);
     this.balancer = new BalancerApi(this);
     this.gateway = new GatewayApi(this);
@@ -506,6 +508,97 @@ class IntelligenceApi {
       body: { project_id: projectId, ...body },
     });
   }
+  _jobPretty(projectId, name, suffix) {
+    return `/v1/projects/${encodeURIComponent(projectId)}/ai/intelligence/${encodeURIComponent(name)}/jobs${suffix || ''}`;
+  }
+  async submit(projectId, body = {}) {
+    const name = body.intelligence || body.name || body.endpoint_name;
+    const payload = { project_id: projectId, ...body };
+    const pretty = name ? this._jobPretty(projectId, name, '') : null;
+    if (pretty && this.c.token) {
+      try {
+        return await this.c.request('POST', pretty, { body: payload });
+      } catch (_) { /* fall through */ }
+    }
+    return this.c.proxy('ai_manager', {
+      method: 'POST',
+      path: '/api/v1/intelligence/jobs',
+      projectId,
+      body: payload,
+    });
+  }
+  async job(projectId, jobId, { intelligence } = {}) {
+    const pretty = intelligence ? this._jobPretty(projectId, intelligence, `/${encodeURIComponent(jobId)}`) : null;
+    if (pretty && this.c.token) {
+      try {
+        return await this.c.request('GET', pretty, { query: { project_id: projectId } });
+      } catch (_) { /* fall through */ }
+    }
+    return this.c.proxy('ai_manager', {
+      path: `/api/v1/intelligence/jobs/${encodeURIComponent(jobId)}`,
+      projectId,
+      query: { project_id: projectId },
+    });
+  }
+  async cancel(projectId, jobId, { intelligence } = {}) {
+    const pretty = intelligence ? this._jobPretty(projectId, intelligence, `/${encodeURIComponent(jobId)}/cancel`) : null;
+    if (pretty && this.c.token) {
+      try {
+        return await this.c.request('POST', pretty, { body: { project_id: projectId } });
+      } catch (_) { /* fall through */ }
+    }
+    return this.c.proxy('ai_manager', {
+      method: 'POST',
+      path: `/api/v1/intelligence/jobs/${encodeURIComponent(jobId)}/cancel`,
+      projectId,
+      body: { project_id: projectId },
+    });
+  }
+  async wait(projectId, jobId, { intervalMs = 2000, timeoutMs = 30 * 60 * 1000, onUpdate, onDelta } = {}) {
+    const started = Date.now();
+    let lastPartial = '';
+    while (Date.now() - started < timeoutMs) {
+      const snap = await this.job(projectId, jobId);
+      const row = snap.job || snap;
+      if (onUpdate) onUpdate(row);
+      const partial = row.partial || '';
+      if (onDelta && partial.length > lastPartial.length) {
+        onDelta(partial.slice(lastPartial.length));
+        lastPartial = partial;
+      }
+      if (['succeeded', 'failed', 'cancelled'].includes(row.status)) return row;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new AerekosError(`job ${jobId} timed out`, { code: 'TIMEOUT' });
+  }
+  subscribe(projectId, jobId, { onUpdate, onDelta, baseUrl } = {}) {
+    let io;
+    try { io = require('socket.io-client'); } catch (e) {
+      throw new AerekosError('socket.io-client is required for intelligence.subscribe — npm i socket.io-client', { code: 'NO_SOCKET' });
+    }
+    const root = (baseUrl || this.c.baseUrl).replace(/\/$/, '');
+    const room = `ai:live:${projectId}`;
+    const socket = io(`${root}/frontend`, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      auth: { token: this.c.token, projectId },
+    });
+    const handler = (payload) => {
+      if (payload?.job_id && payload.job_id !== jobId && payload.job?.id !== jobId) return;
+      if (payload?.delta && onDelta) onDelta(payload.delta, payload.partial);
+      if (onUpdate) onUpdate(payload.job || payload);
+    };
+    socket.on('connect', () => socket.emit('live:subscribe', { room, project_id: projectId }));
+    socket.on('ai:job', handler);
+    socket.on('ai:job.token', handler);
+    return {
+      socket,
+      close() {
+        socket.emit('live:unsubscribe', { room });
+        socket.close();
+      },
+    };
+  }
   async attachBalancer(projectId, name, { backends, health_check_path, address } = {}) {
     const addr = address || (Array.isArray(backends) && backends[0]) || 'http://127.0.0.1:11434';
     const lb = await this.c.proxy('balancer_manager', {
@@ -608,6 +701,155 @@ class MemoryApi {
   }
 }
 
+class AgentsApi {
+  constructor(client) {
+    this.c = client;
+  }
+  _p(projectId, path, { method = 'GET', body, query } = {}) {
+    return this.c.proxy('ai_manager', {
+      method,
+      path: `/api/v1/agents${path}`,
+      projectId,
+      query: { project_id: projectId, ...query },
+      body: body != null ? { project_id: projectId, ...body } : undefined,
+    });
+  }
+  setupStatus(projectId) { return this._p(projectId, '/setup/status'); }
+  setup(projectId, body = {}) { return this._p(projectId, '/setup', { method: 'POST', body }); }
+  settings(projectId) { return this._p(projectId, '/settings'); }
+  updateSettings(projectId, body) { return this._p(projectId, '/settings', { method: 'PATCH', body }); }
+  fleet(projectId) { return this._p(projectId, '/fleet'); }
+  resume(projectId) { return this._p(projectId, '/resume', { method: 'POST', body: {} }); }
+  list(projectId) { return this._p(projectId, ''); }
+  get(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}`); }
+  create(projectId, body) { return this._p(projectId, '', { method: 'POST', body }); }
+  update(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}`, { method: 'PATCH', body }); }
+  remove(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+  chat(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/chat`, { method: 'POST', body }); }
+  voice(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/voice`, { method: 'POST', body }); }
+  interrupt(projectId, id, body = {}) { return this._p(projectId, `/${encodeURIComponent(id)}/interrupt`, { method: 'POST', body }); }
+  approve(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/approve`, { method: 'POST', body }); }
+  pulse(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/pulse`); }
+  messages(projectId, id, query) { return this._p(projectId, `/${encodeURIComponent(id)}/messages`, { query }); }
+  pins(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/pins`); }
+  pin(projectId, id, key, value) { return this._p(projectId, `/${encodeURIComponent(id)}/pins`, { method: 'POST', body: { key, value } }); }
+  forget(projectId, id, key) { return this._p(projectId, `/${encodeURIComponent(id)}/pins/${encodeURIComponent(key)}`, { method: 'DELETE' }); }
+  exportMemory(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/memory/export`); }
+  wipeMemory(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/memory/wipe`, { method: 'POST', body: {} }); }
+  rolls(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/rolls`); }
+  refreshRolls(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/rolls/refresh`, { method: 'POST', body: {} }); }
+  work(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/work`); }
+  createWork(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/work`, { method: 'POST', body }); }
+  asks(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/asks`); }
+  workers(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/workers`); }
+  spawn(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/workers`, { method: 'POST', body }); }
+  runWorker(projectId, id, wid, body = {}) { return this._p(projectId, `/${encodeURIComponent(id)}/workers/${encodeURIComponent(wid)}/run`, { method: 'POST', body }); }
+  cron(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/cron`); }
+  createCron(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/cron`, { method: 'POST', body }); }
+  fireCron(projectId, id, cid) { return this._p(projectId, `/${encodeURIComponent(id)}/cron/${encodeURIComponent(cid)}/fire`, { method: 'POST', body: {} }); }
+  skills(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/skills`); }
+  createSkill(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/skills`, { method: 'POST', body }); }
+  audit(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/audit`); }
+  fs(projectId, id, rel) { return this._p(projectId, `/${encodeURIComponent(id)}/fs`, { query: { path: rel || '.' } }); }
+  fsWrite(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/fs`, { method: 'POST', body }); }
+  term(projectId, id, cmd) { return this._p(projectId, `/${encodeURIComponent(id)}/term`, { method: 'POST', body: { cmd } }); }
+  tool(projectId, id, body) { return this._p(projectId, `/${encodeURIComponent(id)}/tools`, { method: 'POST', body }); }
+  compact(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/compact`, { method: 'POST', body: {} }); }
+  plans(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/plans`); }
+  plan(projectId, id, planId) { return this._p(projectId, `/${encodeURIComponent(id)}/plans/${encodeURIComponent(planId)}`); }
+  consoleEvents(projectId, id, body) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/console-events`, { method: 'POST', body });
+  }
+  timeline(projectId, id, since) { return this._p(projectId, `/${encodeURIComponent(id)}/timeline`, { query: since ? { since } : {} }); }
+  prompts(projectId, id) { return this._p(projectId, `/${encodeURIComponent(id)}/prompts`); }
+  patchPrompts(projectId, id, prompts) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/prompts`, { method: 'PATCH', body: { prompts } });
+  }
+  resetPrompts(projectId, id) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/prompts/reset`, { method: 'POST', body: {} });
+  }
+  patchWork(projectId, id, workId, body) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/work/${encodeURIComponent(workId)}`, { method: 'PATCH', body });
+  }
+  reorderWork(projectId, id, ids) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/work/reorder`, { method: 'POST', body: { ids } });
+  }
+  browserFrame(projectId, id, frameId) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/browser/frames/${encodeURIComponent(frameId)}`);
+  }
+  prDiff(projectId, id, prId) {
+    return this._p(projectId, `/${encodeURIComponent(id)}/prs/${encodeURIComponent(prId)}/diff`);
+  }
+  subscribeAsks(projectId, agentId, { onAsk, onAnswered, onPulse, onDone, baseUrl } = {}) {
+    let io;
+    try { io = require('socket.io-client'); } catch (e) {
+      throw new AerekosError('socket.io-client is required for agents.subscribeAsks', { code: 'NO_SOCKET' });
+    }
+    const root = (baseUrl || this.c.baseUrl).replace(/\/$/, '');
+    const room = `ai:live:${projectId}`;
+    const socket = io(`${root}/frontend`, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      auth: { token: this.c.token, projectId },
+    });
+    socket.on('connect', () => socket.emit('live:subscribe', { room, project_id: projectId }));
+    if (onAsk) {
+      socket.on('ai:agent.ask', (payload) => {
+        if (agentId && payload?.ask && payload.ask.agent_id && payload.ask.agent_id !== agentId) return;
+        onAsk(payload.ask || payload);
+      });
+    }
+    if (onAnswered) {
+      socket.on('ai:agent.ask.answered', (payload) => {
+        if (agentId && payload?.ask && payload.ask.agent_id && payload.ask.agent_id !== agentId) return;
+        onAnswered(payload.ask || payload);
+      });
+    }
+    if (onPulse) socket.on('ai:agent.pulse', (payload) => onPulse(payload.pulse || payload));
+    if (onDone) socket.on('ai:agent.done', (payload) => onDone(payload));
+    return {
+      socket,
+      close() {
+        socket.emit('live:unsubscribe', { room });
+        socket.close();
+      },
+    };
+  }
+}
+
+class ConnectorsApi {
+  constructor(client) {
+    this.c = client;
+  }
+  kinds() {
+    return this.c.proxy('ai_manager', { path: '/api/v1/connectors/kinds' });
+  }
+  list(projectId) {
+    return this.c.proxy('ai_manager', { path: '/api/v1/connectors', projectId, query: { project_id: projectId } });
+  }
+  get(projectId, id) {
+    return this.c.proxy('ai_manager', { path: `/api/v1/connectors/${encodeURIComponent(id)}`, projectId, query: { project_id: projectId } });
+  }
+  create(projectId, body) {
+    return this.c.proxy('ai_manager', {
+      method: 'POST', path: '/api/v1/connectors', projectId, body: { project_id: projectId, ...body },
+    });
+  }
+  update(projectId, id, body) {
+    return this.c.proxy('ai_manager', {
+      method: 'PATCH', path: `/api/v1/connectors/${encodeURIComponent(id)}`, projectId, body: { project_id: projectId, ...body },
+    });
+  }
+  remove(projectId, id) {
+    return this.c.proxy('ai_manager', { method: 'DELETE', path: `/api/v1/connectors/${encodeURIComponent(id)}`, projectId });
+  }
+  invoke(projectId, body) {
+    return this.c.proxy('ai_manager', {
+      method: 'POST', path: '/api/v1/connectors/invoke', projectId, body: { project_id: projectId, ...body },
+    });
+  }
+}
+
 class ComputeApi {
   constructor(client) {
     this.c = client;
@@ -691,6 +933,20 @@ class LoraApi {
   train(projectId, body) {
     return this.c.proxy('ai_manager', { method: 'POST', path: '/api/v1/lora/train', projectId, body: { project_id: projectId, ...body } });
   }
+  submit(projectId, body) { return this.train(projectId, body); }
+  job(projectId, id) {
+    return this.c.proxy('ai_manager', { path: `/api/v1/lora/${encodeURIComponent(id)}`, projectId, query: { project_id: projectId } });
+  }
+  async wait(projectId, id, { intervalMs = 2000, timeoutMs = 12 * 60 * 60 * 1000 } = {}) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const snap = await this.job(projectId, id);
+      const status = snap.job?.status || snap.adapter?.status;
+      if (['completed', 'failed', 'cancelled'].includes(status)) return snap;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new AerekosError(`lora ${id} timed out`, { code: 'TIMEOUT' });
+  }
   attach(projectId, adapterId, intelligence) {
     return this.c.proxy('ai_manager', {
       method: 'POST', path: '/api/v1/lora/attach', projectId,
@@ -763,6 +1019,30 @@ class FunctionsApi {
       body: { project_id: projectId, payload: payload || {}, invocation_type: invocationType || 'RequestResponse' },
     });
   }
+  async attachQueue(projectId, name, queueName, { engine } = {}) {
+    const list = await this.c.proxy('function_manager', { path: '/api/v1/functions', projectId, query: { project_id: projectId } });
+    const items = list.items || list || [];
+    const fn = items.find((x) => x.name === name || x.id === name);
+    if (!fn) throw new AerekosError(`function ${name} not found`, { code: 'NOT_FOUND' });
+    return this.c.proxy('function_manager', {
+      method: 'POST',
+      path: `/api/v1/functions/${encodeURIComponent(fn.id)}/event-sources`,
+      projectId,
+      body: { project_id: projectId, kind: 'queue', ref: queueName, engine },
+    });
+  }
+  async detachQueue(projectId, name, sourceId) {
+    const list = await this.c.proxy('function_manager', { path: '/api/v1/functions', projectId, query: { project_id: projectId } });
+    const items = list.items || list || [];
+    const fn = items.find((x) => x.name === name || x.id === name);
+    if (!fn) throw new AerekosError(`function ${name} not found`, { code: 'NOT_FOUND' });
+    return this.c.proxy('function_manager', {
+      method: 'DELETE',
+      path: `/api/v1/functions/${encodeURIComponent(fn.id)}/event-sources/${encodeURIComponent(sourceId)}`,
+      projectId,
+      query: { project_id: projectId },
+    });
+  }
 }
 
 class QueueApi {
@@ -770,6 +1050,17 @@ class QueueApi {
   create(projectId, body) {
     return this.c.proxy('queue_manager', { method: 'POST', path: '/api/v1/queues', projectId, body: { project_id: projectId, engine: 'standard', ...body } });
   }
+  list(projectId) {
+    return this.c.proxy('queue_manager', { path: '/api/v1/queues', projectId, query: { project_id: projectId } });
+  }
+  get(projectId, name) {
+    return this.c.proxy('queue_manager', { path: `/api/v1/queues/${encodeURIComponent(name)}`, projectId, query: { project_id: projectId } });
+  }
+  remove(projectId, name) {
+    return this.c.proxy('queue_manager', { method: 'DELETE', path: `/api/v1/queues/${encodeURIComponent(name)}`, projectId, query: { project_id: projectId } });
+  }
+  delete(projectId, name) { return this.remove(projectId, name); }
+  stats(projectId, name) { return this.get(projectId, name); }
   send(projectId, { name, body }) {
     return this.c.proxy('queue_manager', { method: 'POST', path: `/api/v1/queues/${encodeURIComponent(name)}/messages`, projectId, body: { project_id: projectId, body } });
   }
@@ -841,6 +1132,12 @@ class StacksApi {
   }
   get(projectId) {
     return this.c.get(`/api/projects/${encodeURIComponent(projectId)}/stack`);
+  }
+  put(projectId, body) {
+    return this.c.request('PUT', `/api/projects/${encodeURIComponent(projectId)}/stack`, { body });
+  }
+  record(projectId, body) {
+    return this.c.request('POST', `/api/projects/${encodeURIComponent(projectId)}/stack/record`, { body });
   }
 }
 
@@ -936,6 +1233,7 @@ class IacApi {
   status(projectId) { return this.c.request('GET', `/api/projects/${projectId}/iac/status`); }
   hookup(projectId, body) { return this.c.request('POST', `/api/projects/${projectId}/iac/hookup`, { body }); }
   apply(projectId) { return this.c.request('POST', `/api/projects/${projectId}/stack/apply`); }
+  put(projectId, body) { return this.c.request('PUT', `/api/projects/${projectId}/stack`, { body }); }
 }
 
 class EdgeApi {

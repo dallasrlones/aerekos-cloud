@@ -12,8 +12,8 @@ const errorHandler = require('./api/middleware/errorHandler');
 const app = express();
 const PORT = parseInt(process.env.PORT || '3126', 10);
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 setupPrometheus(app, { serviceName: 'ai_manager' });
 app.get('/health', async (req, res) => {
   try {
@@ -45,6 +45,34 @@ if (require.main === module) {
     if (process.env.SKIP_SERVICE_REGISTRATION === 'true') return;
     if (!process.env.CONDUCTOR_URL) { console.warn('[ai_manager] CONDUCTOR_URL not set; skipping registration'); return; }
     try { await registerWithConductor(); } catch (e) { console.warn('Registration error:', e.message); }
+    try {
+      const { EngineService } = require('./api/services/EngineService');
+      await new EngineService().seedFromHost();
+    } catch (e) {
+      console.warn('[ai_manager] engine seed skipped:', e.message);
+    }
+    try {
+      const { IntelligenceJobConsumer } = require('./api/services/IntelligenceJobConsumer');
+      await new IntelligenceJobConsumer().start();
+    } catch (e) {
+      console.warn('[ai_manager] job consumer skipped:', e.message);
+    }
+    try {
+      const { AgentRuntime } = require('./api/services/AgentRuntime');
+      const { AgentCronTicker } = require('./api/services/AgentCronTicker');
+      const runtime = new AgentRuntime();
+      const ticker = new AgentCronTicker({ runtime, agents: runtime.agents });
+      ticker.start();
+      if (process.env.SKIP_CRON !== '1' && process.env.SKIP_RESUME !== '1') {
+        const all = await runtime.agents.listAll();
+        const pids = [...new Set((all || []).map((a) => a.project_id))];
+        for (const pid of pids) {
+          try { await runtime.resume(pid); } catch (e) { console.warn('[ai_manager] resume', pid, e.message); }
+        }
+      }
+    } catch (e) {
+      console.warn('[ai_manager] cron/resume skipped:', e.message);
+    }
   });
 }
 module.exports = app;

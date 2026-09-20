@@ -3,7 +3,7 @@
 #
 # ROLE:
 #   full       — docker-compose.full.yml (unsafe on mixed prod-mini; do not use there)
-#   core|conductor — mixed stack: bind-mount restarts + --no-deps manager rebuilds
+#   core|conductor — mixed stack: bind-mount restarts + --no-deps --build managers (skip auth_manager)
 #   worker     — worker/docker-compose.yml
 set -uo pipefail
 
@@ -67,16 +67,21 @@ apply_core() {
   fi
   local svcs
   svcs=$(docker compose --project-directory "$HOST_DIR" "${files[@]}" config --services 2>/dev/null \
-    | grep -vx "$UPDATER_SERVICE" | grep -vx "auth_manager" | grep -vx "aerekos-updater" | tr '\n' ' ' || true)
+    | grep -vx "$UPDATER_SERVICE" | grep -vx "auth_manager" | grep -vx "aerekos-updater" \
+    | grep -vx "conductor" | grep -vx "frontend" | grep -vx "worker" || true)
   if [ -z "$svcs" ]; then
     log "No manager services to rebuild; bind-mount restart only"
     return 0
   fi
-  if ! APP_VERSION="$version" docker compose --project-directory "$HOST_DIR" "${files[@]}" \
-       up -d --build --no-deps $svcs; then
-    log "ERROR: core/platform compose up failed"
-    return 1
-  fi
+  # One service at a time with --build. Mass --build OOMs the updater (exit 137).
+  # Never --remove-orphans (mixed stack). Never rebuild auth_manager (C0 mint).
+  local svc
+  for svc in $svcs; do
+    if ! APP_VERSION="$version" docker compose --project-directory "$HOST_DIR" "${files[@]}" \
+         up -d --no-deps --build "$svc"; then
+      log "WARN: --no-deps --build $svc failed; continuing"
+    fi
+  done
   if c0_ok; then
     log "C0 mint still reachable; leaving auth_manager as-is"
   else
@@ -95,23 +100,50 @@ apply_worker() {
        up -d --build $services; then
     log "ERROR: compose up failed for $version"; return 1
   fi
-  if [ -f "$HOST_DIR/worker/ai/docker-compose.yml" ] || [ -f "$HOST_DIR/docker-compose.ai.yml" ]; then
-    local ai_file=""
-    [ -f "$HOST_DIR/docker-compose.ai.yml" ] && ai_file="$HOST_DIR/docker-compose.ai.yml"
-    [ -f "$HOST_DIR/worker/ai/docker-compose.yml" ] && ai_file="$HOST_DIR/worker/ai/docker-compose.yml"
-    if [ -n "$ai_file" ]; then
-      local vllm_state
-      vllm_state=$(docker inspect -f '{{.State.Status}}' aerekos-vllm 2>/dev/null || echo missing)
-      if [ "$vllm_state" = "running" ]; then
-        log "vLLM running — leaving it alone"
-      else
-        log "vLLM is $vllm_state — not starting it"
+  # Real file is worker/docker-compose.ai.yml (project aerekos-ai). Legacy paths
+  # kept as fallback. Never compose docker-compose.vllm.yml. Never start vLLM
+  # if it is down. Never --remove-orphans.
+  local ai_file=""
+  if [ -f "$HOST_DIR/worker/docker-compose.ai.yml" ]; then
+    ai_file="$HOST_DIR/worker/docker-compose.ai.yml"
+  elif [ -f "$HOST_DIR/worker/ai/docker-compose.yml" ]; then
+    ai_file="$HOST_DIR/worker/ai/docker-compose.yml"
+  elif [ -f "$HOST_DIR/docker-compose.ai.yml" ]; then
+    ai_file="$HOST_DIR/docker-compose.ai.yml"
+  fi
+  if [ -n "$ai_file" ]; then
+    local vllm_state
+    vllm_state=$(docker inspect -f '{{.State.Status}}' aerekos-vllm 2>/dev/null || echo missing)
+    if [ "$vllm_state" = "running" ]; then
+      log "vLLM running — leaving it alone"
+    else
+      log "vLLM is $vllm_state — not starting it"
+    fi
+    # Place API is source of truth for engines. Only refresh voice if already
+    # running. Never start vLLM / XTTS / Ollama. Never --remove-orphans.
+    local ai_svcs="" svc cname state
+    while read -r svc; do
+      [ -z "$svc" ] || [ "$svc" = "vllm" ] && continue
+      case "$svc" in
+        stt) cname=aerekos-stt ;;
+        tts_kokoro) cname=aerekos-tts-kokoro ;;
+        tts_cache) cname=aerekos-tts-cache ;;
+        tts_cache_gen) cname=aerekos-tts-cache-gen ;;
+        *) cname="" ;;
+      esac
+      if [ -n "$cname" ]; then
+        state=$(docker inspect -f '{{.State.Status}}' "$cname" 2>/dev/null || echo missing)
+        if [ "$state" != "running" ]; then
+          log "engine $svc is $state — not starting it"
+          continue
+        fi
       fi
-      local ai_svcs
-      ai_svcs=$(docker compose -f "$ai_file" config --services 2>/dev/null | grep -vxe 'vllm' | tr '\n' ' ' || true)
-      if [ -n "$ai_svcs" ]; then
-        docker compose -f "$ai_file" up -d --no-deps $ai_svcs || log "WARN: ai compose --no-deps failed"
-      fi
+      ai_svcs="$ai_svcs $svc"
+    done < <(docker compose --project-directory "$HOST_DIR/worker" -p aerekos-ai -f "$ai_file" config --services 2>/dev/null || true)
+    ai_svcs=$(echo "$ai_svcs" | xargs)
+    if [ -n "$ai_svcs" ]; then
+      docker compose --project-directory "$HOST_DIR/worker" -p aerekos-ai -f "$ai_file" \
+        up -d --no-deps $ai_svcs || log "WARN: ai compose --no-deps failed"
     fi
   fi
 }

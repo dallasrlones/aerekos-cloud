@@ -2,6 +2,8 @@
 
 const { Worker, Service, ServiceDeployment } = require('../models');
 const { inferRoles, parseCaps, parseResources } = require('./deviceRoles');
+const { ramFromResources } = require('./CapacityService');
+const { versionInfo } = require('../utils/version');
 const SetupService = require('./SetupService');
 
 async function probeService(name) {
@@ -49,16 +51,23 @@ class FleetHealthService {
         health: healthByService[inst.service]?.health || 'unknown',
       }));
       const res = parseResources(w.resources);
+      const vi = versionInfo(w);
       return {
         id: w.id,
         hostname: w.hostname,
+        display_name: w.display_name || '',
         ip_address: w.ip_address,
         status: w.status,
+        version: vi.version,
+        outdated: vi.outdated,
         last_seen: w.last_seen,
         overlay_ip: res.overlay_ip || res.tailscale_ip || null,
         capabilities: parseCaps(w.capabilities),
         roles: inferRoles(w, instances),
         instances,
+        ram: ramFromResources(res),
+        gpu: res.gpu || null,
+        loaded_ai: res.loaded_ai || [],
       };
     });
 

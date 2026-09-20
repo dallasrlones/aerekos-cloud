@@ -132,6 +132,17 @@ class GatewayService {
     const proxyAuth = await authorizationForProxy(req, serviceName);
     if (proxyAuth) optHeaders.Authorization = `Bearer ${proxyAuth}`;
 
+    const isSlowAi =
+      req.method === 'POST'
+      && (String(proxyPath).includes('/llm/chat')
+        || String(proxyPath).includes('/intelligence/')
+        || String(proxyPath).includes('/rag/')
+        || String(proxyPath).includes('/embeddings')
+        || String(proxyPath).includes('/memory/')
+        || String(proxyPath).includes('/stt/')
+        || String(proxyPath).includes('/tts/'));
+    const slowAiTimeout = parseInt(process.env.CONDUCTOR_PROXY_TIMEOUT_MS || '120000', 10);
+
     const result = await this.serviceManager.proxyServiceRequest(
       serviceName,
       req.method,
@@ -139,7 +150,11 @@ class GatewayService {
       data,
       { ...req.query },
       projectId,
-      { clientIp: req.ip, headers: optHeaders },
+      {
+        clientIp: req.ip,
+        headers: optHeaders,
+        timeout: isSlowAi ? slowAiTimeout : undefined,
+      },
     );
 
     const ct = (result.headers && (result.headers['content-type'] || result.headers['Content-Type'])) || '';

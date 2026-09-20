@@ -61,7 +61,7 @@ export const AiDeploymentDetails = ({ navigation }) => {
     >
       <TouchableOpacity style={S.breadcrumb} onPress={() => navigation.navigate('aiManager')} activeOpacity={0.7}>
         <Ionicons name="chevron-back" size={16} color={colors.textMuted} />
-        <Text style={S.hintText}>AI Services</Text>
+        <Text style={S.hintText}>AI Manager</Text>
       </TouchableOpacity>
 
       <Text style={S.title}>Deployments</Text>

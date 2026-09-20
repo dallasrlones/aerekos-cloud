@@ -24,7 +24,7 @@ Then rebuild roles **on each device**:
 |-----|------|-------------------|
 | `prod-mini` | conductor (bind-mounted) + managers | Bind-mount API changes: `docker restart aerekos-cloud-conductor`. Compose `extra_hosts` / network: `docker compose -f docker-compose.yml up -d --no-deps --force-recreate conductor`. Managers: `docker compose -f docker-compose.core.yml up -d --no-deps --build storage_manager` (and other managers you actually run). Avoid `deploy.sh full` on a mixed stack unless you intend to start `docker-compose.full.yml`. Details: [mixed-stack.md](mixed-stack.md). |
 | `dev-mini` | worker | `cd ~/work/aerekos/aerekos-cloud && bash scripts/deploy/deploy.sh worker` |
-| `oculus` | worker + GPU ai | `bash scripts/deploy/deploy.sh worker` then `ai` or `ai-vllm` as needed. **Do not restart a healthy vLLM** just to ship ai_manager. LoRA trainer: `docker compose -p aerekos-ai -f worker/docker-compose.ai.yml up -d --no-deps lora_trainer` — [lora-gpu.md](lora-gpu.md). |
+| `oculus` | worker + GPU ai | New device: `docker run` the worker (socket + NVIDIA runtime + Cloud token), then Place engines in AI Manager. Existing Orin may still use `deploy.sh worker` / `ai`. **Do not restart a healthy vLLM.** Do not start voice from `~/work/tools`. LoRA: [lora-gpu.md](lora-gpu.md). Voice: [ai_manager_tts.md](../services/ai_manager_tts.md). |
 
 `scripts/deploy/push-to-prod.sh` / `push-to-host.sh` never overwrite `.env`, `worker/.env`, `.worker-host.env`, `data/`, or `node_modules/`.
 

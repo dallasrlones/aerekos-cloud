@@ -48,6 +48,25 @@ describe('compute_manager', () => {
     expect(g.body.task.id).toBe(id);
   });
 
+  test('GET task stats (SKIP_DOCKER mock)', async () => {
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .send({
+        name: `stats-${Date.now()}`,
+        project_id: projectId,
+        image: 'alpine:3.19',
+        command: ['sh', '-c', 'echo ok'],
+        run_mode: 'oneshot',
+      })
+      .expect(201);
+    const id = created.body.task.id;
+    const s = await request(app).get(`/api/v1/tasks/${id}/stats`).query({ project_id: projectId }).expect(200);
+    expect(s.body.task_id).toBe(id);
+    expect(s.body.cpu_percent).toBe(0);
+    expect(s.body.memory_bytes).toBe(0);
+    await request(app).delete(`/api/v1/tasks/${id}`).query({ project_id: projectId }).expect(200);
+  });
+
   test('stop start replace-image & delete', async () => {
     const list = await request(app).get('/api/v1/tasks').query({ project_id: projectId });
     const id = list.body.tasks.find((t) => t.name === taskName).id;

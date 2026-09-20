@@ -1,4 +1,5 @@
 const { Queue, Message } = require('../models');
+const brokers = require('./brokers');
 
 const MAX_BODY_BYTES = 256 * 1024;
 const DEFAULT_VISIBILITY = 30;
@@ -75,10 +76,6 @@ class QueueService {
       e.status = 400;
       throw e;
     }
-    if ((eng === 'rabbitmq' || eng === 'redis_stream') && process.env.SKIP_BROKER !== '1' && process.env.SKIP_BROKER !== 'true') {
-      // Provision is a no-op without docker; SKIP_BROKER uses sqlite adapter.
-    }
-
     const existing = await this.Queue.findAll({
       where: { name, project_id: projectId }
     });
@@ -88,7 +85,7 @@ class QueueService {
       throw e;
     }
 
-    return this.Queue.create({
+    const row = await this.Queue.create({
       name: String(name).trim(),
       project_id: projectId,
       visibility_timeout_seconds: v,
@@ -96,6 +93,41 @@ class QueueService {
       dlq: dlq || '',
       max_receive: maxReceive || 3,
     });
+    if (!brokers.skipBroker() && eng === 'rabbitmq') {
+      await brokers.rabbitDeclare(projectId, row.name, row.dlq || '');
+    }
+    if (!brokers.skipBroker() && eng === 'redis_stream') {
+      await brokers.redisEnsureGroup(projectId, row.name);
+      if (row.dlq) await brokers.redisEnsureGroup(projectId, row.dlq);
+    }
+    return row;
+  }
+
+  useBroker(q) {
+    return !brokers.skipBroker() && (q.engine === 'rabbitmq' || q.engine === 'redis_stream');
+  }
+
+  async depthFor(q) {
+    if (!this.useBroker(q)) {
+      const msgs = await this.Message.findAll({ where: { queue_id: q.id } });
+      return msgs.length;
+    }
+    if (q.engine === 'rabbitmq') return brokers.rabbitDepth(q.project_id, q.name);
+    return brokers.redisDepth(q.project_id, q.name);
+  }
+
+  serialize(q, depth) {
+    return {
+      id: q.id,
+      name: q.name,
+      project_id: q.project_id,
+      visibility_timeout_seconds: q.visibility_timeout_seconds,
+      engine: q.engine || 'standard',
+      dlq: q.dlq || '',
+      max_receive: q.max_receive || 3,
+      depth: depth == null ? undefined : depth,
+      created_at: q.created_at,
+    };
   }
 
   async listQueues(projectId) {
@@ -119,6 +151,10 @@ class QueueService {
 
   async deleteQueue(name, projectId) {
     const q = await this.getQueueByName(name, projectId);
+    if (this.useBroker(q)) {
+      if (q.engine === 'rabbitmq') await brokers.rabbitDeleteQueue(projectId, name);
+      else await brokers.redisDeleteQueue(projectId, name);
+    }
     const msgs = await this.Message.findAll({ where: { queue_id: q.id } });
     for (const m of msgs) {
       await this.Message.delete(m.id);
@@ -132,6 +168,12 @@ class QueueService {
     this.assertBody(body);
     const q = await this.getQueueByName(queueName, projectId);
     const text = typeof body === 'string' ? body : JSON.stringify(body);
+    if (this.useBroker(q)) {
+      const id = q.engine === 'rabbitmq'
+        ? await brokers.rabbitPublish(projectId, queueName, text, extras)
+        : await brokers.redisPublish(projectId, queueName, text, extras);
+      return { MessageId: id, MD5: null };
+    }
     if (q.engine === 'fifo' && extras.dedup_id) {
       const prior = await this.Message.findAll({ where: { queue_id: q.id, dedup_id: extras.dedup_id } });
       if (prior.length) return { MessageId: prior[0].id, MD5: null, dedup: true };
@@ -160,11 +202,34 @@ class QueueService {
       ? this.parseVisibility(visibilityOverride)
       : this.parseVisibility(q.visibility_timeout_seconds);
 
+    if (this.useBroker(q)) {
+      const maxReceive = q.max_receive || 3;
+      const raw = q.engine === 'rabbitmq'
+        ? await brokers.rabbitGet(projectId, queueName, max)
+        : await brokers.redisRead(projectId, queueName, max, {
+          dlqName: q.dlq || '',
+          maxReceive,
+          visibilityMs: vis * 1000,
+        });
+      const kept = [];
+      for (const m of raw) {
+        if (q.engine === 'rabbitmq' && q.dlq && (m.receive_count || 0) > maxReceive) {
+          await brokers.rabbitNack(m.ReceiptHandle, false);
+          continue;
+        }
+        kept.push(m);
+      }
+      return { Messages: kept, QueueName: queueName };
+    }
+
     const at = new Date();
     const all = await this.Message.findAll({ where: { queue_id: q.id, project_id: projectId } });
     const visible = all
       .filter((m) => isAvailable(m, at))
       .sort((a, b) => {
+        const ga = String(a.group_id || '');
+        const gb = String(b.group_id || '');
+        if (q.engine === 'fifo' && ga !== gb) return ga.localeCompare(gb);
         const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
         const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
         return ta - tb;
@@ -206,6 +271,11 @@ class QueueService {
       throw e;
     }
     const q = await this.getQueueByName(queueName, projectId);
+    if (this.useBroker(q)) {
+      if (q.engine === 'rabbitmq') await brokers.rabbitAck(messageId);
+      else await brokers.redisAck(messageId);
+      return { deleted: true, MessageId: messageId };
+    }
     const rows = await this.Message.findAll({ where: { id: messageId, queue_id: q.id, project_id: projectId } });
     if (!rows.length) {
       const e = new Error('Message not found');
@@ -213,10 +283,6 @@ class QueueService {
       throw e;
     }
     const m = rows[0];
-    const at = new Date();
-    if (m.locked_until && new Date(m.locked_until) > at) {
-      // still in flight — allow delete (idempotent, SQS-like)
-    }
     await this.Message.delete(m.id);
     return { deleted: true, MessageId: messageId };
   }

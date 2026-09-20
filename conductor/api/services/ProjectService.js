@@ -34,12 +34,19 @@ class ProjectService {
     const allProjects = await this.projectRepository.findAll();
     const isFirstProject = allProjects.length === 0;
 
+    const cfg = projectData.config && typeof projectData.config === 'object' ? { ...projectData.config } : {};
+    const system = String(projectData.name || '').trim().toLowerCase() === 'system';
+    const defaultEnv = system
+      ? 'prod'
+      : String(projectData.default_environment || cfg.default_environment || 'dev').trim().toLowerCase() || 'dev';
+    cfg.default_environment = defaultEnv;
+
     // Create project
     const project = await this.projectRepository.create({
       name: projectData.name.trim(),
       description: projectData.description || '',
       enabled: projectData.enabled !== undefined ? (projectData.enabled ? 1 : 0) : 1,
-      config: projectData.config ? JSON.stringify(projectData.config) : JSON.stringify({})
+      config: JSON.stringify(cfg)
     });
 
     try {
@@ -51,7 +58,7 @@ class ProjectService {
 
     try {
       const EnvironmentService = require('./EnvironmentService');
-      await EnvironmentService.ensureForProject(project.id, project.name);
+      await EnvironmentService.ensureForProject(project.id, project.name, { envName: defaultEnv });
     } catch (err) {
       console.warn('[ProjectService] environments:', err.message);
     }
@@ -92,7 +99,17 @@ class ProjectService {
     if (projectData.name !== undefined) updateData.name = projectData.name.trim();
     if (projectData.description !== undefined) updateData.description = projectData.description;
     if (projectData.enabled !== undefined) updateData.enabled = projectData.enabled ? 1 : 0;
-    if (projectData.config !== undefined) updateData.config = JSON.stringify(projectData.config);
+    let nextConfig = projectData.config;
+    if (projectData.default_environment !== undefined) {
+      const parsed = nextConfig && typeof nextConfig === 'object'
+        ? { ...nextConfig }
+        : (() => {
+          try { return JSON.parse(project.config || '{}'); } catch { return {}; }
+        })();
+      parsed.default_environment = String(projectData.default_environment).trim().toLowerCase() || parsed.default_environment;
+      nextConfig = parsed;
+    }
+    if (nextConfig !== undefined) updateData.config = JSON.stringify(nextConfig);
 
     return await this.projectRepository.update(id, updateData);
   }
@@ -352,7 +369,7 @@ class ProjectService {
    * @param {string} serviceId - Service ID
    * @returns {Promise<object>} Enable result with deployment info
    */
-  async enableServiceForProject(projectId, serviceId) {
+  async enableServiceForProject(projectId, serviceId, workerId = null) {
     // Verify project exists
     const project = await this.projectRepository.findById(projectId);
     if (!project) {
@@ -390,7 +407,7 @@ class ProjectService {
 
     // Trigger auto-deployment via ServiceManager
     const serviceManager = ServiceManager.getInstance(WorkerRepository);
-    const deploymentResult = await serviceManager.enableService(service.name, null, projectId);
+    const deploymentResult = await serviceManager.enableService(service.name, workerId || null, projectId);
 
     return {
       success: true,
@@ -398,7 +415,10 @@ class ProjectService {
       serviceId,
       serviceName: service.name,
       enabled: true,
-      deployments: deploymentResult.deployments || []
+      attached: !!deploymentResult.attached,
+      skipped_deploy: !!deploymentResult.skipped_deploy,
+      deployments: deploymentResult.deployments || [],
+      message: deploymentResult.message,
     };
   }
 

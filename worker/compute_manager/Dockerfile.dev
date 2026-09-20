@@ -2,6 +2,8 @@
 # Build context MUST be the worker/ directory.
 FROM node:20-bookworm-slim
 WORKDIR /app/compute_manager
+RUN apt-get update && apt-get install -y --no-install-recommends git docker.io \
+    && rm -rf /var/lib/apt/lists/*
 COPY compute_manager/package*.json ./
 RUN npm install
 COPY compute_manager/ ./

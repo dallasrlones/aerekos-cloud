@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Platform, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { deviceService, hostPartLabel } from '../../services/deviceService';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Platform, StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { deviceService, deviceLabel, hostPartLabel } from '../../services/deviceService';
 import websocketService from '../../services/websocketService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
+import { edgeService } from '../../services/edgeService';
 import { Box } from '../../components/Box/Box';
 import { Chart } from '../../components/Chart/Chart';
 import { NetworkChart } from '../../components/Chart/NetworkChart';
@@ -11,6 +13,7 @@ import { AnimusVisual } from '../../components/AnimusVisual/AnimusVisual';
 import { AnimusBackground, AnimusPanel, AnimusStat, AnimusToggle } from '../../components/Animus';
 import { DeviceDetailsStyles as S } from './DeviceDetails.styles';
 import { DeviceContainers } from './DeviceContainers';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 import { colors, animus } from '../../styles/theme';
 
 const MAX_HISTORY = 60;
@@ -49,12 +52,14 @@ const coreColor = usageColor;
 export const DeviceDetails = ({ route, navigation }) => {
   const { deviceId } = route?.params || {};
   const { isAuthenticated, getToken } = useAuth();
+  const { currentProject } = useProject();
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveData, setLiveData] = useState(null);
   const [lastHeartbeat, setLastHeartbeat] = useState(null);
   const [view, setView] = useState('animus');
+  const [dataTab, setDataTab] = useState('telemetry');
   const [dataHistory, setDataHistory] = useState({ cpu: [], ram: [], disk: [], network: [] });
   const dataHistoryRef = useRef({ cpu: [], ram: [], disk: [], network: [] });
   const [updating, setUpdating] = useState(false);
@@ -62,6 +67,12 @@ export const DeviceDetails = ({ route, navigation }) => {
   const [hostBusy, setHostBusy] = useState(null);
   const [hostMsg, setHostMsg] = useState(null);
   const [vpcs, setVpcs] = useState([]);
+  const [networkInfo, setNetworkInfo] = useState(null);
+  const [meshKey, setMeshKey] = useState(null);
+  const [meshBusy, setMeshBusy] = useState(false);
+  const [newTunnelName, setNewTunnelName] = useState('');
+  const [newTunnelToken, setNewTunnelToken] = useState(null);
+  const [tunnelBusy, setTunnelBusy] = useState(false);
 
   const confirmHostUpdate = (target, onYes) => {
     const label = target === 'os' ? 'OS' : 'Docker';
@@ -142,6 +153,39 @@ export const DeviceDetails = ({ route, navigation }) => {
     }
   };
 
+  const applyLive = useCallback((resources, timestamp, workerId) => {
+    if (!resources) return;
+    if (workerId && deviceId && workerId !== deviceId) return;
+    setLiveData(resources);
+    setLastHeartbeat(timestamp || resources.timestamp || new Date().toISOString());
+    if (resources.host) {
+      setDevice((prev) => (prev ? { ...prev, resources: { ...prev.resources, host: resources.host } } : prev));
+    }
+
+    const ts = new Date(timestamp || resources.timestamp || Date.now()).getTime();
+    const h = { ...dataHistoryRef.current };
+    const push = (key, point) => {
+      const last = h[key][h[key].length - 1];
+      if (last && Math.abs(last.timestamp - point.timestamp) < 400) return;
+      h[key] = [...h[key], point];
+      if (h[key].length > MAX_HISTORY) h[key] = h[key].slice(-MAX_HISTORY);
+    };
+    if (resources.cpu) {
+      push('cpu', { timestamp: ts, usagePercent: num(resources.cpu.usagePercent || resources.cpu.usage || resources.cpu.usage_percent) });
+    }
+    if (resources.ram) push('ram', { timestamp: ts, usagePercent: num(resources.ram.usagePercent || resources.ram.usage_percent) });
+    if (resources.disk) push('disk', { timestamp: ts, usagePercent: num(resources.disk.usagePercent || resources.disk.usage_percent) });
+    if (resources.network) {
+      push('network', {
+        timestamp: ts,
+        rx_bytes_per_sec: num(resources.network.rx_bytes_per_sec),
+        tx_bytes_per_sec: num(resources.network.tx_bytes_per_sec),
+      });
+    }
+    dataHistoryRef.current = h;
+    setDataHistory(h);
+  }, [deviceId]);
+
   useEffect(() => {
     if (!deviceId) {
       setLoading(false);
@@ -149,55 +193,40 @@ export const DeviceDetails = ({ route, navigation }) => {
     }
     loadDevice();
 
+    let cancelled = false;
+    const unsubs = [];
     if (isAuthenticated) {
       getToken().then((token) => {
-        if (!token) return;
+        if (cancelled || !token) return;
         websocketService.connect(token);
-
         const subscribe = () => websocketService.subscribeToWorker(deviceId);
-        const unsubscribeConnected = websocketService.on('connected', subscribe);
-        if (websocketService.isConnected) subscribe();
-
-        const unsubscribeLive = websocketService.on('worker:live:update', (data) => {
-          if (data.workerId !== deviceId) return;
-          setLiveData(data.resources);
-          setLastHeartbeat(data.timestamp);
-          if (data.resources?.host) {
-            setDevice((prev) => (prev ? { ...prev, resources: { ...prev.resources, host: data.resources.host } } : prev));
-          }
-
-          const timestamp = new Date(data.timestamp).getTime();
-          const h = { ...dataHistoryRef.current };
-          const push = (key, point) => {
-            h[key] = [...h[key], point];
-            if (h[key].length > MAX_HISTORY) h[key] = h[key].slice(-MAX_HISTORY);
-          };
-          if (data.resources.cpu) {
-            push('cpu', { timestamp, usagePercent: num(data.resources.cpu.usagePercent || data.resources.cpu.usage) });
-          }
-          if (data.resources.ram) push('ram', { timestamp, usagePercent: num(data.resources.ram.usagePercent) });
-          if (data.resources.disk) push('disk', { timestamp, usagePercent: num(data.resources.disk.usagePercent) });
-          if (data.resources.network) {
-            push('network', {
-              timestamp,
-              rx_bytes_per_sec: num(data.resources.network.rx_bytes_per_sec),
-              tx_bytes_per_sec: num(data.resources.network.tx_bytes_per_sec),
-            });
-          }
-          dataHistoryRef.current = h;
-          setDataHistory(h);
-        });
-
-        // eslint-disable-next-line consistent-return
-        return () => {
-          unsubscribeLive();
-          unsubscribeConnected();
-          websocketService.unsubscribeFromWorker(deviceId);
-        };
+        unsubs.push(websocketService.on('connected', subscribe));
+        if (websocketService.isConnected || websocketService.socket?.connected) subscribe();
+        const onLive = (data) => applyLive(data?.resources, data?.timestamp, data?.workerId);
+        unsubs.push(websocketService.on('worker:live:update', onLive));
+        unsubs.push(websocketService.on('worker:resources:updated', onLive));
+        if (cancelled) unsubs.forEach((u) => u && u());
       });
     }
+
+    const poll = setInterval(() => {
+      deviceService.getDevice(deviceId).then((row) => {
+        if (!row) return;
+        setDevice(row);
+        if (row.resources && (row.resources.cpu || row.resources.ram)) {
+          applyLive(row.resources, row.resources.timestamp || row.last_seen, row.id);
+        }
+      }).catch(() => {});
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      unsubs.forEach((u) => u && u());
+      websocketService.unsubscribeFromWorker(deviceId);
+      clearInterval(poll);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId, isAuthenticated]);
+  }, [deviceId, isAuthenticated, applyLive]);
 
   const loadDevice = async () => {
     if (!deviceId) {
@@ -206,12 +235,14 @@ export const DeviceDetails = ({ route, navigation }) => {
       return;
     }
     try {
-      const [deviceData, vpcList] = await Promise.all([
+      const [deviceData, vpcList, net] = await Promise.all([
         deviceService.getDevice(deviceId),
         deviceService.listVpcs().catch(() => []),
+        deviceService.getNetwork(deviceId).catch(() => null),
       ]);
       setDevice(deviceData);
       setVpcs(vpcList);
+      setNetworkInfo(net);
     } catch (error) {
       console.error('Failed to load device:', error);
     } finally {
@@ -379,8 +410,8 @@ export const DeviceDetails = ({ route, navigation }) => {
                 <TouchableOpacity onPress={() => navigation?.goBack?.()} activeOpacity={0.7}>
                   <Text style={S.hudCaption}>← Devices</Text>
                 </TouchableOpacity>
-                <Text style={S.hostname}>{device.hostname || 'UNKNOWN NODE'}</Text>
-                <Text style={S.headerMeta}>{device.ip_address || '—'} · {device.id}</Text>
+                <Text style={S.hostname}>{deviceLabel(device) || 'UNKNOWN NODE'}</Text>
+                <Text style={S.headerMeta}>{device.hostname ? `${device.hostname} · ` : ''}{device.ip_address || '—'} · {device.id}</Text>
               </View>
               <View style={S.controls}>
                 {statusBadge}
@@ -438,8 +469,8 @@ export const DeviceDetails = ({ route, navigation }) => {
             <TouchableOpacity onPress={() => navigation?.goBack?.()} activeOpacity={0.7}>
               <Text style={S.hudCaption}>← Devices</Text>
             </TouchableOpacity>
-            <Text style={S.hostname}>{device.hostname || 'UNKNOWN NODE'}</Text>
-            <Text style={S.headerMeta}>{device.ip_address || '—'} · {device.id}</Text>
+            <Text style={S.hostname}>{deviceLabel(device) || 'UNKNOWN NODE'}</Text>
+            <Text style={S.headerMeta}>{device.hostname ? `${device.hostname} · ` : ''}{device.ip_address || '—'} · {device.id}</Text>
           </View>
           <View style={S.headerRight}>
             {statusBadge}
@@ -463,8 +494,19 @@ export const DeviceDetails = ({ route, navigation }) => {
           </Box>
         )}
 
-        {/* Detailed telemetry */}
+        <ScreenTabs
+          tabs={[
+            { id: 'telemetry', label: 'Telemetry' },
+            { id: 'containers', label: 'Containers' },
+            { id: 'network', label: 'Network' },
+            { id: 'host', label: 'Host' },
+          ]}
+          active={dataTab}
+          onChange={setDataTab}
+        />
+
         <>
+            {dataTab === 'telemetry' ? <>
             {perCore.length > 0 && (
               <AnimusPanel title="Per-core load" style={S.panelGap}>
                 <View style={S.coreGrid}>
@@ -512,6 +554,15 @@ export const DeviceDetails = ({ route, navigation }) => {
               </AnimusPanel>
             )}
 
+            {m.gpu ? (
+              <AnimusPanel title={m.gpu.unified ? 'GPU (unified memory)' : 'GPU'} style={S.panelGap}>
+                <Text style={S.meterValue}>
+                  {m.gpu.name || 'gpu'}
+                  {m.gpu.total_mb ? ` · ${m.gpu.used_mb || 0}/${m.gpu.total_mb} MB` : ''}
+                  {m.gpu.util_percent != null ? ` · ${m.gpu.util_percent}%` : ''}
+                </Text>
+              </AnimusPanel>
+            ) : null}
             <AnimusPanel title="Memory" style={S.panelGap}>
               <View style={S.meterHeader}>
                 <Text style={S.meterValue}>{ramUsed.toFixed(1)} GB used · {ramAvail.toFixed(1)} GB free</Text>
@@ -568,7 +619,87 @@ export const DeviceDetails = ({ route, navigation }) => {
                 <NetworkChart title="" data={dataHistory.network} height={180} />
               </AnimusPanel>
             )}
+            </> : null}
 
+            {dataTab === 'network' ? <AnimusPanel title="Network" style={S.panelGap}>
+              <Text style={S.detailLabel}>
+                {networkInfo?.network?.island === 'lan'
+                  ? 'Same network as Prod-Mini — LAN'
+                  : networkInfo?.network?.island === 'remote'
+                    ? 'Different network — join fleet mesh to talk east-west'
+                    : 'Reachability unknown'}
+              </Text>
+              {(networkInfo?.tunnels || []).length ? (
+                (networkInfo.tunnels || []).map((t) => (
+                  <Text key={t.cf_tunnel_id} style={[S.detailValue, { marginTop: 6 }]}>
+                    CF {t.display_name} · {t.status || 'unknown'}{t.default_bind ? ' · default HTTP' : ''}
+                  </Text>
+                ))
+              ) : (
+                <Text style={[S.detailValue, { marginTop: 6 }]}>No public Cloudflare tunnel — that is fine if this device has no public hostname.</Text>
+              )}
+              {meshKey?.preauth_key ? (
+                <Text style={[S.detailValue, { marginTop: 8 }]} selectable>
+                  One-time mesh key: {meshKey.preauth_key}{'\n'}{meshKey.command || ''}
+                </Text>
+              ) : (
+                <TouchableOpacity
+                  disabled={meshBusy}
+                  onPress={async () => {
+                    try {
+                      setMeshBusy(true);
+                      const minted = await deviceService.joinMesh(deviceId);
+                      setMeshKey(minted);
+                    } catch (err) {
+                      Alert.alert('Fleet mesh', err.response?.data?.error?.message || err.message);
+                    } finally {
+                      setMeshBusy(false);
+                    }
+                  }}
+                  style={{ marginTop: 10 }}
+                >
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                    {meshBusy ? 'Minting…' : 'Join fleet mesh (Headscale)'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <Text style={[S.detailLabel, { marginTop: 16 }]}>Need a public hostname on this device?</Text>
+              <Text style={S.detailValue}>Default is no. If yes, attach an existing connector above or create a new empty tunnel (new cloudflared — do not rewrite the one already running).</Text>
+              <TextInput
+                value={newTunnelName}
+                onChangeText={setNewTunnelName}
+                placeholder="new tunnel name"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                style={{ borderWidth: 1, borderColor: colors.border || '#333', borderRadius: 8, padding: 8, color: colors.textPrimary, marginTop: 8 }}
+              />
+              <TouchableOpacity
+                disabled={tunnelBusy || !newTunnelName.trim() || !currentProject?.id}
+                onPress={async () => {
+                  try {
+                    setTunnelBusy(true);
+                    const data = await edgeService.createTunnel(currentProject.id, newTunnelName.trim());
+                    setNewTunnelToken(data.token || data.tunnel?.token || data.cloudflared?.token || JSON.stringify(data));
+                  } catch (err) {
+                    Alert.alert('Create tunnel', err.response?.data?.error?.message || err.message);
+                  } finally {
+                    setTunnelBusy(false);
+                  }
+                }}
+                style={{ marginTop: 10 }}
+              >
+                <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                  {tunnelBusy ? 'Creating…' : 'Create new Cloudflare tunnel'}
+                </Text>
+              </TouchableOpacity>
+              {newTunnelToken ? (
+                <Text style={[S.detailValue, { marginTop: 8 }]} selectable>
+                  One-time cloudflared token: {String(newTunnelToken)}
+                </Text>
+              ) : null}
+            </AnimusPanel> : null}
+
+            {dataTab === 'host' ? <>
             <View style={S.detailsGrid}>
               <AnimusPanel brackets={false} style={S.detailCard}>
                 <Text style={S.detailLabel}>IP Address</Text>
@@ -621,7 +752,9 @@ export const DeviceDetails = ({ route, navigation }) => {
             </View>
 
             {hostPanel}
+            </> : null}
 
+            {dataTab === 'containers' ? <>
             <AnimusPanel title="Containers" style={S.panelGap}>
               <DeviceContainers deviceId={deviceId} />
             </AnimusPanel>
@@ -647,6 +780,7 @@ export const DeviceDetails = ({ route, navigation }) => {
                 {updateMsg && <Text style={[S.detailLabel, { marginTop: 12 }]}>{updateMsg}</Text>}
               </AnimusPanel>
             )}
+            </> : null}
           </>
       </ScrollView>
     </View>

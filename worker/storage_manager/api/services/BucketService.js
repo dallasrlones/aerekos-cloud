@@ -272,8 +272,9 @@ class BucketService {
       }
     }
     
-    // Delete bucket directory if it exists
-    const bucketDir = path.join(process.env.STORAGE_PATH || './storage', bucket.id);
+    // Delete bucket directory if it exists (bucket.base_path override for system buckets)
+    const bucketBase = bucket.base_path || process.env.STORAGE_PATH || './storage';
+    const bucketDir = path.join(bucketBase, bucket.id);
     try {
       await fs.rm(bucketDir, { recursive: true, force: true });
     } catch (error) {
@@ -323,6 +324,162 @@ class BucketService {
     }
     
     logger.info(`[BucketService] Deleted bucket: ${bucketName} from project ${projectId} (deleted ${files.length} file(s))`);
+  }
+
+  /**
+   * Create a system-scoped bucket (not tied to a project).
+   * System buckets can carry a physical base_path (e.g. /mnt/usb24tb/aerekos-media)
+   * so their data lands on a specific disk/volume instead of the default STORAGE_PATH.
+   */
+  async createSystemBucket(systemId, name, createdBy, encryptionKeyName = null, basePath = null, metadata = {}) {
+    if (!systemId) throw new Error('systemId is required for system buckets');
+
+    const existing = await this.bucketRepo.findBySystemAndName(systemId, name);
+    if (existing) {
+      throw new Error(`Bucket '${name}' already exists in system '${systemId}'`);
+    }
+
+    let uniqueKeyName;
+    if (encryptionKeyName) {
+      uniqueKeyName = encryptionKeyName;
+      await this.ensureEncryptionKey(uniqueKeyName, null);
+    } else {
+      const random = crypto.randomUUID().substring(0, 8);
+      const sanitizedSystem = String(systemId).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      const sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      uniqueKeyName = `bucket-sys-${sanitizedSystem}-${sanitizedName}-${random}`;
+      await this.ensureEncryptionKey(uniqueKeyName, null);
+    }
+
+    const bucket = await this.bucketRepo.create({
+      project_id: null,
+      system_id: systemId,
+      name,
+      created_by: createdBy,
+      encryption_key_name: uniqueKeyName,
+      base_path: basePath || null,
+      metadata: JSON.stringify(metadata)
+    });
+
+    logger.info(`[BucketService] Created system bucket: ${name} in system ${systemId} (base_path: ${basePath || 'default'}) with key ${uniqueKeyName}`);
+    return bucket;
+  }
+
+  /**
+   * Get a system bucket by system and name
+   */
+  async getSystemBucket(systemId, bucketName) {
+    const bucket = await this.bucketRepo.findBySystemAndName(systemId, bucketName);
+    if (!bucket) {
+      throw new Error(`Bucket '${bucketName}' not found in system '${systemId}'`);
+    }
+    if (bucket.metadata) {
+      try {
+        bucket.metadata = JSON.parse(bucket.metadata);
+      } catch (e) {
+        // Keep as string if not valid JSON
+      }
+    }
+    return bucket;
+  }
+
+  /**
+   * List buckets in a system
+   */
+  async listSystemBuckets(systemId) {
+    const buckets = await this.bucketRepo.findBySystem(systemId);
+    return buckets.map(bucket => {
+      if (bucket.metadata) {
+        try {
+          bucket.metadata = JSON.parse(bucket.metadata);
+        } catch (e) {
+          // Keep as string if not valid JSON
+        }
+      }
+      return bucket;
+    });
+  }
+
+  /**
+   * Update system bucket settings
+   */
+  async updateSystemBucket(systemId, bucketName, updates) {
+    const bucket = await this.getSystemBucket(systemId, bucketName);
+    const updateData = {};
+    if (updates.encryption_key_name) updateData.encryption_key_name = updates.encryption_key_name;
+    if (updates.base_path !== undefined) updateData.base_path = updates.base_path || null;
+    if (updates.metadata) {
+      updateData.metadata = typeof updates.metadata === 'string'
+        ? updates.metadata
+        : JSON.stringify(updates.metadata);
+    }
+    return await this.bucketRepo.update(bucket.id, updateData);
+  }
+
+  /**
+   * Delete a system bucket and all its files
+   */
+  async deleteSystemBucket(systemId, bucketName) {
+    const bucket = await this.getSystemBucket(systemId, bucketName);
+    const encryptionKeyName = bucket.encryption_key_name;
+
+    const files = await this.fileRepo.findByBucket(bucket.id, { maxKeys: 10000 });
+    const fs = require('fs').promises;
+    const path = require('path');
+
+    for (const file of files) {
+      try {
+        if (file.storage_path) {
+          try {
+            await fs.unlink(file.storage_path);
+          } catch (error) {
+            logger.warn(`[BucketService] Failed to delete physical file ${file.storage_path}: ${error.message}`);
+          }
+        }
+        await this.fileRepo.delete(file.id);
+      } catch (error) {
+        logger.error(`[BucketService] Failed to delete file ${file.key}: ${error.message}`);
+      }
+    }
+
+    const bucketBase = bucket.base_path || process.env.STORAGE_PATH || './storage';
+    const bucketDir = path.join(bucketBase, bucket.id);
+    try {
+      await fs.rm(bucketDir, { recursive: true, force: true });
+    } catch (error) {
+      logger.warn(`[BucketService] Failed to delete bucket directory ${bucketDir}: ${error.message}`);
+    }
+
+    await this.bucketRepo.delete(bucket.id);
+
+    if (encryptionKeyName) {
+      const bucketsUsingKey = await this.bucketRepo.findByEncryptionKey(encryptionKeyName);
+      if (bucketsUsingKey.length === 0) {
+        if (process.env.MOCK_KEY_MANAGER !== 'true') {
+          try {
+            const conductorUrl = this._resolveConductorUrl();
+            const serviceToken = this._resolveServiceToken();
+            if (conductorUrl && serviceToken) {
+              await axios.delete(
+                `${conductorUrl}/api/services/key_manager/api/keys/${encryptionKeyName}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${serviceToken}`,
+                    'Content-Type': 'application/json'
+                  },
+                  timeout: 5000
+                }
+              );
+              logger.info(`[BucketService] Deleted system encryption key '${encryptionKeyName}' from key_manager`);
+            }
+          } catch (error) {
+            logger.warn(`[BucketService] Failed to delete encryption key '${encryptionKeyName}': ${error.message}`);
+          }
+        }
+      }
+    }
+
+    logger.info(`[BucketService] Deleted system bucket: ${bucketName} from system ${systemId} (deleted ${files.length} file(s))`);
   }
 }
 

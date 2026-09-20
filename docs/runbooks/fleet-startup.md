@@ -107,13 +107,11 @@ cd ~/work/aerekos/aerekos-cloud/worker
 sed -i 's/^CONDUCTOR_TOKEN=.*/CONDUCTOR_TOKEN=<TOKEN>/' .env
 docker compose up -d --force-recreate worker
 
-# AI stack (if not already up):
-docker ps --filter name=ai_manager
-# If down:
-cd ~/work/aerekos/aerekos-cloud && bash scripts/deploy/deploy.sh ai
-# LoRA GPU sidecar (does not restart vLLM):
-docker compose -p aerekos-ai -f worker/docker-compose.ai.yml up -d --no-deps lora_trainer
-# See docs/runbooks/lora-gpu.md
+# New GPU device: docker run the worker (socket + NVIDIA runtime + CONDUCTOR_URL/TOKEN).
+# Place engines from Cloud AI Manager — do not apt-install Ollama or clone this repo.
+# Existing Orin bootstrap (optional):
+# cd ~/work/aerekos/aerekos-cloud && bash scripts/deploy/deploy.sh ai
+# Do not start ~/work/tools voice. Do not start aerekos-vllm if it is stopped.
 ```
 
 ---

@@ -17,7 +17,13 @@ const agentAuth = require('../middleware/agentAuth');
 
 function publishAuth(req, res, next) {
   const tok = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const allowed = [process.env.CONDUCTOR_TOKEN, process.env.SERVICE_TOKEN, process.env.INTERNAL_RELEASE_TOKEN].filter(Boolean);
+  const allowed = [
+    process.env.CONDUCTOR_TOKEN,
+    process.env.SERVICE_TOKEN,
+    process.env.INTERNAL_RELEASE_TOKEN,
+    process.env.WORKER_TOKEN,
+    process.env.WORKER_REGISTRATION_TOKEN,
+  ].filter(Boolean);
   if (tok && allowed.includes(tok)) {
     req.user = { id: 'service', role: 'service' };
     return next();

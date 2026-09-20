@@ -3,6 +3,7 @@ const router = express.Router();
 const WorkerService = require('../services/WorkerService');
 const ProjectService = require('../services/ProjectService');
 const authenticate = require('../middleware/auth');
+const { authenticateWorkerOrUser } = require('../middleware/workerTokenAuth');
 const { versionInfo, targetVersion } = require('../utils/version');
 const UpdateService = require('../services/UpdateService');
 const HostService = require('../services/HostService');
@@ -25,6 +26,7 @@ function publicWorker(worker, extra = {}) {
   return {
     id: worker.id,
     hostname: worker.hostname,
+    display_name: worker.display_name || '',
     ip_address: worker.ip_address,
     status: worker.status,
     last_seen: worker.last_seen,
@@ -96,7 +98,8 @@ router.post('/register', async (req, res, next) => {
     );
     
     res.status(201).json({
-      worker: publicWorker(worker)
+      worker: publicWorker(worker),
+      preauth_key: worker.preauth_key || null,
     });
   } catch (error) {
     if (error.message === 'Invalid registration token') {
@@ -113,6 +116,46 @@ router.post('/register', async (req, res, next) => {
 
 router.get('/vpcs', authenticate, async (req, res) => {
   res.json({ vpcs: WorkerService.listVpcs() });
+});
+
+router.get('/:id/network', authenticate, async (req, res, next) => {
+  try {
+    const worker = await WorkerService.getWorker(req.params.id);
+    const all = await WorkerService.getAllWorkers();
+    const { classifyWorker } = require('../utils/networkIslands');
+    const EdgeService = require('../services/EdgeService');
+    const classified = classifyWorker(worker, all, process.env.CONDUCTOR_LAN_IP || '192.168.0.141');
+    const host = String(worker.hostname || '').toLowerCase();
+    const tunnels = EdgeService.knownTunnels().filter(
+      (t) => String(t.device_hostname || '').toLowerCase() === host && t.in_cloud_console
+    );
+    res.json({
+      worker: publicWorker(worker),
+      network: classified,
+      tunnels,
+      headscale: {
+        enabled: Boolean(process.env.HEADSCALE_URL),
+        login_server: process.env.HEADSCALE_URL || 'http://192.168.0.141:8080',
+      },
+    });
+  } catch (error) {
+    if (error.message === 'Worker not found') {
+      return res.status(404).json({ error: { message: 'Worker not found', status: 404 } });
+    }
+    next(error);
+  }
+});
+
+router.post('/:id/mesh/join', authenticate, async (req, res, next) => {
+  try {
+    const minted = await WorkerService.mintMeshKey(req.params.id, req.body?.project_id);
+    res.json(minted);
+  } catch (error) {
+    if (error.message === 'Worker not found') {
+      return res.status(404).json({ error: { message: 'Worker not found', status: 404 } });
+    }
+    next(error);
+  }
 });
 
 router.patch('/:id/vpc', authenticate, async (req, res, next) => {
@@ -153,7 +196,7 @@ router.post('/:id/heartbeat', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const worker = await WorkerService.sendHeartbeat(id);
+    const worker = await WorkerService.sendHeartbeat(id, req.body || {});
     
     res.json({
       worker: {
@@ -358,7 +401,7 @@ function containerError(res, next, error) {
  * GET /api/workers/:id/containers
  * Host Docker containers on this worker (Device Details → Data).
  */
-router.get('/:id/containers', authenticate, async (req, res, next) => {
+router.get('/:id/containers', authenticateWorkerOrUser, async (req, res, next) => {
   try {
     res.json(await ContainerService.list(req.params.id));
   } catch (error) {
@@ -366,7 +409,39 @@ router.get('/:id/containers', authenticate, async (req, res, next) => {
   }
 });
 
-router.post('/:id/containers/:cid/start', authenticate, async (req, res, next) => {
+router.post('/:id/containers/pull', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    res.json(await ContainerService.pull(req.params.id, req.body?.image));
+  } catch (error) {
+    containerError(res, next, error);
+  }
+});
+
+router.post('/:id/containers', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    res.status(201).json(await ContainerService.create(req.params.id, req.body || {}));
+  } catch (error) {
+    containerError(res, next, error);
+  }
+});
+
+router.get('/:id/containers/:cid', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    res.json(await ContainerService.inspect(req.params.id, req.params.cid));
+  } catch (error) {
+    containerError(res, next, error);
+  }
+});
+
+router.delete('/:id/containers/:cid', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    res.json(await ContainerService.remove(req.params.id, req.params.cid, { force: req.query.force !== '0' }));
+  } catch (error) {
+    containerError(res, next, error);
+  }
+});
+
+router.post('/:id/containers/:cid/start', authenticateWorkerOrUser, async (req, res, next) => {
   try {
     res.json(await ContainerService.start(req.params.id, req.params.cid));
   } catch (error) {
@@ -374,7 +449,7 @@ router.post('/:id/containers/:cid/start', authenticate, async (req, res, next) =
   }
 });
 
-router.post('/:id/containers/:cid/stop', authenticate, async (req, res, next) => {
+router.post('/:id/containers/:cid/stop', authenticateWorkerOrUser, async (req, res, next) => {
   try {
     res.json(await ContainerService.stop(req.params.id, req.params.cid));
   } catch (error) {
@@ -382,7 +457,15 @@ router.post('/:id/containers/:cid/stop', authenticate, async (req, res, next) =>
   }
 });
 
-router.get('/:id/containers/:cid/logs', authenticate, async (req, res, next) => {
+router.get('/:id/containers/:cid/stats', authenticateWorkerOrUser, async (req, res, next) => {
+  try {
+    res.json(await ContainerService.stats(req.params.id, req.params.cid));
+  } catch (error) {
+    containerError(res, next, error);
+  }
+});
+
+router.get('/:id/containers/:cid/logs', authenticateWorkerOrUser, async (req, res, next) => {
   try {
     res.json(await ContainerService.logs(req.params.id, req.params.cid, req.query.tail));
   } catch (error) {
@@ -390,7 +473,7 @@ router.get('/:id/containers/:cid/logs', authenticate, async (req, res, next) => 
   }
 });
 
-router.post('/:id/containers/:cid/exec', authenticate, async (req, res, next) => {
+router.post('/:id/containers/:cid/exec', authenticateWorkerOrUser, async (req, res, next) => {
   try {
     res.json(await ContainerService.exec(req.params.id, req.params.cid, req.body?.cmd, req.body?.tty));
   } catch (error) {

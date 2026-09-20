@@ -177,6 +177,16 @@ export const RagCollectionForm = ({ navigation, route }) => {
               />
             ))}
           </View>
+          {embeds.find((e) => e.name === form.embeddings_integration) ? (
+            <Button
+              title={`Open ${form.embeddings_integration}`}
+              variant="secondary"
+              onPress={() => navigation.navigate('aiProviderForm', {
+                providerId: embeds.find((e) => e.name === form.embeddings_integration).id,
+              })}
+              style={{ marginTop: 8, alignSelf: 'flex-start' }}
+            />
+          ) : null}
         </View>
       </Box>
 

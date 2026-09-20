@@ -12,6 +12,7 @@ if (!process.env.DATABASE_PATH) {
   process.env.DATABASE_PATH = path.join(dir, `t_${Date.now()}.db`);
 }
 
+jest.mock('../../api/models', () => ({ CicdPipeline: { findAll: jest.fn(), update: jest.fn(), create: jest.fn(), delete: jest.fn() } }));
 jest.mock('../../../shared/conductorProxy', () => ({
   proxy: jest.fn(),
   conductorBase: () => 'http://conductor.test',
@@ -26,7 +27,7 @@ describe('CicdPipelineService.deploy', () => {
     proxy.mockReset();
   });
 
-  test('git source builds then creates a task named container_name', async () => {
+  test('git source builds then refuses deploy without a linked Cloud task', async () => {
     const svc = new CicdPipelineService();
     svc.get = jest.fn().mockResolvedValue({
       id: 'pipe-1',
@@ -36,16 +37,12 @@ describe('CicdPipelineService.deploy', () => {
       dockerfile: 'Dockerfile',
     });
     svc.M.update = jest.fn().mockResolvedValue({});
-    proxy
-      .mockResolvedValueOnce({ status: 200, data: { image: 'aer-cmp-web:abc' } })
-      .mockResolvedValueOnce({ status: 201, data: { task: { id: 'task-9', name: 'web' } } });
+    proxy.mockResolvedValueOnce({ status: 200, data: { image: 'aer-cmp-web:abc' } });
 
     const r = await svc.deploy('pipe-1', 'proj', { container_name: 'web' });
-    expect(r.ok).toBe(true);
-    expect(r.task.name).toBe('web');
-    expect(proxy.mock.calls[1][0].path).toBe('/api/v1/tasks');
-    expect(proxy.mock.calls[1][0].body.name).toBe('web');
-    expect(proxy.mock.calls[1][0].body.image).toBe('aer-cmp-web:abc');
+    expect(r.ok).toBe(false);
+    expect(r.results.some((s) => s.step === 'deploy' && s.status === 409)).toBe(true);
+    expect(proxy.mock.calls.length).toBe(1);
   });
 
   test('existing target_container_id replace-image, not a second create', async () => {

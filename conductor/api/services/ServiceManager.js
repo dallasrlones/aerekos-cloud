@@ -17,6 +17,51 @@ class ServiceManager {
     this.pendingDeployments = new Map(); // Map<workerId, Array<instruction>>
     this._conductorToken = null; // Cache conductor token
   }
+
+  _friendlyDevice(worker) {
+    if (!worker) return null;
+    if (worker.display_name) return worker.display_name;
+    const host = String(worker.hostname || '');
+    if (host === 'aerekos-server' || host === 'prod') return 'Prod-Mini';
+    if (host === 'aerekos-M5-PLUS') return 'Dev-Mini';
+    if (host === 'ubuntu' || /orin/i.test(host)) return 'Orin';
+    return host || null;
+  }
+
+  /**
+   * One placement row per service name (shared instance).
+   */
+  async listPlacements() {
+    const { isPlatformDeviceService } = require('../config/platformDeviceServices');
+    const services = await Service.findAll();
+    const deployments = await ServiceDeployment.findAll();
+    const workers = await this.workerRepository.findAll().catch(() => []);
+    const workerById = new Map((workers || []).map((w) => [w.id, w]));
+    const deployByService = new Map();
+    for (const d of deployments || []) {
+      const cur = deployByService.get(d.service_id);
+      const live = d.status === 'deployed' || d.status === 'running';
+      if (!cur || (live && cur.status !== 'deployed' && cur.status !== 'running')) {
+        deployByService.set(d.service_id, d);
+      }
+    }
+    const out = {};
+    for (const s of services || []) {
+      const d = deployByService.get(s.id);
+      const worker = d?.worker_id ? workerById.get(d.worker_id) : null;
+      const platform = isPlatformDeviceService(s.name);
+      const device = this._friendlyDevice(worker)
+        || (s.name === 'ai_manager' ? 'Orin' : (platform ? 'Prod-Mini' : null));
+      out[s.name] = {
+        worker_id: d?.worker_id || worker?.id || null,
+        worker_hostname: worker?.hostname || null,
+        device,
+        shared: platform || Boolean(d),
+        status: d?.status || (platform ? 'shared' : null),
+      };
+    }
+    return out;
+  }
   
   /**
    * Get conductor's service token (cached)
@@ -104,6 +149,25 @@ class ServiceManager {
         } else if (existing[0].enabled !== 1) {
           await ProjectServiceModel.update(existing[0].id, { enabled: 1 });
         }
+      }
+
+      const { isPlatformDeviceService } = require('../config/platformDeviceServices');
+      const existingDeploys = await ServiceDeployment.findAll({ where: { service_id: service.id } });
+      const liveShared = existingDeploys.find((d) => d.status === 'deployed' || d.status === 'running');
+      if (isPlatformDeviceService(serviceName) || liveShared) {
+        return {
+          success: true,
+          attached: true,
+          skipped_deploy: true,
+          platform: isPlatformDeviceService(serviceName),
+          service_id: service.id,
+          service_name: serviceName,
+          project_id: projectId,
+          worker_id: liveShared?.worker_id || workerId || null,
+          message: liveShared
+            ? `${serviceName} already runs on a device — this project is attached.`
+            : `${serviceName} is a shared platform service — attached, not redeployed.`,
+        };
       }
 
       // Get service config and add default ports if not specified (one host port per manager)
@@ -255,7 +319,8 @@ class ServiceManager {
           const selectedWorkerIds = await ServiceOrchestrator.findOptimalWorkers(projectId, service.id, {
             placementStrategy: 'binpack',
             minInstances: 1,
-            maxInstances: 1
+            maxInstances: 1,
+            serviceName,
           });
 
           for (const selectedWorkerId of selectedWorkerIds) {
@@ -395,6 +460,23 @@ class ServiceManager {
 
       const service = services[0];
 
+      if (projectId) {
+        const rows = await ProjectServiceModel.findAll({
+          where: { project_id: projectId, service_id: service.id },
+        });
+        for (const row of rows) {
+          await ProjectServiceModel.update(row.id, { enabled: 0 });
+        }
+        return {
+          success: true,
+          detached: true,
+          service_id: service.id,
+          service_name: serviceName,
+          project_id: projectId,
+          message: `${serviceName} detached from this project. Shared instance left running.`,
+        };
+      }
+
       // Find deployments (filter by project if provided)
       const deploymentWhere = { service_id: service.id };
       if (projectId) {
@@ -496,11 +578,19 @@ class ServiceManager {
 
       const { isPlatformDeviceService } = require('../config/platformDeviceServices');
       const platform = isPlatformDeviceService(serviceName);
+      const workerId = deployments.length > 0 ? deployments[0].worker_id : null;
+      let worker = null;
+      if (workerId) {
+        worker = await this.workerRepository.findById(workerId).catch(() => null);
+      }
       return {
         enabled: platform || service.enabled === 1,
         deployed: platform || deployments.length > 0,
         platform,
-        worker_id: deployments.length > 0 ? deployments[0].worker_id : null,
+        shared: platform || deployments.length > 0,
+        worker_id: workerId,
+        worker_hostname: worker?.hostname || null,
+        device: this._friendlyDevice(worker) || (serviceName === 'ai_manager' ? 'Orin' : (platform ? 'Prod-Mini' : null)),
         health: health
       };
     } catch (error) {
@@ -892,6 +982,12 @@ class ServiceManager {
       if (worker.ip_address) {
         serviceUrls.push(`http://${worker.ip_address}:${servicePort}`);
       }
+      try {
+        const { workerReachUrls } = require('../utils/networkIslands');
+        for (const u of workerReachUrls(worker, servicePort)) {
+          if (!serviceUrls.includes(u)) serviceUrls.push(u);
+        }
+      } catch (_) { /* overlay fallback is optional */ }
       
       // SECONDARY: Container network name (if on same Docker network)
       serviceUrls.push(`http://${containerName}:${servicePort}`);

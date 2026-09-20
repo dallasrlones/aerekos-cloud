@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { projectService } from '../services/projectService';
 import { useAuth } from './AuthContext';
+import { parseProjectConfig } from '../utils/environmentMatch';
+import { visibleProjects } from '../config/retiredProjects';
 
 const ProjectContext = createContext(null);
 
@@ -18,7 +20,7 @@ export const ProjectProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [currentEnvironment, setCurrentEnvironmentState] = useState('prod');
+  const [currentEnvironment, setCurrentEnvironmentState] = useState('dev');
   const [environments, setEnvironments] = useState([]);
 
   // Load projects and current project on mount, but only if authenticated
@@ -56,7 +58,7 @@ export const ProjectProvider = ({ children }) => {
       const result = await projectService.getProjects();
       
       if (result.success) {
-        const loadedProjects = result.projects || [];
+        const loadedProjects = visibleProjects(result.projects || []);
         setProjects(loadedProjects);
         
         // Cache projects
@@ -71,7 +73,7 @@ export const ProjectProvider = ({ children }) => {
           const project = loadedProjects.find(p => p.id === storedProjectId);
           if (project) {
             setCurrentProjectState(project);
-            await loadEnvironments(project);
+            await loadEnvironments(project, { fromSwitch: false });
           } else {
             // Stored project doesn't exist, set first project
             if (loadedProjects.length > 0) {
@@ -90,7 +92,7 @@ export const ProjectProvider = ({ children }) => {
       try {
         const cached = await AsyncStorage.getItem(PROJECTS_KEY);
         if (cached) {
-          const cachedProjects = JSON.parse(cached);
+          const cachedProjects = visibleProjects(JSON.parse(cached));
           setProjects(cachedProjects);
         }
       } catch (cacheErr) {
@@ -128,7 +130,7 @@ export const ProjectProvider = ({ children }) => {
       
       // Set current project
       setCurrentProjectState(project);
-      await loadEnvironments(project);
+      await loadEnvironments(project, { fromSwitch: true });
       
       // Persist to storage
       await AsyncStorage.setItem(CURRENT_PROJECT_KEY, projectId);
@@ -143,34 +145,49 @@ export const ProjectProvider = ({ children }) => {
     }
   };
 
-  const loadEnvironments = async (project) => {
+  const loadEnvironments = async (project, { fromSwitch = false } = {}) => {
     if (!project?.id) {
       setEnvironments([]);
-      setCurrentEnvironmentState('prod');
+      setCurrentEnvironmentState('dev');
       return;
     }
+    const system = project.id === SYSTEM_PROJECT_ID || String(project.name || '').toLowerCase() === 'system';
+    const defaultEnv = String(parseProjectConfig(project).default_environment || '').trim()
+      || (system ? 'prod' : 'dev');
     try {
       const list = await projectService.listEnvironments(project.id);
       setEnvironments(list);
-      const system = project.id === SYSTEM_PROJECT_ID || String(project.name || '').toLowerCase() === 'system';
       if (system) {
         setCurrentEnvironmentState('prod');
         await AsyncStorage.setItem(CURRENT_ENV_KEY, 'prod');
         return;
       }
-      const stored = await AsyncStorage.getItem(CURRENT_ENV_KEY);
-      const next = list.find((e) => e.name === stored)?.name || list.find((e) => e.name === 'prod')?.name || 'prod';
+      let next;
+      if (fromSwitch) {
+        next = list.find((e) => e.name === defaultEnv)?.name || list[0]?.name || defaultEnv;
+      } else {
+        const stored = await AsyncStorage.getItem(CURRENT_ENV_KEY);
+        next = list.find((e) => e.name === stored)?.name
+          || list.find((e) => e.name === defaultEnv)?.name
+          || list[0]?.name
+          || defaultEnv;
+      }
       setCurrentEnvironmentState(next);
+      await AsyncStorage.setItem(CURRENT_ENV_KEY, next);
     } catch {
-      setEnvironments([{ name: 'prod', git_ref: 'main', protected: true }]);
-      setCurrentEnvironmentState('prod');
+      setEnvironments([{ name: defaultEnv, git_ref: defaultEnv === 'prod' ? 'main' : 'develop', protected: defaultEnv === 'prod' }]);
+      setCurrentEnvironmentState(defaultEnv);
     }
   };
 
   const setCurrentEnvironment = async (name) => {
-    const env = String(name || 'prod');
+    const env = String(name || 'dev');
     setCurrentEnvironmentState(env);
     await AsyncStorage.setItem(CURRENT_ENV_KEY, env);
+  };
+
+  const refreshEnvironments = async () => {
+    if (currentProject) await loadEnvironments(currentProject, { fromSwitch: false });
   };
 
   /**
@@ -305,6 +322,7 @@ export const ProjectProvider = ({ children }) => {
     currentEnvironment,
     environments,
     setCurrentEnvironment,
+    refreshEnvironments,
     isSystemProject: currentProject?.id === SYSTEM_PROJECT_ID || String(currentProject?.name || '').toLowerCase() === 'system',
     projects,
     loading,

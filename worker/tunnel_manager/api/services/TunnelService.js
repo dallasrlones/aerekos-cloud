@@ -206,6 +206,7 @@ class TunnelService {
           display_name: k.display_name || existing[0].display_name || '',
           device_hostname: k.device_hostname || existing[0].device_hostname || '',
           origin_mode: k.origin_mode || existing[0].origin_mode || 'host',
+          worker_id: k.worker_id || existing[0].worker_id || '',
         }).catch(() => {});
         adopted.push({ ...existing[0], ...k, id: existing[0].id });
         continue;
@@ -219,6 +220,7 @@ class TunnelService {
         display_name: k.display_name || '',
         device_hostname: k.device_hostname || '',
         origin_mode: k.origin_mode || 'host',
+        worker_id: k.worker_id || '',
       });
       adopted.push({ ...k, id: row.id });
     }

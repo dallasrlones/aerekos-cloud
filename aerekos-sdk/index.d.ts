@@ -67,6 +67,7 @@ export class AerekosClient {
   secrets: SecretsManagerApi;
   storage: StorageManagerApi;
   intelligence: IntelligenceApi;
+  agents: AgentsApi;
   stt: SttApi;
   tts: TtsApi;
   memory: MemoryApi;
@@ -155,6 +156,11 @@ export class IntelligenceApi {
   list(projectId: string): Promise<any>;
   create(projectId: string, body?: Record<string, unknown>): Promise<any>;
   chat(projectId: string, body: Record<string, unknown>): Promise<any>;
+  submit(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  job(projectId: string, jobId: string, opts?: { intelligence?: string }): Promise<any>;
+  wait(projectId: string, jobId: string, opts?: { intervalMs?: number; timeoutMs?: number; onUpdate?: (job: any) => void; onDelta?: (text: string) => void }): Promise<any>;
+  cancel(projectId: string, jobId: string, opts?: { intelligence?: string }): Promise<any>;
+  subscribe(projectId: string, jobId: string, opts?: { onUpdate?: (job: any) => void; onDelta?: (delta: string, partial?: string) => void; baseUrl?: string }): { socket: any; close(): void };
   usage(projectId: string, query?: Record<string, any>): Promise<any>;
   attach(projectId: string, id: string, body: { kind: 'rag' | 'memory' | 'lora'; target_name: string; [k: string]: unknown }): Promise<any>;
   attachBalancer(projectId: string, name: string, opts?: { backends?: string[]; health_check_path?: string; address?: string }): Promise<any>;
@@ -167,6 +173,65 @@ export class SttApi {
 export class TtsApi {
   synthesize(projectId: string, body: Record<string, unknown>, opts?: { binary?: boolean }): Promise<any>;
   status(projectId: string): Promise<any>;
+}
+export class AgentsApi {
+  setupStatus(projectId: string): Promise<any>;
+  setup(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  settings(projectId: string): Promise<any>;
+  updateSettings(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  fleet(projectId: string): Promise<any>;
+  list(projectId: string): Promise<any>;
+  get(projectId: string, id: string): Promise<any>;
+  create(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  update(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  remove(projectId: string, id: string): Promise<any>;
+  chat(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  voice(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  interrupt(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  approve(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  asks(projectId: string, id: string): Promise<any>;
+  pulse(projectId: string, id: string): Promise<any>;
+  messages(projectId: string, id: string, query?: Record<string, unknown>): Promise<any>;
+  pins(projectId: string, id: string): Promise<any>;
+  pin(projectId: string, id: string, key: string, value: string): Promise<any>;
+  forget(projectId: string, id: string, key: string): Promise<any>;
+  exportMemory(projectId: string, id: string): Promise<any>;
+  wipeMemory(projectId: string, id: string): Promise<any>;
+  rolls(projectId: string, id: string): Promise<any>;
+  refreshRolls(projectId: string, id: string): Promise<any>;
+  work(projectId: string, id: string): Promise<any>;
+  createWork(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  workers(projectId: string, id: string): Promise<any>;
+  spawn(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  runWorker(projectId: string, id: string, wid: string, body?: Record<string, unknown>): Promise<any>;
+  cron(projectId: string, id: string): Promise<any>;
+  createCron(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  fireCron(projectId: string, id: string, cid: string): Promise<any>;
+  skills(projectId: string, id: string): Promise<any>;
+  createSkill(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  audit(projectId: string, id: string): Promise<any>;
+  fs(projectId: string, id: string, rel?: string): Promise<any>;
+  fsWrite(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  term(projectId: string, id: string, cmd: string): Promise<any>;
+  tool(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  compact(projectId: string, id: string): Promise<any>;
+  plans(projectId: string, id: string): Promise<any>;
+  plan(projectId: string, id: string, planId: string): Promise<any>;
+  consoleEvents(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  timeline(projectId: string, id: string, since?: string): Promise<any>;
+  resume(projectId: string): Promise<any>;
+  prompts(projectId: string, id: string): Promise<any>;
+  patchPrompts(projectId: string, id: string, prompts: Record<string, string>): Promise<any>;
+  resetPrompts(projectId: string, id: string): Promise<any>;
+  patchWork(projectId: string, id: string, workId: string, body?: Record<string, unknown>): Promise<any>;
+  reorderWork(projectId: string, id: string, ids: string[]): Promise<any>;
+  subscribeAsks(projectId: string, agentId: string, opts?: {
+    onAsk?: (ask: any) => void;
+    onAnswered?: (ask: any) => void;
+    onPulse?: (pulse: any) => void;
+    onDone?: (evt: any) => void;
+    baseUrl?: string;
+  }): { socket: any; close(): void };
 }
 export class MemoryApi {
   stores(projectId: string): Promise<any>;
@@ -194,6 +259,9 @@ export class LlmApi {
 export class LoraApi {
   list(projectId: string): Promise<any>;
   train(projectId: string, body: Record<string, unknown>): Promise<any>;
+  submit(projectId: string, body: Record<string, unknown>): Promise<any>;
+  job(projectId: string, id: string): Promise<any>;
+  wait(projectId: string, id: string, opts?: { intervalMs?: number; timeoutMs?: number }): Promise<any>;
   attach(projectId: string, adapterId: string, intelligence: string): Promise<any>;
 }
 export class EventsApi {
@@ -213,9 +281,16 @@ export class DownloadApi {
 export class FunctionsApi {
   deploy(projectId: string | Record<string, unknown>, body?: Record<string, unknown>): Promise<any>;
   invoke(projectId: string | Record<string, unknown>, name?: string, opts?: { payload?: unknown; invocationType?: string }): Promise<any>;
+  attachQueue(projectId: string, name: string, queueName: string, opts?: { engine?: string }): Promise<any>;
+  detachQueue(projectId: string, name: string, sourceId: string): Promise<any>;
 }
 export class QueueApi {
   create(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  list(projectId: string): Promise<any>;
+  get(projectId: string, name: string): Promise<any>;
+  remove(projectId: string, name: string): Promise<any>;
+  delete(projectId: string, name: string): Promise<any>;
+  stats(projectId: string, name: string): Promise<any>;
   send(projectId: string, opts: { name: string; body: unknown }): Promise<any>;
   receive(projectId: string, opts?: { name: string; max?: number }): Promise<any>;
 }
@@ -235,6 +310,8 @@ export class DataApi {
 export class StacksApi {
   apply(projectId: string): Promise<any>;
   get(projectId: string): Promise<any>;
+  put(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  record(projectId: string, body?: Record<string, unknown>): Promise<any>;
 }
 export class ThinProxyApi {
   proxy<T = any>(opts: ProxyOptions): Promise<T>;

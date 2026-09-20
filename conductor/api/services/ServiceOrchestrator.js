@@ -43,6 +43,11 @@ class ServiceOrchestrator {
       throw new Error(`No workers assigned to project ${projectId}`);
     }
 
+    const preferred = this.preferWorkerForService(workers, options.serviceName || serviceId);
+    if (preferred) {
+      return [preferred.id];
+    }
+
     // Evaluate resources for each worker
     const workerEvaluations = [];
     for (const worker of workers) {
@@ -185,18 +190,23 @@ class ServiceOrchestrator {
     }
 
     const deployments = await ServiceDeployment.findAll({ where });
-
-    // Estimate resource usage (simplified - in production, track actual usage)
-    // For now, assume each service uses some baseline resources
-    const baselineCpu = 0.5; // CPU cores per service
-    const baselineRam = 1; // GB RAM per service
-    const baselineDisk = 2; // GB disk per service
-
     const serviceCount = deployments.length;
-    const cpuUsed = serviceCount * baselineCpu;
-    const ramUsed = serviceCount * baselineRam;
-    const diskUsed = serviceCount * baselineDisk;
-
+    let ramUsed = serviceCount;
+    let cpuUsed = serviceCount * 0.5;
+    let diskUsed = serviceCount * 2;
+    try {
+      const { Worker } = require('../models');
+      const { parseResources } = require('./deviceRoles');
+      const { ramFromResources } = require('./CapacityService');
+      const rows = await Worker.findAll({ where: { id: workerId } });
+      const res = parseResources(rows[0]?.resources);
+      const ram = ramFromResources(res);
+      if (ram.total_gb) {
+        ramUsed = ram.used_gb;
+        cpuUsed = Number((res.cpu && res.cpu.usage) || cpuUsed);
+        diskUsed = Number((res.disk && res.disk.used_gb) || diskUsed);
+      }
+    } catch (_) { /* keep counts */ }
     return {
       serviceCount,
       cpuUsed,
@@ -364,6 +374,27 @@ class ServiceOrchestrator {
       currentInstances,
       reason: 'Within instance bounds'
     };
+  }
+
+  preferWorkerForService(workers, serviceName) {
+    const name = String(serviceName || '').toLowerCase();
+    if (!workers.length) return null;
+    const host = (w) => String(w.hostname || '').toLowerCase();
+    const gpu = (w) => {
+      let res = w.resources;
+      if (typeof res === 'string') {
+        try { res = JSON.parse(res); } catch { res = {}; }
+      }
+      return !!(res?.gpu || res?.gpu_count || res?.has_gpu);
+    };
+    if (name.includes('ai_') || name === 'ai_manager') {
+      return workers.find((w) => gpu(w) || host(w).includes('ubuntu') || host(w).includes('orin')) || null;
+    }
+    const core = ['auth_manager', 'key_manager', 'secrets_manager', 'storage_manager', 'db_manager', 'compute_manager', 'tunnel_manager', 'domain_manager'];
+    if (core.includes(name)) {
+      return workers.find((w) => host(w).includes('aerekos-server') || host(w).includes('prod')) || null;
+    }
+    return null;
   }
 
   /**

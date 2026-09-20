@@ -168,18 +168,47 @@ class WorkerService {
     try {
       await this.workerRepository.update(worker.id, { vpc_id: extras.vpc_id || 'fleet' });
     } catch (_) { /* column may be missing */ }
+    let preauth_key = null;
     if (process.env.HEADSCALE_URL) {
       try {
-        const ServiceManager = require('./ServiceManager');
-        const sm = ServiceManager.getInstance(this.workerRepository);
-        await sm.proxyServiceRequest('network_manager', 'POST', '/api/v1/mesh/preauth', {
-          tags: ['tag:worker'],
-        }, {}, projectIds[0] || process.env.DEFAULT_PROJECT_ID);
+        const minted = await this.mintMeshKey(worker.id, projectIds[0] || process.env.DEFAULT_PROJECT_ID);
+        preauth_key = minted.preauth_key || null;
       } catch (e) {
         console.warn('[WorkerService] Headscale preauth skipped:', e.message);
       }
     }
-    return { ...workerWithResources, projects, vpc_id: extras.vpc_id || 'fleet' };
+    return { ...workerWithResources, projects, vpc_id: extras.vpc_id || 'fleet', preauth_key };
+  }
+
+  async mintMeshKey(workerId, projectId = null) {
+    const worker = await this.workerRepository.findById(workerId);
+    if (!worker) throw new Error('Worker not found');
+    const ServiceManager = require('./ServiceManager');
+    const sm = ServiceManager.getInstance(this.workerRepository);
+    const res = await sm.proxyServiceRequest('network_manager', 'POST', '/api/v1/mesh/preauth', {
+      tags: ['tag:worker'],
+      hostname: worker.hostname,
+    }, {}, projectId || process.env.DEFAULT_PROJECT_ID);
+    const data = res.data || {};
+    const key = data.preauth_key || data.key || null;
+    if (key) {
+      try {
+        let resources = {};
+        try { resources = typeof worker.resources === 'object' ? { ...worker.resources } : JSON.parse(worker.resources || '{}'); } catch { resources = {}; }
+        resources.mesh_status = 'key_issued';
+        await this.workerRepository.update(worker.id, { resources: JSON.stringify(resources) });
+      } catch (_) { /* optional */ }
+    }
+    return {
+      worker_id: worker.id,
+      hostname: worker.hostname,
+      login_server: process.env.HEADSCALE_URL || 'http://192.168.0.141:8080',
+      preauth_key: key,
+      shown_once: true,
+      command: key
+        ? `TS_AUTHKEY=${key} TS_EXTRA_ARGS='--login-server=${process.env.HEADSCALE_URL || 'http://192.168.0.141:8080'} --accept-dns=true' docker compose -f worker/docker-compose.tailscale.yml up -d --no-deps`
+        : null,
+    };
   }
 
   /**
@@ -188,7 +217,7 @@ class WorkerService {
    * @returns {Promise<object>} Updated worker
    * @throws {Error} If worker not found
    */
-  async sendHeartbeat(workerId) {
+  async sendHeartbeat(workerId, extras = {}) {
     const worker = await this.workerRepository.findById(workerId);
     
     if (!worker) {
@@ -198,6 +227,15 @@ class WorkerService {
     // Update last_seen and status
     await this.workerRepository.updateLastSeen(workerId);
     await this.workerRepository.updateStatus(workerId, 'online');
+    const overlay = extras.overlay_ip || extras.tailscale_ip || extras.resources?.overlay_ip || extras.resources?.tailscale_ip;
+    if (overlay) {
+      try {
+        let resources = {};
+        try { resources = typeof worker.resources === 'object' ? { ...worker.resources } : JSON.parse(worker.resources || '{}'); } catch { resources = {}; }
+        resources.overlay_ip = overlay;
+        await this.workerRepository.update(workerId, { resources: JSON.stringify(resources) });
+      } catch (_) { /* optional */ }
+    }
 
     return await this.workerRepository.findByIdWithResources(workerId);
   }

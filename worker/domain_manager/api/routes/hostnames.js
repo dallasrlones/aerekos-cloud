@@ -37,6 +37,16 @@ router.post('/hostnames', async (req, res, next) => {
   }
 });
 
+router.patch('/hostnames/:id', async (req, res, next) => {
+  try {
+    const item = await svc.update(req.params.id, q(req), req.body || {});
+    res.json({ hostname: item });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
+});
+
 router.delete('/hostnames/:id', async (req, res, next) => {
   try {
     res.json(await svc.del(req.params.id, q(req)));

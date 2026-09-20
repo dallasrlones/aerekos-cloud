@@ -105,22 +105,8 @@ class FunctionService extends CrudService {
       dlq,
     });
     if (inbox && process.env.SKIP_QUEUE_PROVISION !== '1') {
-      try {
-        await axios.post(`${conductorBase()}/api/services/queue_manager/api/v1/queues`, {
-          project_id: body.project_id,
-          name: inbox,
-          engine: 'standard',
-          dlq,
-          visibility_timeout_seconds: Math.ceil(Number(saved.timeout_ms || 30000) / 1000) + 10,
-        }, { headers: headers(body.project_id), timeout: 10000, validateStatus: () => true });
-        if (dlq) {
-          await axios.post(`${conductorBase()}/api/services/queue_manager/api/v1/queues`, {
-            project_id: body.project_id,
-            name: dlq,
-            engine: 'standard',
-          }, { headers: headers(body.project_id), timeout: 10000, validateStatus: () => true });
-        }
-      } catch (_) { /* queue_manager may be down in unit tests */ }
+      const warn = await this.provisionQueue(body.project_id, inbox, dlq, saved.timeout_ms, body.engine || 'standard');
+      if (warn) saved.queue_warning = warn;
     }
     if (inbox) {
       await EventSource.create({
@@ -150,6 +136,70 @@ class FunctionService extends CrudService {
     return { function: hello };
   }
 
+  async provisionQueue(projectId, inbox, dlq, timeoutMs, engine = 'standard') {
+    try {
+      const r = await axios.post(`${conductorBase()}/api/services/queue_manager/api/v1/queues`, {
+        project_id: projectId,
+        name: inbox,
+        engine,
+        dlq: dlq || '',
+        visibility_timeout_seconds: Math.ceil(Number(timeoutMs || 30000) / 1000) + 10,
+      }, { headers: headers(projectId), timeout: 10000, validateStatus: () => true });
+      if (r.status >= 400 && r.status !== 409) {
+        return r.data?.error?.message || `queue_manager ${r.status}`;
+      }
+      if (dlq) {
+        await axios.post(`${conductorBase()}/api/services/queue_manager/api/v1/queues`, {
+          project_id: projectId,
+          name: dlq,
+          engine: engine === 'rabbitmq' ? 'rabbitmq' : 'standard',
+        }, { headers: headers(projectId), timeout: 10000, validateStatus: () => true });
+      }
+      return '';
+    } catch (e) {
+      return e.message || 'queue_manager unreachable';
+    }
+  }
+
+  async attachQueue(projectId, functionId, queueName, { engine } = {}) {
+    const fn = await this.get(functionId, projectId);
+    const name = String(queueName || `${fn.name}-inbox`).trim();
+    const dlq = `${fn.name}-dlq`;
+    if (process.env.SKIP_QUEUE_PROVISION !== '1') {
+      const warn = await this.provisionQueue(projectId, name, dlq, fn.timeout_ms, engine || 'standard');
+      if (warn) {
+        const e = new Error(warn);
+        e.status = 502;
+        throw e;
+      }
+    }
+    const existing = await EventSource.findAll({ where: { project_id: projectId, function_id: fn.id, kind: 'queue', ref: name } });
+    let src = existing[0];
+    if (!src) {
+      src = await EventSource.create({
+        project_id: projectId, function_id: fn.id, kind: 'queue', ref: name, batch_size: '1', enabled: 'true',
+      });
+    } else {
+      await EventSource.update(src.id, { enabled: 'true' });
+      src = (await EventSource.findAll({ where: { id: src.id } }))[0];
+    }
+    await this.M.update(fn.id, { inbox_queue: name, dlq });
+    return { event_source: src, inbox_queue: name };
+  }
+
+  async detachQueue(projectId, functionId, sourceId) {
+    const rows = await EventSource.findAll({ where: { id: sourceId, project_id: projectId, function_id: functionId } });
+    if (!rows.length) throw fail(404, 'event source not found');
+    await EventSource.delete(sourceId);
+    const left = await EventSource.findAll({ where: { project_id: projectId, function_id: functionId, kind: 'queue', enabled: 'true' } });
+    await this.M.update(functionId, { inbox_queue: left[0]?.ref || '' });
+    return { detached: true, inbox_queue: left[0]?.ref || '' };
+  }
+
+  async listEventSources(projectId, functionId) {
+    return EventSource.findAll({ where: { project_id: projectId, function_id: functionId } });
+  }
+
   async getByName(projectId, name) {
     const rows = await Fn.findAll({ where: { project_id: projectId, name } });
     if (!rows.length) throw fail(404, `function not found: ${name}`);
@@ -162,13 +212,16 @@ class FunctionService extends CrudService {
     const type = invocation_type || 'RequestResponse';
     if (type === 'Event') {
       if (fn.inbox_queue) {
-        try {
-          await axios.post(
-            `${conductorBase()}/api/services/queue_manager/api/v1/queues/${encodeURIComponent(fn.inbox_queue)}/messages`,
-            { project_id: projectId, body: { request_id: requestId, payload: payload || {} } },
-            { headers: headers(projectId), timeout: 10000, validateStatus: () => true },
-          );
-        } catch (_) { /* recorded anyway */ }
+        const sent = await axios.post(
+          `${conductorBase()}/api/services/queue_manager/api/v1/queues/${encodeURIComponent(fn.inbox_queue)}/messages`,
+          { project_id: projectId, body: { request_id: requestId, payload: payload || {} } },
+          { headers: headers(projectId), timeout: 10000, validateStatus: () => true },
+        );
+        if (sent.status >= 400) {
+          const e = new Error(sent.data?.error?.message || `queue send ${sent.status}`);
+          e.status = sent.status >= 400 ? sent.status : 502;
+          throw e;
+        }
       }
       await Invocation.create({
         project_id: projectId,
@@ -254,16 +307,40 @@ exports.handler = async (event) => ({ ok: true, function: ${JSON.stringify(fn.na
           if (!fn) continue;
           let body = {};
           try { body = JSON.parse(msg.Body); } catch { body = { raw: msg.Body }; }
-          await this.invoke(projectId, fn.name, { payload: body.payload || body, invocation_type: 'RequestResponse' });
-          await axios.delete(
-            `${conductorBase()}/api/services/queue_manager/api/v1/queues/${encodeURIComponent(m.ref)}/messages/${encodeURIComponent(msg.MessageId)}`,
-            { headers: headers(projectId), params: { project_id: projectId }, timeout: 10000, validateStatus: () => true },
+          let invoked;
+          try {
+            invoked = await this.invoke(projectId, fn.name, { payload: body.payload || body, invocation_type: 'RequestResponse' });
+          } catch (err) {
+            invoked = { status: 'failed', error: err.message };
+          }
+          const failed = Boolean(
+            !invoked
+            || invoked.status === 'failed'
+            || invoked.error
+            || (invoked.result && invoked.result.error),
           );
-          out.push(msg.MessageId);
+          const ok = !failed;
+          if (ok) {
+            await axios.delete(
+              `${conductorBase()}/api/services/queue_manager/api/v1/queues/${encodeURIComponent(m.ref)}/messages/${encodeURIComponent(msg.ReceiptHandle || msg.MessageId)}`,
+              { headers: headers(projectId), params: { project_id: projectId }, timeout: 10000, validateStatus: () => true },
+            );
+            out.push(msg.MessageId);
+          }
+          // failures stay in-flight / increment receive_count toward DLQ on next receive
         }
       } catch (_) { /* ignore */ }
     }
     return { acked: out };
+  }
+
+  async pollAll() {
+    if (SKIP_POLLER) return { skipped: true };
+    const mappings = await EventSource.findAll({ where: { kind: 'queue', enabled: 'true' } });
+    const projects = [...new Set(mappings.map((m) => m.project_id).filter(Boolean))];
+    const results = [];
+    for (const pid of projects) results.push(await this.pollOnce(pid));
+    return { projects: projects.length, results };
   }
 }
 

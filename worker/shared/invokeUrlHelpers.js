@@ -28,6 +28,8 @@ function aiPrettyInvokeUrl(projectId, capability, endpointName, baseUrl) {
   if (cap === 'tts') return prettyUrlForPreset('ai-tts-synthesize', params, baseUrl);
   if (cap === 'stt') return prettyUrlForPreset('ai-stt-transcribe', params, baseUrl);
   if (cap === 'intelligence') return prettyUrlForPreset('ai-intelligence-chat', params, baseUrl);
+  if (cap === 'agent') return prettyUrlForPreset('ai-agent-chat', params, baseUrl);
+  if (cap === 'connector') return prettyUrlForPreset('ai-connector-invoke', params, baseUrl);
   return null;
 }
 

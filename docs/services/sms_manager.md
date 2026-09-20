@@ -2,7 +2,7 @@
 
 > **Integrations** · Implemented · needs provider keys for live calls
 
-SMS messages (to_number/body). Queued; outbound send disabled.
+SMS messages (to_number/body). Send when Twilio secrets exist; otherwise queue-only.
 
 - **Port:** `3114`
 - **AWS analog:** SNS SMS

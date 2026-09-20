@@ -112,6 +112,22 @@ describe('ai_manager memory e2e (fallback stores)', () => {
     expect(search.body.context).toMatch(/morning workouts/i);
   });
 
+  test('GET /stores/:id returns the named store', async () => {
+    const created = await request(app)
+      .post('/api/v1/memory/stores')
+      .query({ project_id: PID })
+      .send({ name: 'console-store', window_size: 50 });
+    expect(created.status).toBe(201);
+    const id = created.body.config.id;
+    expect(id).toBeTruthy();
+    const got = await request(app)
+      .get(`/api/v1/memory/stores/${id}`)
+      .query({ project_id: PID });
+    expect(got.status).toBe(200);
+    expect(got.body.item.name).toBe('console-store');
+    expect(got.body.item.id).toBe(id);
+  });
+
   test('DELETE session clears short-term data', async () => {
     const del = await request(app)
       .delete(`/api/v1/memory/sessions/${SESSION}`)

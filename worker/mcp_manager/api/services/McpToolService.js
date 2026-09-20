@@ -39,13 +39,16 @@ class McpToolService {
       e.status = 400;
       throw e;
     }
+    const { conductorBase, authHeaders } = require('../../../shared/conductorProxy');
+    let url = String(endpoint);
+    if (url.startsWith('/')) url = `${conductorBase().replace(/\/$/, '')}${url}`;
     const res = await axios({
       method: schema.method || args.method || 'POST',
-      url: endpoint,
+      url,
       data: args.arguments || args.input || args,
       timeout: Number(schema.timeout_ms || 20000),
       validateStatus: () => true,
-      headers: { 'Content-Type': 'application/json', ...(schema.headers || {}) },
+      headers: { 'Content-Type': 'application/json', ...authHeaders(projectId), ...(schema.headers || {}) },
     });
     return { tool: row, status: res.status, result: res.data };
   }

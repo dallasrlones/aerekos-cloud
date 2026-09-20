@@ -3,6 +3,8 @@
 #   docker build -f compute_manager/Dockerfile -t aerekos-compute_manager worker/
 FROM node:20-bookworm-slim
 WORKDIR /app/compute_manager
+RUN apt-get update && apt-get install -y --no-install-recommends git docker.io \
+    && rm -rf /var/lib/apt/lists/*
 COPY compute_manager/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY compute_manager/ ./

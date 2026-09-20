@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { deviceService, hostPartLabel } from '../../services/deviceService';
+import { deviceService, deviceLabel, hostPartLabel } from '../../services/deviceService';
 import websocketService from '../../services/websocketService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Box } from '../../components/Box/Box';
@@ -14,8 +14,8 @@ export const Devices = ({ navigation }) => {
 
   useEffect(() => {
     loadDevices();
+    const poll = setInterval(() => { loadDevices(); }, 5000);
 
-    // Connect WebSocket if authenticated
     if (isAuthenticated) {
       getToken().then(token => {
         if (token) {
@@ -23,15 +23,13 @@ export const Devices = ({ navigation }) => {
         }
       });
 
-      // Listen for real-time worker updates
       const unsubscribeOnline = websocketService.on('worker:online', (data) => {
         console.log('[Devices] Worker online:', data);
-        loadDevices(); // Refresh list
+        loadDevices();
       });
 
       const unsubscribeOffline = websocketService.on('worker:offline', (data) => {
         console.log('[Devices] Worker offline:', data);
-        // Update device status immediately
         setDevices(prevDevices => 
           prevDevices.map(device => 
             device.id === data.workerId 
@@ -42,23 +40,24 @@ export const Devices = ({ navigation }) => {
       });
 
       const unsubscribeResources = websocketService.on('worker:resources:updated', (data) => {
-        console.log('[Devices] Worker resources updated:', data);
-        // Update device resources immediately
         setDevices(prevDevices => 
           prevDevices.map(device => 
             device.id === data.workerId 
-              ? { ...device, resources: { ...device.resources, ...data.resources } }
+              ? { ...device, resources: { ...device.resources, ...data.resources }, last_seen: data.timestamp || device.last_seen }
               : device
           )
         );
       });
 
       return () => {
+        clearInterval(poll);
         unsubscribeOnline();
         unsubscribeOffline();
         unsubscribeResources();
       };
     }
+
+    return () => clearInterval(poll);
   }, [isAuthenticated, getToken]);
 
   const loadDevices = async () => {
@@ -133,7 +132,7 @@ export const Devices = ({ navigation }) => {
             >
               <View style={DevicesStyles.deviceHeader}>
                 <View style={DevicesStyles.deviceInfo}>
-                  <Text style={DevicesStyles.deviceName}>{device.hostname}</Text>
+                  <Text style={DevicesStyles.deviceName}>{deviceLabel(device)}</Text>
                   <Text style={DevicesStyles.deviceIp}>{device.ip_address}</Text>
                   <Text style={DevicesStyles.lastSeenText}>
                     VPC {device.vpc_id || 'fleet'}
@@ -154,7 +153,15 @@ export const Devices = ({ navigation }) => {
               <View style={DevicesStyles.deviceDetails}>
                 {device.resources && (
                   <Text style={DevicesStyles.resourceText}>
-                    {device.resources.cpu_cores || 0} CPU • {device.resources.ram_gb || 0} GB RAM • {device.resources.disk_gb || 0} GB Disk
+                    {device.resources.cpu?.usagePercent != null
+                      ? `${Number(device.resources.cpu.usagePercent).toFixed(0)}% CPU`
+                      : `${device.resources.cpu_cores || 0} CPU`}
+                    {' • '}
+                    {device.resources.ram?.used_gb != null
+                      ? `${Number(device.resources.ram.used_gb).toFixed(1)} / ${device.resources.ram.total_gb || device.resources.ram_gb || 0} GB RAM`
+                      : `${device.resources.ram_gb || 0} GB RAM`}
+                    {' • '}
+                    {device.resources.disk_gb || 0} GB Disk
                   </Text>
                 )}
                 {device.version && (
@@ -175,7 +182,7 @@ export const Devices = ({ navigation }) => {
                 </Text>
                 {(!device.last_seen || (Date.now() - new Date(device.last_seen).getTime()) > 10 * 60 * 1000) ? (
                   <Text style={DevicesStyles.lastSeenText}>
-                    {device.hostname} has not checked in — updater is not polling.
+                    {deviceLabel(device)} has not checked in — updater is not polling.
                   </Text>
                 ) : null}
               </View>

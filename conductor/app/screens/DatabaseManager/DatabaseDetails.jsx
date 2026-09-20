@@ -8,40 +8,43 @@ import { DatabaseDetailsStyles } from './DatabaseDetails.styles';
 import { colors } from '../../styles/theme';
 import { stackService } from '../../services/stackService';
 import { useProject } from '../../contexts/ProjectContext';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 
 export const DatabaseDetails = ({ navigation, route }) => {
   const { databaseName } = route.params || {};
   const { currentProject } = useProject();
+  const projectId = currentProject?.id;
   const [database, setDatabase] = useState(null);
   const [connectionInfo, setConnectionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [tab, setTab] = useState('overview');
 
   useEffect(() => {
-    if (databaseName) {
+    if (databaseName && projectId) {
       loadDatabase();
     }
-  }, [databaseName]);
+  }, [databaseName, projectId]);
 
   const loadDatabase = async () => {
     try {
       setLoading(true);
       setError(null);
-      const db = await dbManagerService.getDatabase(databaseName);
+      const db = await dbManagerService.getDatabase(databaseName, projectId);
       setDatabase(db);
       
       // Load connection info
       try {
-        const conn = await dbManagerService.getConnectionString(databaseName);
+        const conn = await dbManagerService.getConnectionString(databaseName, projectId);
         setConnectionInfo(conn);
       } catch (err) {
         console.warn('Could not load connection info:', err);
       }
     } catch (err) {
       console.error('Error loading database:', err);
-      setError(err.message || 'Failed to load database');
+      setError(dbManagerService.errMsg(err, 'Failed to load database'));
     } finally {
       setLoading(false);
     }
@@ -61,16 +64,16 @@ export const DatabaseDetails = ({ navigation, route }) => {
       let result;
       switch (action) {
         case 'start':
-          result = await dbManagerService.startDatabase(databaseName);
+          result = await dbManagerService.startDatabase(databaseName, projectId);
           break;
         case 'stop':
-          result = await dbManagerService.stopDatabase(databaseName);
+          result = await dbManagerService.stopDatabase(databaseName, projectId);
           break;
         case 'restart':
-          result = await dbManagerService.restartDatabase(databaseName);
+          result = await dbManagerService.restartDatabase(databaseName, projectId);
           break;
         case 'backup':
-          result = await dbManagerService.createBackup(databaseName);
+          result = await dbManagerService.createBackup(databaseName, 'full', projectId);
           Alert.alert('Backup started', `A backup of "${databaseName}" was requested.`);
           setActionLoading(false);
           return;
@@ -85,7 +88,7 @@ export const DatabaseDetails = ({ navigation, route }) => {
                 style: 'destructive',
                 onPress: async () => {
                   try {
-                    await dbManagerService.deleteDatabase(databaseName);
+                    await dbManagerService.deleteDatabase(databaseName, projectId);
                     await stackService.unrecord(currentProject?.id, { service: 'db_manager', name: databaseName });
                     Alert.alert('Success', 'Database deleted successfully');
                     navigation.goBack();
@@ -170,8 +173,16 @@ export const DatabaseDetails = ({ navigation, route }) => {
         </Text>
       </View>
 
-      {/* Actions */}
-      <Box title="Actions">
+      <ScreenTabs
+        tabs={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'connection', label: 'Connection' },
+          { id: 'actions', label: 'Actions' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === 'actions' ? <Box title="Actions">
         <View style={DatabaseDetailsStyles.actionsContainer}>
           {database.status !== 'running' && (
             <Button
@@ -214,10 +225,9 @@ export const DatabaseDetails = ({ navigation, route }) => {
             style={DatabaseDetailsStyles.actionButton}
           />
         </View>
-      </Box>
+      </Box> : null}
 
-      {/* Database Info */}
-      <Box title="Database Information">
+      {tab === 'overview' ? <Box title="Database Information">
         <View style={DatabaseDetailsStyles.infoRow}>
           <Text style={DatabaseDetailsStyles.infoLabel}>Type:</Text>
           <Text style={DatabaseDetailsStyles.infoValue}>{database.type}</Text>
@@ -252,10 +262,9 @@ export const DatabaseDetails = ({ navigation, route }) => {
             </Text>
           </View>
         )}
-      </Box>
+      </Box> : null}
 
-      {/* Connection Info */}
-      {connectionInfo && (
+      {tab === 'connection' && connectionInfo && (
         <Box title="Connection Information">
           <View style={DatabaseDetailsStyles.infoRow}>
             <Text style={DatabaseDetailsStyles.infoLabel}>Connection String:</Text>

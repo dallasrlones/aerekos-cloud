@@ -1,5 +1,6 @@
 const express = require('express');
 const { LogEventService } = require('../services/LogEventService');
+const { liveEmitSoon } = require('../../../shared/liveEmit');
 
 const router = express.Router();
 const service = new LogEventService();
@@ -33,7 +34,13 @@ router.post('/logs', async (req, res, next) => {
   try {
     const body = { ...req.body, project_id: getProjectId(req) || req.body.project_id };
     const row = await service.create(body);
-    res.status(201).json({ log: serialize(row) });
+    const log = serialize(row);
+    liveEmitSoon(`logs:${log.source}`, 'log:appended', {
+      project_id: log.project_id,
+      source: log.source,
+      logs: [log],
+    });
+    res.status(201).json({ log });
   } catch (e) {
     if (e.status) {
       return res.status(e.status).json({ error: { message: e.message } });
@@ -46,7 +53,20 @@ router.post('/logs/batch', async (req, res, next) => {
   try {
     const body = { ...req.body, project_id: getProjectId(req) || req.body.project_id };
     const rows = await service.createBatch(body);
-    res.status(201).json({ logs: rows.map(serialize), count: rows.length });
+    const logs = rows.map(serialize);
+    const bySource = new Map();
+    for (const log of logs) {
+      if (!bySource.has(log.source)) bySource.set(log.source, []);
+      bySource.get(log.source).push(log);
+    }
+    for (const [source, group] of bySource) {
+      liveEmitSoon(`logs:${source}`, 'log:appended', {
+        project_id: body.project_id,
+        source,
+        logs: group,
+      });
+    }
+    res.status(201).json({ logs, count: logs.length });
   } catch (e) {
     if (e.status) {
       return res.status(e.status).json({ error: { message: e.message } });

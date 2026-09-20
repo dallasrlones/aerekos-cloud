@@ -99,5 +99,45 @@ describe('intelligence endpoints', () => {
     });
     expect(attached.status).toBe(200);
     expect(attached.body.item.rag).toHaveLength(1);
+
+    const modeled = await request(app).patch(`/api/v1/intelligence/${intelId}`).send({
+      project_id: PID,
+      model: 'shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP',
+    });
+    expect(modeled.status).toBe(200);
+    expect(modeled.body.item.model).toBe('shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP');
+    expect(modeled.body.item.arn).toBe(intel.body.item.arn);
+  });
+
+  test('queued endpoint rejects sync chat with 409', async () => {
+    const llm = await request(app).post('/api/v1/providers').send({
+      project_id: PID,
+      name: `queued-llm-${suffix}`,
+      capability: 'llm',
+      provider: 'ollama',
+      endpoint: 'http://127.0.0.1:11434',
+      model: 'llama3.2:3b',
+    });
+    const intel = await request(app).post('/api/v1/intelligence').send({
+      project_id: PID,
+      name: `queued-bot-${suffix}`,
+      llm_integration: llm.body.item.name,
+      execution: 'sync',
+    });
+    const patched = await request(app).patch(`/api/v1/intelligence/${intel.body.item.id}`).send({
+      project_id: PID,
+      execution: 'queued',
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.body.item.execution).toBe('queued');
+    const chat = await request(app).post('/api/v1/intelligence/chat').send({
+      project_id: PID,
+      intelligence: intel.body.item.name,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(chat.status).toBe(409);
+    expect(chat.body.error.code).toBe('queued_endpoint');
+    await request(app).delete(`/api/v1/intelligence/${intel.body.item.id}`).query({ project_id: PID });
+    await request(app).delete(`/api/v1/providers/${llm.body.item.id}`).query({ project_id: PID });
   });
 });

@@ -166,7 +166,72 @@ def run_job(job_dir: Path) -> None:
         running.unlink()
 
 
-def main() -> None:
+def ensure_pika():
+    try:
+        import pika  # noqa: F401
+        return
+    except ImportError:
+        pass
+    PIP_TARGET.mkdir(parents=True, exist_ok=True)
+    if str(PIP_TARGET) not in sys.path:
+        sys.path.insert(0, str(PIP_TARGET))
+    try:
+        import pika  # noqa: F401
+        return
+    except ImportError:
+        pass
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "-q",
+            "-t",
+            str(PIP_TARGET),
+            "pika",
+        ]
+    )
+    if str(PIP_TARGET) not in sys.path:
+        sys.path.insert(0, str(PIP_TARGET))
+
+
+def consume_amqp() -> None:
+    ensure_pika()
+    import pika
+    url = os.environ.get("RABBITMQ_URL") or ""
+    if not url:
+        return
+    params = pika.URLParameters(url)
+    params.heartbeat = 30
+    conn = pika.BlockingConnection(params)
+    ch = conn.channel()
+    ch.basic_qos(prefetch_count=1)
+    inbox = os.environ.get("LORA_INBOX") or "lora-inbox"
+    project = os.environ.get("LORA_PROJECT_ID") or ""
+    qn = f"aerekos.{project}.{inbox}" if project else inbox
+    ch.queue_declare(queue=qn, durable=True)
+
+    def on_msg(channel, method, properties, body):
+        try:
+            payload = json.loads(body.decode("utf-8") or "{}")
+        except Exception:
+            payload = {}
+        job_id = payload.get("job_id") or payload.get("id")
+        job_dir = JOBS / str(job_id) if job_id else None
+        if job_dir and job_dir.is_dir() and (job_dir / "queued.json").exists():
+            if not (job_dir / "done.json").exists() and not (job_dir / "failed.json").exists():
+                print(f"[lora_trainer] amqp start {job_dir.name}", flush=True)
+                run_job(job_dir)
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+
+    ch.basic_consume(queue=qn, on_message_callback=on_msg, auto_ack=False)
+    print("[lora_trainer] consuming", qn, flush=True)
+    ch.start_consuming()
+
+
+def poll_disk() -> None:
     print("[lora_trainer] watching", JOBS, "base", BASE, "steps", STEPS, flush=True)
     JOBS.mkdir(parents=True, exist_ok=True)
     for stale in JOBS.glob("*/running.json"):
@@ -185,6 +250,17 @@ def main() -> None:
             print(f"[lora_trainer] start {job_dir.name}", flush=True)
             run_job(job_dir)
         time.sleep(POLL)
+
+
+def main() -> None:
+    JOBS.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("RABBITMQ_URL") and os.environ.get("SKIP_LORA") != "1":
+        try:
+            consume_amqp()
+            return
+        except Exception as e:
+            print("[lora_trainer] amqp failed, disk poll:", e, flush=True)
+    poll_disk()
 
 
 if __name__ == "__main__":

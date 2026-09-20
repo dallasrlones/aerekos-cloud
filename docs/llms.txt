@@ -2,9 +2,11 @@
 
 Auth: POST /api/auth/login {username,password} → JWT. Icarus C0: POST /api/v1/auth/token on auth_manager.
 Proxy: {CONDUCTOR}/api/services/{manager}{path}?project_id=
-SDK: aerekos-sdk AerekosClient — backup.run/jobs/restore, iac.status/hookup/apply, edge.status/hookup, systems.check/update, graphql.execute, search.query.
-CLI: aerekos backup run | iac hookup | systems update --target os|docker | graphql execute | search query
+SDK: aerekos-sdk AerekosClient — backup.run/jobs/restore, iac.status/hookup/apply, edge.status/hookup, systems.check/update, graphql.execute, search.query, intelligence.submit/job/wait/cancel/subscribe, agents.*, connectors.invoke.
+CLI: aerekos backup run | iac hookup | systems update --target os|docker | graphql execute | search query | intelligence submit|job|wait|cancel
+Queued intelligence: POST /intelligence/chat on execution=queued returns 409. Use POST /intelligence/jobs then GET until terminal. WS room ai:live:{projectId} events ai:job, ai:job.token, ai:agent.pulse, ai:agent.ask, ai:agent.ask.answered. Queue engines: standard/fifo=SQLite, rabbitmq=AMQP, redis_stream=Redis.
+Icarus shop: AI Manager → Agents (https://cloud.aerekos.com/services/ai_manager/agents). Header sparkles overlay talks to system Icarus (click-to-talk). Ask=hangout (friend memory). Plan/Agent = plan card then Run it → manager → workers (skills RAG). Tiny mkdir stays one preview. Learn jobs are durable (sources ASK, waiting_net). Cron ticker is ai_manager AgentCron (once+recurring; late catch-up says I was down). Idle review proposes only. Computer = prod-mini jail. Browser = Playwright sidecar (screenshot ASK). IaC = project-stack JSON + apply. Deploy = rsync+restart+health. SDK client.agents.subscribeAsks. See docs/runbooks/icarus-agents.md.
 Email/SMS/Slack/Push: queued; outbound send disabled. Do not retry live send.
 Never hit production project ea370977-3aff-4c76-95a6-a0c50fd2bce7 from e2e.
-Never --remove-orphans on the mixed stack. vLLM only on orin. k3s is opt-in, not a conductor migration.
+Never --remove-orphans on the mixed stack. vLLM only on orin; never start it if stopped. AI engines are placed from AI Manager (not Compute apps). A GPU device is docker run the worker. ~/work/tools compose is leftover. k3s is opt-in, not a conductor migration.
 Catalog: docs/catalog.js. Docs: make docs. Agents: AGENTS.md, docs/agents.md.

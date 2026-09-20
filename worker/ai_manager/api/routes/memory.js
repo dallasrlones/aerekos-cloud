@@ -36,6 +36,14 @@ r.get('/stores', requireResource({ requiredScope: 'ai:InvokeMemory' }), async (r
   } catch (e) { err(res, e, next); }
 });
 
+r.get('/stores/:id', requireResource({ requiredScope: 'ai:InvokeMemory' }), async (req, res, next) => {
+  try {
+    const pid = projectId(req);
+    if (!pid) return res.status(400).json({ error: { message: 'project_id is required' } });
+    res.json({ item: await storeService.get(req.params.id, pid) });
+  } catch (e) { err(res, e, next); }
+});
+
 r.post('/stores', requireResource({ requiredScope: 'ai:AdminMemory' }), async (req, res, next) => {
   try {
     const pid = projectId(req);

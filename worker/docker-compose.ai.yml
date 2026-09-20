@@ -1,11 +1,16 @@
-# AI stack for a GPU host (e.g. Jetson Orin / oculus).
+# AI stack for a GPU host (Jetson Orin / oculus). Cloud is the only deployer.
 #
-# Runs ai_manager + auth_manager. Ollama uses the host's native GPU daemon
-# (external mode) OR shares the host model directory with a containerized Ollama.
-# TTS/STT proxy to the existing tools/ voice stack on the Orin (do NOT stop
-# tts-cache-gen — dictionary generation is complete and idle).
+# Runs auth_manager, ai_manager, LoRA trainer, and the always-on voice engines
+# (Whisper STT, Kokoro TTS, TTS cache + dictionary generator). Apps reach those
+# engines through Cloud integrations (orin-stt / orin-tts-kokoro / orin-tts-cache)
+# on host.docker.internal:8001/8013/8015. ~/work/tools compose is leftover —
+# do not start voice from there.
 #
-#   docker compose -p aerekos-ai -f worker/docker-compose.ai.yml up -d --build
+# Reuses existing model volumes and the 27G words.db bind. Do not recreate
+# tts-cache data. vLLM stays in docker-compose.vllm.yml; never start it from
+# this file. Never --remove-orphans.
+#
+#   docker compose -p aerekos-ai -f worker/docker-compose.ai.yml up -d --no-deps
 services:
   auth_manager:
     build:
@@ -43,11 +48,14 @@ services:
       - SERVICE_NAME=ai_manager
       # Workers register over LAN; browsers use https://cloudapi.aerekos.com
       - CONDUCTOR_URL=${CONDUCTOR_URL}
+      - CONDUCTOR_TOKEN=${CONDUCTOR_TOKEN:-}
+      - WORKER_TOKEN=${WORKER_TOKEN:-}
       # Ollama — external native GPU daemon on the host
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - OLLAMA_MODELS_DIR=${OLLAMA_MODELS_DIR:-/host-ollama}
       - VLLM_HOST=${VLLM_HOST:-http://host.docker.internal:8000}
-      - VLLM_DEFAULT_MODEL=${VLLM_DEFAULT_MODEL:-cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit}
+      - VLLM_DEFAULT_MODEL=${VLLM_DEFAULT_MODEL:-shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP}
+      - VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
       - VLLM_API_KEY=${VLLM_API_KEY:-}
       - VLLM_REQUEST_TIMEOUT_MS=${VLLM_REQUEST_TIMEOUT_MS:-1800000}
       - LLM_BACKEND=${LLM_BACKEND:-ollama}
@@ -61,6 +69,7 @@ services:
       - STT_URL=${STT_URL:-http://host.docker.internal:8001}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-mxbai-embed-large}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL}
+      - RABBITMQ_URL=${RABBITMQ_URL:-}
       - AUTH_REQUIRED=${AI_AUTH_REQUIRED:-false}
       - MEMORY_DB_FALLBACK=${MEMORY_DB_FALLBACK:-1}
       - SKIP_SERVICE_REGISTRATION=${SKIP_SERVICE_REGISTRATION:-false}
@@ -113,9 +122,112 @@ services:
     networks:
       - ainet
 
+  # Whisper STT — GPU. External volume keeps the already-downloaded model.
+  stt:
+    image: ${STT_IMAGE:-openclaw/stt-service:latest}
+    container_name: aerekos-stt
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - MODEL_NAME=${STT_MODEL_NAME:-large-v3-turbo}
+      - DEVICE=auto
+      - HF_HOME=/models/hf
+      - CACHE_DIR=/models/whisper
+      - LOG_LEVEL=INFO
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    ports:
+      - "8001:8000"
+    volumes:
+      - stt-models:/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
+  # Kokoro-82M TTS — GPU. Voices bind is the existing tools/ catalog (read-only).
+  tts_kokoro:
+    image: ${TTS_KOKORO_IMAGE:-openclaw/tts-kokoro:latest}
+    container_name: aerekos-tts-kokoro
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - DEVICE=auto
+      - VOICES_DIR=/voices
+      - DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-default}
+      - DEFAULT_LANGUAGE=en
+      - KOKORO_VOICE=${TTS_VOICE:-af_heart}
+      - KOKORO_LANG_CODE=a
+      - HF_HOME=/models/hf
+      - LOG_LEVEL=INFO
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    ports:
+      - "8013:8000"
+    volumes:
+      - tts-kokoro-models:/models
+      - ${TTS_VOICES_HOST:-/home/aerekos/work/tools/tts-service/voices}:/voices:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
+  # Dictionary cache API — CPU. Same 27G words.db; Kokoro over compose DNS.
+  tts_cache:
+    image: ${TTS_CACHE_IMAGE:-openclaw/tts-cache:latest}
+    container_name: aerekos-tts-cache
+    restart: unless-stopped
+    environment:
+      - KOKORO_URL=http://tts_kokoro:8000
+      - TTS_VOICE=${TTS_VOICE:-af_heart}
+      - TTS_LANGUAGE=en
+      - DB_PATH=/data/words.db
+      - WORD_LIST=/data/words.txt
+      - GAP_MS=60
+      - SENTENCE_GAP_MS=220
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8015:8000"
+    volumes:
+      - ${TTS_CACHE_DATA:-/home/aerekos/work/tools/tts-cache/data}:/data
+    depends_on:
+      - tts_kokoro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
+  # Dictionary generator — idle after the word list is complete. Same data bind.
+  tts_cache_gen:
+    image: ${TTS_CACHE_IMAGE:-openclaw/tts-cache:latest}
+    container_name: aerekos-tts-cache-gen
+    restart: unless-stopped
+    command: ["node", "src/generate.js"]
+    environment:
+      - KOKORO_URL=http://tts_kokoro:8000
+      - TTS_VOICE=${TTS_VOICE:-af_heart}
+      - DB_PATH=/data/words.db
+      - WORD_LIST=/data/words.txt
+      - GEN_CONCURRENCY=4
+    volumes:
+      - ${TTS_CACHE_DATA:-/home/aerekos/work/tools/tts-cache/data}:/data
+    depends_on:
+      - tts_kokoro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ainet
+
 networks:
   ainet:
     driver: bridge
 
 volumes:
   ai_manager-data:
+  stt-models:
+    external: true
+    name: tools_stt-models
+  tts-kokoro-models:
+    external: true
+    name: tts-kokoro_tts-kokoro-models

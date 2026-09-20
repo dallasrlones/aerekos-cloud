@@ -9,7 +9,6 @@ import { useProject } from '../../contexts/ProjectContext';
 import { getServiceMeta, getServiceLabel } from '../../services/serviceCatalog';
 import { colors } from '../../styles/theme';
 import { ServiceSetupWizardStyles as S } from './ServiceSetupWizard.styles';
-import { NextSteps } from '../NextSteps/NextSteps';
 import { useToast } from '../Toast/ToastProvider';
 import { useJobs } from '../JobStatus/JobStatus';
 
@@ -111,7 +110,6 @@ export const ServiceSetupWizard = ({ serviceName, onEnabled, onNavigateToSecrets
 
   return (
     <>
-      <NextSteps navigation={navigation} />
       <Box title={`Set up ${getServiceLabel(serviceName)}`}>
         <Text style={S.summary}>{setup.summary}</Text>
         <View style={S.progressRow}>

@@ -141,7 +141,8 @@ router.post('/register', async (req, res, next) => {
 router.get('/', authenticate, async (req, res, next) => {
   try {
     const services = await Service.findAll();
-    
+    const placements = await serviceManager.listPlacements().catch(() => ({}));
+
     res.json({
       services: services.map(service => ({
         id: service.id,
@@ -150,7 +151,8 @@ router.get('/', authenticate, async (req, res, next) => {
         enabled: service.enabled === 1,
         config: service.config,
         created_at: service.created_at,
-        updated_at: service.updated_at
+        updated_at: service.updated_at,
+        ...(placements[service.name] || {}),
       }))
     });
   } catch (error) {
@@ -725,7 +727,10 @@ router.use(
       const data = req.body && Object.keys(req.body).length > 0 ? req.body : null;
       const query = { ...req.query };
       const projectId = data?.project_id || query.project_id || req.headers['x-project-id'];
-      if (projectId && ['POST', 'PUT', 'PATCH'].includes(String(method).toUpperCase()) && process.env.SKIP_QUOTA !== '1') {
+      // billing_manager evaluate-quota is itself a POST through this proxy.
+      // Checking quota on that call recurses forever and starves login.
+      const skipQuotaSvc = serviceName === 'billing_manager' || serviceName === 'slack_manager';
+      if (projectId && !skipQuotaSvc && ['POST', 'PUT', 'PATCH'].includes(String(method).toUpperCase()) && process.env.SKIP_QUOTA !== '1') {
         try {
           const { requireShared } = require('../utils/loadWorkerShared');
           const { assertQuota } = requireShared('quotaGate');

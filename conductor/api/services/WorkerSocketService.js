@@ -98,15 +98,8 @@ class WorkerSocketService {
           // Update resources if provided in heartbeat
           if (data.resources) {
             const { resources } = data;
-            await WorkerService.updateResources(workerId, {
-              cpu_cores: resources.cpu_cores,
-              ram_gb: resources.ram_gb,
-              disk_gb: resources.disk_gb,
-              network_mbps: resources.network_mbps,
-              // Deployed code version, so the conductor can flag outdated devices.
-              version: resources.version,
-              host: resources.host
-            });
+            await WorkerService.updateResources(workerId, resources);
+            this.sampleHostMetrics(workerId, resources).catch(() => {});
             
             // Broadcast resource update to frontend clients (all)
             this.io.of('/frontend').to('frontend').emit('worker:resources:updated', {
@@ -121,6 +114,9 @@ class WorkerSocketService {
                 disk: resources.disk,
                 network: resources.network,
                 processes: resources.processes,
+                gpu: resources.gpu,
+                docker: resources.docker,
+                loaded_ai: resources.loaded_ai,
                 host: resources.host
               },
               timestamp: resources.timestamp || new Date().toISOString()
@@ -136,6 +132,9 @@ class WorkerSocketService {
                 disk: resources.disk,
                 network: resources.network,
                 processes: resources.processes,
+                gpu: resources.gpu,
+                docker: resources.docker,
+                loaded_ai: resources.loaded_ai,
                 host: resources.host
               },
               timestamp: resources.timestamp || new Date().toISOString()
@@ -246,6 +245,21 @@ class WorkerSocketService {
           socket.leave(`worker:${workerId}`);
           console.log(`[Socket] Frontend client ${socket.id} unsubscribed from worker ${workerId}`);
         }
+      });
+
+      socket.on('live:subscribe', (data) => {
+        const { canJoinLiveRoom } = require('./LiveRoom');
+        const room = data?.room;
+        const projectId = data?.project_id || data?.projectId || socket.handshake?.auth?.projectId || socket.handshake?.headers?.['x-project-id'];
+        if (canJoinLiveRoom(room, { projectId, subscribeProject: projectId, user: socket.user })) {
+          socket.join(room);
+        }
+      });
+
+      socket.on('live:unsubscribe', (data) => {
+        const { isLiveRoom } = require('./LiveRoom');
+        const room = data?.room;
+        if (isLiveRoom(room)) socket.leave(room);
       });
 
       socket.on('disconnect', () => {
@@ -470,6 +484,45 @@ class WorkerSocketService {
   broadcastToFrontend(event, data) {
     if (this.io) {
       this.io.of('/frontend').to('frontend').emit(event, data);
+    }
+  }
+
+  broadcastToRoom(room, event, data) {
+    const { isLiveRoom } = require('./LiveRoom');
+    if (this.io && isLiveRoom(room)) {
+      this.io.of('/frontend').to(room).emit(event, data);
+    }
+  }
+
+  async sampleHostMetrics(workerId, resources = {}) {
+    const projectId = process.env.DEFAULT_PROJECT_ID || process.env.SYSTEM_PROJECT_ID || '9d8bde11-6933-4732-b746-602dcf72eaa5';
+    if (!projectId) return;
+    const ramPct = Number(resources.ram?.usagePercent || 0);
+    const oom = (resources.docker || []).some((c) => c.oom) ? 1 : 0;
+    const port = process.env.PORT || 3300;
+    const base = (process.env.CONDUCTOR_INTERNAL_BASE_URL || `http://127.0.0.1:${port}`).replace(/\/$/, '');
+    const axios = require('axios');
+    const headers = { 'x-project-id': projectId, 'Content-Type': 'application/json' };
+    await axios.post(`${base}/api/services/metrics_manager/api/v1/series/sample`, {
+      project_id: projectId,
+      name: `host.ram.pct/${workerId}`,
+      metric_name: 'host.ram.pct',
+      value: String(ramPct),
+      labels: { worker_id: workerId },
+    }, { headers, timeout: 4000, validateStatus: () => true });
+    await axios.post(`${base}/api/services/metrics_manager/api/v1/series/sample`, {
+      project_id: projectId,
+      name: `compute.oom/${workerId}`,
+      metric_name: 'compute.oom',
+      value: String(oom),
+      labels: { worker_id: workerId },
+    }, { headers, timeout: 4000, validateStatus: () => true });
+    if (ramPct > 90 || oom) {
+      await axios.post(`${base}/api/services/metrics_manager/api/v1/alarms/evaluate`, {
+        project_id: projectId,
+        metric_name: ramPct > 90 ? 'host.ram.pct' : 'compute.oom',
+        value: ramPct > 90 ? ramPct : oom,
+      }, { headers, timeout: 4000, validateStatus: () => true });
     }
   }
 }

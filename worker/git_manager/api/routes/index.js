@@ -17,6 +17,8 @@ router.get('/info', (req, res) => {
 
 router.use('/repos', reposRouter);
 router.use('/pulls', require('./pulls'));
+router.use('/issues', require('./issues'));
+router.use('/checks', require('./checks'));
 
 // Internal sink for the per-repo post-receive hook (loopback only).
 router.post('/internal/push-events', async (req, res, next) => {

@@ -35,6 +35,26 @@ class IntelligenceService {
     if (!p || !String(p).trim()) throw fail(400, 'project_id required');
   }
 
+  async provisionInbox(projectId, inbox) {
+    const { proxy } = require('../../../shared/conductorProxy');
+    const dlq = inbox.endsWith('-inbox') ? inbox.replace(/-inbox$/, '-dlq') : `${inbox}-dlq`;
+    const r = await proxy('POST', '/api/services/queue_manager/api/v1/queues', {
+      projectId,
+      timeout: 10000,
+      data: { project_id: projectId, name: inbox, engine: 'rabbitmq', dlq, visibility_timeout_seconds: 3600 },
+    });
+    if (r.status >= 400 && r.status !== 409) {
+      const e = new Error(r.data?.error?.message || `queue provision ${r.status}`);
+      e.status = r.status >= 400 ? r.status : 502;
+      throw e;
+    }
+    await proxy('POST', '/api/services/queue_manager/api/v1/queues', {
+      projectId,
+      timeout: 10000,
+      data: { project_id: projectId, name: dlq, engine: 'rabbitmq' },
+    }).catch(() => {});
+  }
+
   async create(body) {
     this.assertP(body.project_id);
     const name = String(body.name || '').trim();
@@ -57,6 +77,9 @@ class IntelligenceService {
       options: typeof body.options === 'object' ? JSON.stringify(body.options) : String(body.options || ''),
       arn: buildEndpointArn(body.project_id, 'intelligence', name),
       balancer_id: String(body.balancer_id || ''),
+      model: String(body.model || '').trim(),
+      execution: body.execution === 'queued' ? 'queued' : 'sync',
+      queue_name: String(body.queue_name || (body.execution === 'queued' ? `${name}-inbox` : '')),
     };
     const row = await this.M.create(data);
     const saved = Array.isArray(row) ? row[0] : row;
@@ -66,6 +89,9 @@ class IntelligenceService {
     for (const n of memoryNames) await this.attach(saved.id, body.project_id, { kind: 'memory', target_name: n });
     const loraNames = Array.isArray(body.lora) ? body.lora : [];
     for (const n of loraNames) await this.attach(saved.id, body.project_id, { kind: 'lora', target_name: n });
+    if (data.execution === 'queued') {
+      await this.provisionInbox(body.project_id, data.queue_name || `${name}-inbox`);
+    }
     return this.get(saved.id, body.project_id);
   }
 
@@ -127,6 +153,21 @@ class IntelligenceService {
       patch.options = typeof body.options === 'object' ? JSON.stringify(body.options) : String(body.options || '');
     }
     if (body.balancer_id !== undefined) patch.balancer_id = String(body.balancer_id || '');
+    if (body.model !== undefined) patch.model = String(body.model || '').trim();
+    if (body.execution !== undefined) {
+      patch.execution = body.execution === 'queued' ? 'queued' : 'sync';
+      if (patch.execution === 'queued' && !cur.queue_name && body.queue_name === undefined) {
+        patch.queue_name = `${cur.name}-inbox`;
+      }
+    }
+    if (body.queue_name !== undefined) patch.queue_name = String(body.queue_name || '');
+    if ((patch.execution || cur.execution) === 'queued') {
+      try {
+        await this.provisionInbox(projectId, patch.queue_name || cur.queue_name || `${cur.name}-inbox`);
+      } catch (e) {
+        if (e.status && e.status >= 500) throw e;
+      }
+    }
     if (body.name !== undefined) {
       const name = String(body.name).trim();
       if (!isValidName(name)) throw fail(400, 'name must be lowercase alphanumeric with hyphens');
@@ -245,6 +286,9 @@ class IntelligenceService {
       inject_rag: row.inject_rag !== 'false',
       ingest_on_chat: row.ingest_on_chat !== 'false',
       balancer_id: row.balancer_id || '',
+      model: row.model || '',
+      execution: row.execution || 'sync',
+      queue_name: row.queue_name || '',
       rag,
       memory,
       lora,

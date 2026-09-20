@@ -7,6 +7,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { colors } from '../../styles/theme';
 import { RunTaskStyles as S } from './RunTask.styles';
 import { stackService } from '../../services/stackService';
+import { fleetService } from '../../services/fleetService';
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const PROD_PROJECT = 'ea370977-3aff-4c76-95a6-a0c50fd2bce7';
@@ -47,6 +48,7 @@ export const LaunchContainer = ({ navigation }) => {
     repo_id: '',
     git_ref: 'main',
     dockerfile: 'Dockerfile',
+    pin_worker_id: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export const LaunchContainer = ({ navigation }) => {
   const [repos, setRepos] = useState([]);
   const [depError, setDepError] = useState('');
   const [uploadFile, setUploadFile] = useState(null);
+  const [hosts, setHosts] = useState([]);
 
   const update = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -64,6 +67,7 @@ export const LaunchContainer = ({ navigation }) => {
     if (!projectId) return;
     computeManagerService.listProjectImages(projectId).then(setImages).catch(() => setImages([]));
     computeManagerService.listRepos(projectId).then(setRepos).catch(() => setRepos([]));
+    fleetService.getCapacity().then(setHosts).catch(() => setHosts([]));
   }, [projectId]);
 
   const requireServices = async (names) => {
@@ -106,6 +110,7 @@ export const LaunchContainer = ({ navigation }) => {
     if (Object.keys(env).length) data.env = env;
     const ports = parsePorts(form.ports);
     if (Object.keys(ports).length) data.port_bindings = ports;
+    if (form.pin_worker_id) data.pin_worker_id = form.pin_worker_id;
     return data;
   };
 
@@ -275,6 +280,26 @@ export const LaunchContainer = ({ navigation }) => {
             <TextInput style={S.input} value={form.dockerfile} onChangeText={(v) => update('dockerfile', v)} placeholder="Dockerfile" placeholderTextColor={colors.textMuted} autoCapitalize="none" />
           </View>
         ) : null}
+
+        <View style={S.field}>
+          <Text style={S.label}>Device</Text>
+          <Text style={S.help}>Pin to a worker, or leave scheduler pick (fits RAM first).</Text>
+          <Button
+            title="Let scheduler pick"
+            onPress={() => update('pin_worker_id', '')}
+            variant={!form.pin_worker_id ? 'primary' : 'secondary'}
+            style={{ marginTop: 6 }}
+          />
+          {hosts.filter((h) => h.status === 'online' || !h.status).map((h) => (
+            <Button
+              key={h.id}
+              title={`${h.display_name || h.hostname}${h.ram?.free_gb != null ? ` · ${Number(h.ram.free_gb).toFixed(0)} GB free` : ''}`}
+              onPress={() => update('pin_worker_id', h.id)}
+              variant={form.pin_worker_id === h.id ? 'primary' : 'secondary'}
+              style={{ marginTop: 6 }}
+            />
+          ))}
+        </View>
 
         <View style={S.field}>
           <Text style={S.label}>Run mode</Text>

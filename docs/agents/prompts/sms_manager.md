@@ -1,6 +1,6 @@
 # Agent prompt — sms_manager
 
-SMS messages (to_number/body). Queued; outbound send disabled.
+SMS messages (to_number/body). Send when Twilio secrets exist; otherwise queue-only.
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 

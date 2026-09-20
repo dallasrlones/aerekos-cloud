@@ -15,13 +15,13 @@ Reachable through the conductor proxy like every manager:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/repos` | Create a repo `{ project_id, name, description?, default_branch?, visibility? }` → `git init --bare` |
+| `POST` | `/api/v1/repos` | Create a repo `{ project_id, name, description?, default_branch? }` → `git init --bare` (always private) |
 | `GET` | `/api/v1/repos?project_id=` | List repos in a project |
 | `GET` | `/api/v1/repos/:id` | Repo metadata + branches |
 | `GET` | `/api/v1/repos/:id/branches` | Branch list (`name`, `sha`) |
 | `GET` | `/api/v1/repos/:id/commits?branch=&limit=` | Recent commits |
 | `GET` | `/api/v1/repos/:id/pushes` | Recorded push events |
-| `PATCH`/`PUT` | `/api/v1/repos/:id` | Update `description` / `visibility` / `default_branch` |
+| `PATCH`/`PUT` | `/api/v1/repos/:id` | Update `description` / `default_branch` (`visibility` is always private) |
 | `DELETE` | `/api/v1/repos/:id` | Delete metadata + bare repo on disk |
 
 Each created repo returns a `clone_path`, e.g. `/git/<project>/<name>.git`.

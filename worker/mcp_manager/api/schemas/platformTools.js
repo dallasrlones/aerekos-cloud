@@ -63,6 +63,42 @@ const PLATFORM_TOOLS = [
     }
   },
   {
+    name: 'iac.apply',
+    description: 'Apply the project-stack JSON (enable wanted, provision resources). Never the production project.',
+    input_schema: {
+      type: 'object',
+      required: ['project_id'],
+      properties: { project_id: { type: 'string' } },
+      endpoint: '/api/projects/:project_id/stack/apply',
+      method: 'POST'
+    }
+  },
+  {
+    name: 'iac.stack.get',
+    description: 'Get the current project-stack JSON.',
+    input_schema: {
+      type: 'object',
+      required: ['project_id'],
+      properties: { project_id: { type: 'string' } },
+      endpoint: '/api/projects/:project_id/stack',
+      method: 'GET'
+    }
+  },
+  {
+    name: 'iac.stack.put',
+    description: 'Put a project-stack JSON draft.',
+    input_schema: {
+      type: 'object',
+      required: ['project_id'],
+      properties: {
+        project_id: { type: 'string' },
+        stack: { type: 'object' }
+      },
+      endpoint: '/api/projects/:project_id/stack',
+      method: 'PUT'
+    }
+  },
+  {
     name: 'edge.status',
     description: 'Tunnel/DNS hookup status. Uses existing Cloudflare secrets only.',
     input_schema: {

@@ -217,7 +217,7 @@ class SetupService {
     };
   }
 
-  async nextSteps(projectId, bearerToken = null) {
+  async nextSteps(projectId, bearerToken = null, environment = null) {
     const { isSystemProject } = require('../config/systemProject');
     const steps = [];
     const auth = bearerToken ? { authorization: bearerToken.startsWith('Bearer ') ? bearerToken : `Bearer ${bearerToken}` } : {};
@@ -228,20 +228,45 @@ class SetupService {
     };
     const get = async (service, path, query = {}) => {
       try {
-        const res = await sm().proxyServiceRequest(service, 'GET', path, null, query, projectId, auth);
-        return res.data || {};
+        const res = await sm().proxyServiceRequest(
+          service,
+          'GET',
+          path,
+          null,
+          { ...query, project_id: projectId },
+          projectId,
+          auth,
+        );
+        if (res.status >= 400) return { _failed: true };
+        return { ...(res.data || {}), _failed: false };
       } catch {
-        return {};
+        return { _failed: true };
       }
     };
-    const repos = (await get('git_manager', '/api/v1/repos')).repositories || [];
-    const secrets = (await get('secrets_manager', '/api/v1/secrets', { environment: 'prod' })).secrets || [];
-    const tasks = (await get('compute_manager', '/api/v1/tasks', { environment: 'prod' })).tasks || [];
-    const hostnames = (await get('domain_manager', '/api/v1/dns/hostnames')).hostnames || [];
-    const tunnels = (await get('tunnel_manager', '/api/v1/tunnels')).tunnels || [];
+    const envQuery = environment ? { environment } : {};
+    const repoRes = await get('git_manager', '/api/v1/repos');
+    const repos = repoRes._failed ? [] : (repoRes.repositories || []);
+    const secretQuery = isSystemProject(projectId)
+      ? {}
+      : { environment: environment || 'prod' };
+    const secretRes = await get('secrets_manager', '/api/v1/secrets', secretQuery);
+    const secretNames = await listProjectSecretNames(projectId, bearerToken);
+    const secrets = secretNames.size
+      ? [...secretNames].map((name) => ({ name }))
+      : (secretRes._failed ? null : (secretRes.secrets || []));
+    const taskRes = await get('compute_manager', '/api/v1/tasks', envQuery);
+    const tasks = taskRes._failed ? null : (taskRes.tasks || []);
+    const hostRes = await get('domain_manager', '/api/v1/dns/hostnames');
+    const hostnames = hostRes._failed ? null : (hostRes.hostnames || []);
+    const tunRes = await get('tunnel_manager', '/api/v1/tunnels');
+    let tunnels = tunRes._failed ? [] : (tunRes.tunnels || []);
+    try {
+      const named = require('../config/knownTunnels').knownTunnels();
+      if (named.length) tunnels = tunnels.concat(named);
+    } catch (_) { /* named inventory is optional */ }
     const pulls = (await get('git_manager', '/api/v1/pulls')).pulls || [];
     const EnvironmentService = require('./EnvironmentService');
-    const envs = await EnvironmentService.ensureForProject(projectId).catch(() => []);
+    const envs = await EnvironmentService.list(projectId).catch(() => []);
 
     if (!repos.length) {
       steps.push({
@@ -259,23 +284,32 @@ class SetupService {
       });
     }
 
-    if (!isSystemProject(projectId) && !envs.some((e) => e.name === 'dev')) {
+    if (!isSystemProject(projectId) && !envs.length) {
       steps.push({
         id: 'create_env',
         status: 'ready',
-        reason: 'Dev has no environment yet.',
+        reason: 'This project has no environment yet.',
         action: 'create_env',
       });
     } else {
       steps.push({
         id: 'create_env',
         status: 'done',
-        reason: isSystemProject(projectId) ? 'System project is prod-only.' : 'Prod and dev environments exist.',
+        reason: isSystemProject(projectId)
+          ? 'System project is prod-only.'
+          : `${envs.length} environment${envs.length === 1 ? '' : 's'} on this project.`,
         action: 'create_env',
       });
     }
 
-    if (!secrets.length) {
+    if (secrets === null) {
+      steps.push({
+        id: 'fill_secret',
+        status: 'blocked',
+        reason: 'Could not list secrets. Try again from Key Manager.',
+        action: 'fill_secret',
+      });
+    } else if (!secrets.length && !isSystemProject(projectId)) {
       steps.push({
         id: 'fill_secret',
         status: 'ready',
@@ -286,53 +320,94 @@ class SetupService {
       steps.push({
         id: 'fill_secret',
         status: 'done',
-        reason: `${secrets.length} secret name(s) stored.`,
+        reason: secrets && secrets.length
+          ? `${secrets.length} secret name(s) stored.`
+          : 'System secrets are in Key Manager.',
         action: 'fill_secret',
       });
     }
 
-    if (!tasks.length) {
+    if (isSystemProject(projectId)) {
+      steps.push({
+        id: 'launch',
+        status: 'done',
+        reason: 'System project does not launch app containers.',
+        action: 'launch',
+      });
+    } else if (tasks === null) {
+      steps.push({
+        id: 'launch',
+        status: 'blocked',
+        reason: 'Could not list containers. Try again from Compute.',
+        action: 'launch',
+      });
+    } else if (!tasks.length) {
       steps.push({
         id: 'launch',
         status: 'ready',
-        reason: 'No container in prod.',
+        reason: 'No container yet. Launch one for this environment.',
         action: 'launch',
       });
     } else {
       steps.push({
         id: 'launch',
         status: 'done',
-        reason: `${tasks.length} container(s) in prod.`,
+        reason: `${tasks.length} container(s) on this project.`,
         action: 'launch',
       });
     }
 
-    const gitBound = hostnames.some((h) => String(h.hostname) === 'git.aerekos.com');
-    if (!tunnels.length && !gitBound) {
+    const gitBound = Array.isArray(hostnames) && hostnames.some(
+      (h) => Number(h.port) === 3130 || String(h.target_id || '') === 'git_manager'
+    );
+    const { cloudConsoleTunnels } = require('../config/knownTunnels');
+    const fleetUp = cloudConsoleTunnels().some((t) => t.status === 'healthy');
+    if (isSystemProject(projectId) && fleetUp) {
+      steps.push({
+        id: 'bind',
+        status: 'done',
+        reason: 'Fleet tunnels (prod-mini, dev-mini, orin) are attached.',
+        action: 'bind',
+      });
+    } else if (hostnames === null) {
       steps.push({
         id: 'bind',
         status: 'blocked',
-        reason: 'This device has no tunnel. Adopt prod/dev/orin — do not create a second one.',
+        reason: 'Could not list hostnames. Try again from Edge.',
         action: 'bind',
       });
-    } else if (!hostnames.length) {
+    } else if (tunnels.length && !hostnames.length) {
       steps.push({
         id: 'bind',
         status: 'ready',
-        reason: 'No public URL yet. Bind a host port and hostname.',
+        reason: 'No public URL yet. Bind a hostname to this container.',
+        action: 'bind',
+      });
+    } else if (!tunnels.length && !gitBound && !hostnames.length) {
+      steps.push({
+        id: 'bind',
+        status: 'ready',
+        reason: 'No public URL yet. Bind a hostname to this container.',
         action: 'bind',
       });
     } else {
       steps.push({
         id: 'bind',
         status: 'done',
-        reason: gitBound ? 'git.aerekos.com is bound.' : `${hostnames.length} hostname(s) bound.`,
+        reason: gitBound ? 'Git origin hostname is bound.' : `${hostnames.length} hostname(s) bound.`,
         action: 'bind',
       });
     }
 
     const open = (pulls || []).filter((p) => p.status === 'open');
-    if (repos.length && !open.length) {
+    if (isSystemProject(projectId)) {
+      steps.push({
+        id: 'open_pr',
+        status: 'done',
+        reason: 'Fleet repo lives on the system project — no app PR required.',
+        action: 'open_pr',
+      });
+    } else if (repos.length && !open.length) {
       steps.push({
         id: 'open_pr',
         status: 'ready',

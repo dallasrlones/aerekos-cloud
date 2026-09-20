@@ -13,22 +13,26 @@ export function DeviceContainers({ deviceId }) {
   const [execOut, setExecOut] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts = {}) => {
     if (!deviceId) return;
-    setLoading(true);
-    setError(null);
+    if (!opts.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const rows = await containerService.list(deviceId);
       setContainers(rows.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (e) {
       setError(e?.response?.data?.error?.message || e.message || 'Failed to load containers');
     } finally {
-      setLoading(false);
+      if (!opts.silent) setLoading(false);
     }
   }, [deviceId]);
 
   useEffect(() => {
     void load();
+    const id = setInterval(() => { void load({ silent: true }); }, 8000);
+    return () => clearInterval(id);
   }, [load]);
 
   const act = async (fn) => {
@@ -87,7 +91,11 @@ export function DeviceContainers({ deviceId }) {
           <View key={c.id} style={S.row}>
             <Pressable style={S.nameCol} onPress={() => void showLogs(c)}>
               <Text style={S.name}>{c.name || c.id.slice(0, 12)}</Text>
-              <Text style={S.meta}>{c.image} · {c.state}</Text>
+              <Text style={S.meta}>
+                {c.image} · {c.state}
+                {c.cpu_percent != null ? ` · ${c.cpu_percent}% CPU` : ''}
+                {c.mem_mb != null ? ` · ${c.mem_mb} MB` : ''}
+              </Text>
             </Pressable>
             <View style={S.actions}>
               {c.state !== 'running' ? (

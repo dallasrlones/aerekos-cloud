@@ -10,7 +10,12 @@ class CicdPipelineService {
     if (d.length) { const e = new Error('name taken'); e.status=409; throw e; }
     return this.M.create(body);
   }
-  async list(projectId) { this.assertP(projectId); return this.M.findAll({ where: { project_id: projectId } }); }
+  async list(projectId, environment) {
+    this.assertP(projectId);
+    const where = { project_id: projectId };
+    if (environment) where.environment = String(environment);
+    return this.M.findAll({ where });
+  }
   async get(id, projectId) { this.assertP(projectId); const r = await this.M.findAll({ where: { id, project_id: projectId } }); if (!r.length){const e=new Error('Not found');e.status=404;throw e;} return r[0]; }
   async update(id, projectId, body) {
     await this.get(id, projectId);
@@ -77,13 +82,26 @@ class CicdPipelineService {
     }
     await this.M.update(id, { target_image: image });
     const targetId = body.target_container_id || row.target_container_id;
+    if (!targetId) {
+      await this.M.update(id, { state: 'failed' });
+      const e = new Error('link a Cloud task before deploy (target_container_id required)');
+      e.status = 409;
+      e.code = 'TARGET_REQUIRED';
+      results.push({ step: 'deploy', status: 409, error: e.message });
+      return { pipeline: await this.get(id, projectId), action: 'deploy', ok: false, results };
+    }
     if (targetId) {
       const replaced = await proxy({
         service: 'compute_manager',
         method: 'POST',
         path: `/api/v1/tasks/${encodeURIComponent(targetId)}/replace-image`,
         projectId,
-        body: { project_id: projectId, image, force: body.force === true },
+        body: {
+          project_id: projectId,
+          image,
+          force: body.force === true,
+          pin_worker_id: body.pin_worker_id || row.pin_worker_id || undefined,
+        },
         timeout: 180000,
       });
       results.push({ step: 'replace-image', status: replaced.status });
@@ -227,12 +245,17 @@ class CicdPipelineService {
 
   parseWorkflow(yml) {
     const jobs = [];
-    if (!yml || typeof yml !== 'string') return { jobs, bind: null };
+    if (!yml || typeof yml !== 'string') return { jobs, bind: null, test_command: '' };
     const lines = yml.split('\n');
     let inJobs = false;
     let bind = null;
+    let test_command = '';
     for (const raw of lines) {
       const line = raw.replace(/\t/g, '  ');
+      if (/^test_command\s*:\s*(.+)/.test(line)) {
+        test_command = line.split(':').slice(1).join(':').trim();
+        continue;
+      }
       if (/^jobs\s*:/.test(line)) { inJobs = true; continue; }
       if (/^bind\s*:/.test(line)) { bind = {}; inJobs = false; continue; }
       if (inJobs) {
@@ -243,7 +266,7 @@ class CicdPipelineService {
       if (bind && /^\s+hostname\s*:\s*(.+)/.test(line)) bind.hostname = line.split(':').slice(1).join(':').trim();
       if (bind && /^\s+port\s*:\s*(\d+)/.test(line)) bind.port = Number(line.match(/(\d+)/)[1]);
     }
-    return { jobs: jobs.length ? jobs : null, bind };
+    return { jobs: jobs.length ? jobs : null, bind, test_command };
   }
 
   async loadWorkflow(projectId, repoId, sha) {
@@ -256,10 +279,10 @@ class CicdPipelineService {
         projectId,
         timeout: 15000,
       });
-      if (blob.status >= 400 || blob.data?.binary) return { jobs: null, bind: null };
+      if (blob.status >= 400 || blob.data?.binary) return { jobs: null, bind: null, test_command: '' };
       return this.parseWorkflow(blob.data?.content || '');
     } catch {
-      return { jobs: null, bind: null };
+      return { jobs: null, bind: null, test_command: '' };
     }
   }
 
@@ -296,14 +319,17 @@ class CicdPipelineService {
         e.status = 400;
         throw e;
       }
-      const archive = await proxy({
-        service: 'git_manager',
-        method: 'GET',
-        path: `/api/v1/repos/${encodeURIComponent(repoId)}/bundle`,
-        projectId,
-        timeout: 120000,
-        responseType: 'arraybuffer',
-      });
+      const gitBase = (process.env.GIT_MANAGER_URL || 'http://aerekos-git_manager:3130').replace(/\/$/, '');
+      const archive = await axios.get(
+        `${gitBase}/api/v1/repos/${encodeURIComponent(repoId)}/bundle`,
+        {
+          headers: { 'x-project-id': projectId, Authorization: authHeaders(projectId).Authorization || '' },
+          timeout: 120000,
+          responseType: 'arraybuffer',
+          validateStatus: () => true,
+          maxContentLength: Infinity,
+        }
+      );
       if (archive.status >= 400) {
         await this.M.update(id, { state: 'failed' });
         return { pipeline: await this.get(id, projectId), action: 'fleet', ok: false, results: [{ step: 'bundle', status: archive.status }] };
@@ -366,6 +392,178 @@ class CicdPipelineService {
     }
   }
 
+  deployBranchOk(match, ref) {
+    const branch = String(ref || '').replace(/^refs\/heads\//, '') || 'main';
+    const wanted = String(match.git_ref || 'main').replace(/^refs\/heads\//, '') || 'main';
+    return branch === wanted;
+  }
+
+  async recordLastRun(id, payload) {
+    try {
+      await this.M.update(id, { last_run_json: JSON.stringify({ ...payload, at: new Date().toISOString() }) });
+    } catch (_) { /* */ }
+  }
+
+  async runTestCommand(projectId, repoId, sha, command) {
+    if (!command || !repoId) return { skipped: true, reason: 'no_test_command' };
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { execFile } = require('child_process');
+    const axios = require('axios');
+    const { authHeaders } = require('../../../shared/conductorProxy');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aerekos-test-'));
+    const bundlePath = path.join(tmp, 'in.bundle');
+    const src = path.join(tmp, 'src');
+    const run = (cmd, args, cwd) => new Promise((resolve, reject) => {
+      execFile(cmd, args, { cwd, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err) {
+          err.stdout = stdout;
+          err.stderr = stderr;
+          reject(err);
+        } else resolve({ stdout, stderr });
+      });
+    });
+    try {
+      const gitBase = (process.env.GIT_MANAGER_URL || 'http://aerekos-git_manager:3130').replace(/\/$/, '');
+      const archive = await axios.get(
+        `${gitBase}/api/v1/repos/${encodeURIComponent(repoId)}/bundle?ref=${encodeURIComponent(sha || 'HEAD')}`,
+        {
+          headers: { 'x-project-id': projectId, Authorization: authHeaders(projectId).Authorization || '' },
+          timeout: 120000,
+          responseType: 'arraybuffer',
+          validateStatus: () => true,
+          maxContentLength: Infinity,
+        }
+      );
+      if (archive.status >= 400) return { ok: false, status: archive.status, step: 'bundle' };
+      fs.writeFileSync(bundlePath, Buffer.from(archive.data));
+      fs.mkdirSync(src, { recursive: true });
+      try {
+        await run('git', ['clone', '--depth', '1', bundlePath, src]);
+      } catch {
+        await run('tar', ['-C', src, '-xf', bundlePath]).catch(() => {});
+      }
+      const out = await new Promise((resolve) => {
+        execFile('/bin/sh', ['-lc', command], { cwd: src, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+          resolve({
+            ok: !err,
+            status: err ? (err.code === 127 ? 127 : 1) : 0,
+            stdout: String(stdout || '').slice(-4000),
+            stderr: String(stderr || '').slice(-4000),
+          });
+        });
+      });
+      return { step: 'test', command, ...out };
+    } finally {
+      try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* */ }
+    }
+  }
+
+  async attachAfterDeploy(projectId, wf, task, pipeline = {}) {
+    const hostname = pipeline.hostname || wf?.bind?.hostname;
+    const port = pipeline.port || wf?.bind?.port;
+    if (!hostname || !task?.id) return;
+    try {
+      const { conductorBase, authHeaders } = require('../../../shared/conductorProxy');
+      const axios = require('axios');
+      await axios.post(`${conductorBase()}/api/edge/attachments`, {
+        project_id: projectId,
+        task_id: task.id,
+        hostname,
+        port,
+      }, { headers: authHeaders(projectId), timeout: 30000, validateStatus: () => true });
+    } catch (_) { /* optional */ }
+  }
+
+  async recordCheck(projectId, body, pipeline, status, note) {
+    try {
+      const { proxy } = require('../../../shared/conductorProxy');
+      await proxy({
+        service: 'git_manager',
+        method: 'POST',
+        path: '/api/v1/checks',
+        projectId,
+        body: {
+          project_id: projectId,
+          repo_id: pipeline.repo_id || body.repo_id || '',
+          sha: body.sha || '',
+          name: pipeline.name,
+          status,
+          note: note || '',
+        },
+        timeout: 10000,
+      });
+    } catch (_) { /* optional until git-lite is live */ }
+  }
+
+  async runAppPipeline(match, projectId, body, wf, ref) {
+    const jobs = wf.jobs || [];
+    const wantTest = jobs.includes('test');
+    const wantDeploy = jobs.includes('deploy') || (!jobs.length && (match.target_container_id || match.repo_id || match.source_object));
+    const wantFleet = jobs.includes('fleet');
+    const onDeployBranch = this.deployBranchOk(match, ref);
+
+    if (wantTest) {
+      const cmd = wf.test_command || match.test_command || '';
+      if (cmd) {
+        const tested = await this.runTestCommand(projectId, match.repo_id || body.repo_id, body.sha || 'HEAD', cmd);
+        await this.recordLastRun(match.id, { action: 'test', ok: !!tested.ok, tested });
+        if (!tested.ok && !tested.skipped) {
+          await this.M.update(match.id, { state: 'failed' });
+          await this.recordCheck(projectId, body, match, 'failed', 'test');
+          return { pipeline: await this.get(match.id, projectId), action: 'test', ok: false, results: [tested] };
+        }
+        await this.recordCheck(projectId, body, match, tested.skipped ? 'skipped' : 'succeeded', 'test');
+        if (!wantDeploy && !wantFleet) {
+          await this.M.update(match.id, { state: 'succeeded' });
+          return { pipeline: await this.get(match.id, projectId), action: 'test', ok: true, results: [tested] };
+        }
+      } else if (!wantDeploy && !wantFleet) {
+        await this.M.update(match.id, { state: 'succeeded' });
+        await this.recordLastRun(match.id, { action: 'test', skipped: true, reason: 'no_test_command' });
+        return { pipeline: await this.get(match.id, projectId), action: 'test', ok: true, results: [{ step: 'test-skip', reason: 'no_test_command' }] };
+      }
+    }
+
+    if (wantDeploy) {
+      if (!onDeployBranch) {
+        await this.recordLastRun(match.id, { action: 'deploy', skipped: true, reason: 'not_deploy_branch', ref });
+        await this.M.update(match.id, { state: 'succeeded' });
+        return {
+          pipeline: await this.get(match.id, projectId),
+          skipped: true,
+          reason: 'not_deploy_branch',
+          action: 'deploy',
+          ok: true,
+        };
+      }
+      const requirePr = match.require_pr === 1 || match.require_pr === true || match.require_pr === '1';
+      if (requirePr && !body.merged && !body.from_merge) {
+        await this.recordLastRun(match.id, { action: 'deploy', skipped: true, reason: 'require_pr', ref });
+        await this.M.update(match.id, { state: 'succeeded' });
+        return {
+          pipeline: await this.get(match.id, projectId),
+          skipped: true,
+          reason: 'require_pr',
+          action: 'deploy',
+          ok: true,
+        };
+      }
+      const deployed = await this.run(match.id, projectId, { ...body, action: 'deploy', environment: match.environment || 'prod' });
+      await this.recordLastRun(match.id, { action: 'deploy', ok: deployed.ok, results: deployed.results });
+      await this.recordCheck(projectId, body, match, deployed.ok ? 'succeeded' : 'failed', 'deploy');
+      if (!deployed.ok) return deployed;
+      await this.attachAfterDeploy(projectId, wf, deployed.task, match);
+      return deployed;
+    }
+    if (wantFleet) {
+      return this.run(match.id, projectId, { ...body, action: 'fleet', repo: body.repo_name, repo_name: body.repo_name });
+    }
+    await this.recordLastRun(match.id, { action: 'noop', ref });
+    return { pipeline: await this.get(match.id, projectId), skipped: true, reason: 'no_jobs', ok: true };
+  }
+
   async runForRepo(projectId, body = {}, reqHeaders = {}) {
     this.assertP(projectId);
     if (!this.verifyWebhook({
@@ -381,61 +579,46 @@ class CicdPipelineService {
     }
     const repo = String(body.repo_name || body.repo || '');
     const list = await this.list(projectId);
-    const match = list.find((p) => String(p.repo || p.repo_name || '') === repo);
-    if (!match) {
+    const matches = list.filter((p) => String(p.repo_name || p.repo || '') === repo);
+    if (!matches.length) {
       return { skipped: true, reason: 'no_pipeline', repo };
     }
     const ref = String(body.ref || '');
-    const branch = ref.replace(/^refs\/heads\//, '') || match.git_ref || 'main';
-    const wf = match.repo_id
-      ? await this.loadWorkflow(projectId, match.repo_id, body.sha || branch)
-      : { jobs: null, bind: null };
-    const jobs = wf.jobs || [];
+    const first = matches[0];
+    const wf = first.repo_id
+      ? await this.loadWorkflow(projectId, first.repo_id, body.sha || ref.replace(/^refs\/heads\//, '') || 'main')
+      : { jobs: null, bind: null, test_command: '' };
 
     if (repo === 'aerekos-cloud') {
       if (this.isFleetAllowed(projectId, repo, ref || 'refs/heads/main')) {
-        return this.run(match.id, projectId, { ...body, action: 'fleet', repo, repo_name: repo });
+        return this.run(first.id, projectId, { ...body, action: 'fleet', repo, repo_name: repo });
       }
-      await this.M.update(match.id, { state: 'succeeded' });
+      await this.M.update(first.id, { state: 'succeeded' });
+      await this.recordLastRun(first.id, { action: 'fleet-noop', ref });
       return {
-        pipeline: await this.get(match.id, projectId),
+        pipeline: await this.get(first.id, projectId),
         action: 'test',
         ok: true,
         results: [{ step: 'fleet-noop', status: 200, note: 'aerekos-cloud fleet only on system project main' }],
       };
     }
     if (repo === 'infra' || String(body.action || '') === 'apply-stack') {
-      return this.run(match.id, projectId, { ...body, action: 'apply-stack' });
+      return this.run(first.id, projectId, { ...body, action: 'apply-stack' });
     }
-    const wantTest = !jobs.length || jobs.includes('test');
-    const wantDeploy = jobs.includes('deploy') || (!jobs.length && (match.target_container_id || match.repo_id || match.source_object));
-    const wantFleet = jobs.includes('fleet');
-    if (wantTest && !wantDeploy && !wantFleet) {
-      await this.M.update(match.id, { state: 'succeeded' });
-      return { pipeline: await this.get(match.id, projectId), action: 'test', ok: true, results: [{ step: 'record-push', status: 200 }] };
+
+    const runs = [];
+    for (const match of matches) {
+      runs.push(await this.runAppPipeline(match, projectId, { ...body, repo_name: repo }, wf, ref));
     }
-    if (wantDeploy) {
-      const deployed = await this.run(match.id, projectId, { ...body, action: 'deploy', environment: match.environment || 'prod' });
-      if (!deployed.ok) return deployed;
-      if (wf.bind && wf.bind.hostname && deployed.task?.id) {
-        try {
-          const { conductorBase, authHeaders } = require('../../../shared/conductorProxy');
-          const axios = require('axios');
-          await axios.post(`${conductorBase()}/api/edge/bind`, {
-            project_id: projectId,
-            task_id: deployed.task.id,
-            hostname: wf.bind.hostname,
-            port: wf.bind.port,
-          }, { headers: authHeaders(projectId), timeout: 30000, validateStatus: () => true });
-        } catch (_) { /* optional */ }
-      }
-      return deployed;
-    }
-    if (wantFleet) {
-      return this.run(match.id, projectId, { ...body, action: 'fleet', repo, repo_name: repo });
-    }
-    const action = body.action || 'test';
-    return this.run(match.id, projectId, { ...body, action });
+    const failed = runs.find((r) => r.ok === false);
+    return {
+      ok: !failed,
+      repo,
+      pipelines: runs.map((r) => r.pipeline).filter(Boolean),
+      results: runs,
+      skipped: runs.every((r) => r.skipped),
+      reason: failed ? 'pipeline_failed' : (runs[0]?.reason || null),
+    };
   }
 }
 module.exports = { CicdPipelineService };

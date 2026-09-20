@@ -768,8 +768,81 @@ class ResourceDetector {
    * Get all resource information with detailed metrics
    * @returns {Promise<object>} All resource info
    */
+  async getGpu() {
+    const fs = require('fs');
+    const { execFile } = require('child_process');
+    const unified = fs.existsSync('/etc/nv_tegra_release');
+    return new Promise((resolve) => {
+      execFile('nvidia-smi', [
+        '--query-gpu=name,memory.used,memory.total,utilization.gpu',
+        '--format=csv,noheader,nounits',
+      ], { timeout: 2500 }, (err, stdout) => {
+        if (err || !stdout) {
+          return resolve(unified ? { unified: true, name: 'tegra' } : null);
+        }
+        const line = String(stdout).trim().split('\n')[0] || '';
+        const parts = line.split(',').map((s) => s.trim());
+        resolve({
+          name: parts[0] || 'gpu',
+          used_mb: Number(parts[1]) || 0,
+          total_mb: Number(parts[2]) || 0,
+          util_percent: Number(parts[3]) || 0,
+          unified,
+        });
+      });
+    });
+  }
+
+  async getDockerStats() {
+    const Docker = require('dockerode');
+    const docker = new Docker({ socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' });
+    try {
+      const rows = await docker.listContainers({ all: false });
+      const slice = rows.slice(0, 24);
+      const stats = await Promise.all(slice.map(async (c) => {
+        try {
+          const raw = await docker.getContainer(c.Id).stats({ stream: false });
+          const cpuDelta = Number(raw?.cpu_stats?.cpu_usage?.total_usage || 0) - Number(raw?.precpu_stats?.cpu_usage?.total_usage || 0);
+          const sysDelta = Number(raw?.cpu_stats?.system_cpu_usage || 0) - Number(raw?.precpu_stats?.system_cpu_usage || 0);
+          const ncpu = (raw?.cpu_stats?.cpu_usage?.percpu_usage || []).length || 1;
+          const cpuPct = sysDelta > 0 ? (cpuDelta / sysDelta) * ncpu * 100 : 0;
+          const mem = Number(raw?.memory_stats?.usage || 0);
+          const memLimit = Number(raw?.memory_stats?.limit || 0);
+          return {
+            id: c.Id,
+            name: (c.Names?.[0] || '').replace(/^\//, ''),
+            image: c.Image,
+            cpu_percent: Math.round(cpuPct * 10) / 10,
+            mem_mb: Math.round(mem / 1024 / 1024),
+            mem_limit_mb: Math.round(memLimit / 1024 / 1024),
+            oom: !!(raw?.memory_stats?.failcnt),
+          };
+        } catch {
+          return {
+            id: c.Id,
+            name: (c.Names?.[0] || '').replace(/^\//, ''),
+            image: c.Image,
+            cpu_percent: 0,
+            mem_mb: 0,
+          };
+        }
+      }));
+      return stats;
+    } catch {
+      return [];
+    }
+  }
+
+  async getLoadedAi(dockerStats) {
+    const names = (dockerStats || []).map((c) => String(c.name || '').toLowerCase());
+    const loaded = [];
+    if (names.some((n) => n.includes('vllm'))) loaded.push('vllm');
+    if (names.some((n) => n.includes('ollama'))) loaded.push('ollama');
+    return loaded;
+  }
+
   async getAllResources() {
-    const [cpu, ram, disk, network, cpuLoad, diskIO, memLayout, processes] = await Promise.all([
+    const [cpu, ram, disk, network, cpuLoad, diskIO, memLayout, processes, gpu, docker] = await Promise.all([
       this.getCPUInfo(),
       this.getRAMInfo(),
       this.getDiskInfo(),
@@ -777,8 +850,11 @@ class ResourceDetector {
       si.currentLoad().catch(() => ({ currentLoad: 0, cpus: [] })),
       si.fsStats().catch(() => ({ rx: 0, wx: 0, rx_sec: 0, wx_sec: 0 })),
       si.memLayout().catch(() => []),
-      this.getProcesses(20)
+      this.getProcesses(20),
+      this.getGpu().catch(() => null),
+      this.getDockerStats().catch(() => []),
     ]);
+    const loaded_ai = await this.getLoadedAi(docker);
 
     // Calculate network I/O rates (bytes per second)
     const networkStats = await si.networkStats().catch(() => []);
@@ -848,6 +924,9 @@ class ResourceDetector {
         rx_errors: primaryStats.rx_errors || 0,
         tx_errors: primaryStats.tx_errors || 0
       },
+      gpu,
+      docker,
+      loaded_ai,
       // Activity monitor: top processes by CPU + memory.
       processes,
       // Deployed code version (git short SHA) so the conductor can detect

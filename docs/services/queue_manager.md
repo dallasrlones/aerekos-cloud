@@ -2,7 +2,7 @@
 
 > **Compute** · Implemented
 
-Message queues: create queues, send/receive/delete messages, visibility timeouts.
+Message queues with four real engines: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream (XADD/XREADGROUP). List returns engine, dlq, depth.
 
 - **Port:** `3101`
 - **AWS analog:** SQS

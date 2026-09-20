@@ -4,6 +4,13 @@ const { TaskService } = require('../services/TaskService');
 const router = express.Router();
 const service = new TaskService();
 
+router.use((req, _res, next) => {
+  if (service.fleet && typeof service.fleet.useToken === 'function') {
+    service.fleet.useToken(req.headers.authorization || '');
+  }
+  next();
+});
+
 function getProjectId(req) {
   return req.query.project_id || req.body?.project_id || req.headers['x-project-id'];
 }
@@ -99,6 +106,16 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const row = await service.updateTask(req.params.id, getProjectId(req), req.body || {});
+    res.json({ task: serialize(row) });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message, code: e.code } });
+    next(e);
+  }
+});
+
 router.post('/:id/start', async (req, res, next) => {
   try {
     const row = await service.startTask(req.params.id, getProjectId(req));
@@ -113,6 +130,7 @@ router.post('/:id/replace-image', async (req, res, next) => {
   try {
     const row = await service.replaceImage(req.params.id, getProjectId(req), req.body?.image, {
       force: req.body?.force === true,
+      pin_worker_id: req.body?.pin_worker_id,
     });
     res.json({ task: serialize(row) });
   } catch (e) {
@@ -172,6 +190,15 @@ router.post('/:id/attach-database', async (req, res, next) => {
     if (e.status) {
       return res.status(e.status).json({ error: { message: e.message, code: e.code } });
     }
+    next(e);
+  }
+});
+
+router.get('/:id/stats', async (req, res, next) => {
+  try {
+    res.json(await service.stats(req.params.id, getProjectId(req)));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
     next(e);
   }
 });

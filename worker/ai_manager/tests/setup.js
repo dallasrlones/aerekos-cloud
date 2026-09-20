@@ -1,5 +1,7 @@
 const path = require('path'); const os = require('os'); const fs = require('fs');
 process.env.NODE_ENV = 'test'; process.env.SKIP_SERVICE_REGISTRATION = 'true';
+process.env.SKIP_JOB_CONSUMER = '1';
+process.env.SKIP_BROKER = '1';
 if (!process.env.DATABASE_PATH) {
   const dir = path.join(os.tmpdir(), 'aerekos-'+"ai_manager"+'-tests');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -17,27 +17,47 @@ function err(message, status, code) {
   return e;
 }
 
+function cloneBase() {
+  return String(process.env.PUBLIC_GIT_URL || '').replace(/\/$/, '');
+}
+
 function shortCloneUrl(r) {
-  const base = String(process.env.PUBLIC_GIT_URL || 'https://git.aerekos.com').replace(/\/$/, '');
-  if (base.includes('git.aerekos.com') || process.env.PUBLIC_GIT_SHORT === '1') {
+  const base = cloneBase();
+  if (!base) return null;
+  if (process.env.PUBLIC_GIT_SHORT === '1') {
     return `${base}/${encodeURIComponent(r.name)}.git`;
   }
   return `${base}/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`;
 }
 
+function lanCloneUrl(r) {
+  const lan = String(process.env.GIT_LAN_URL || '').replace(/\/$/, '');
+  if (!lan) return null;
+  return `${lan}/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`;
+}
+
+function assertPrivateVisibility(body = {}) {
+  if (body.visibility === undefined || body.visibility === null || body.visibility === '') return;
+  if (String(body.visibility) !== 'private') {
+    throw err('visibility must be private', 400);
+  }
+}
+
 function repoOut(r) {
+  const base = cloneBase();
+  const clonePath = `/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`;
   return {
     id: r.id,
     project_id: r.project_id,
     name: r.name,
     description: r.description || null,
     default_branch: r.default_branch || 'main',
-    visibility: r.visibility || 'private',
+    visibility: 'private',
     last_pushed_at: r.last_pushed_at || null,
-    clone_path: `/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`,
+    clone_path: clonePath,
     clone_url: shortCloneUrl(r),
-    clone_url_legacy: `${String(process.env.PUBLIC_GIT_URL || process.env.PUBLIC_API_URL || process.env.CONDUCTOR_URL || '').replace(/\/$/, '')}/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`,
-    lan_clone_url: `http://192.168.0.141:3130/git/${encodeURIComponent(r.project_id)}/${encodeURIComponent(r.name)}.git`,
+    clone_url_legacy: base ? `${base}${clonePath}` : null,
+    lan_clone_url: lanCloneUrl(r),
     created_at: r.created_at,
     updated_at: r.updated_at
   };
@@ -73,6 +93,7 @@ class RepoService {
 
   async create(body) {
     this.assertProjectId(body.project_id);
+    assertPrivateVisibility(body);
     const name = this.validateName(body.name);
     const existing = await this.Repository.findAll({ where: { name } });
     if (existing.length) {
@@ -87,7 +108,7 @@ class RepoService {
       name,
       description: body.description != null ? String(body.description) : '',
       default_branch: defaultBranch,
-      visibility: body.visibility === 'public' ? 'public' : 'private',
+      visibility: 'private',
       last_pushed_at: ''
     });
     const dir = this.repoDir(body.project_id, name);
@@ -167,9 +188,10 @@ class RepoService {
 
   async update(id, projectId, body = {}) {
     const r = await this.getRaw(id, projectId);
+    assertPrivateVisibility(body);
     const patch = {};
     if (body.description !== undefined) patch.description = body.description != null ? String(body.description) : '';
-    if (body.visibility !== undefined) patch.visibility = body.visibility === 'public' ? 'public' : 'private';
+    if (body.visibility !== undefined) patch.visibility = 'private';
     if (body.default_branch !== undefined) {
       const db = String(body.default_branch || '').trim();
       if (!/^[a-zA-Z0-9._\/-]{1,100}$/.test(db)) throw err('default_branch contains invalid characters', 400);
@@ -199,7 +221,7 @@ class RepoService {
   }
 
   // Called by the post-receive hook (via the internal route).
-  async recordPush({ project_id, repo_id, repo_name, repo, ref, old_sha, new_sha, pusher }) {
+  async recordPush({ project_id, repo_id, repo_name, repo, ref, old_sha, new_sha, pusher, from_merge, merged }) {
     const ev = await this.PushEvent.create({
       project_id,
       repo_id,
@@ -218,7 +240,16 @@ class RepoService {
           repoName = found[0]?.name || '';
         } catch (_) { /* ignore */ }
       }
-      const body = { project_id, repo_id, repo_name: repoName, repo: repoName, ref, sha: new_sha };
+      const body = {
+        project_id,
+        repo_id,
+        repo_name: repoName,
+        repo: repoName,
+        ref,
+        sha: new_sha,
+        from_merge: Boolean(from_merge || merged || pusher === 'merge'),
+        merged: Boolean(from_merge || merged || pusher === 'merge'),
+      };
       const secret = process.env.GIT_WEBHOOK_SECRET || '';
       const headers = {};
       if (secret) {

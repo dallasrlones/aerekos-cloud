@@ -40,7 +40,8 @@ const Worker = db.model('Worker', {
   resources: 'string', // JSON string for CPU, RAM, disk, network
   env: 'string', // opaque worker-supplied tag from worker .env — not an enum
   capabilities: 'string', // JSON array of opaque capability strings
-  vpc_id: 'string'
+  vpc_id: 'string',
+  display_name: 'string'
 }, {
   timestamps: true
 });
@@ -50,6 +51,9 @@ try {
 } catch (_) { /* already present */ }
 try {
   db.db.exec('ALTER TABLE workers ADD COLUMN capabilities TEXT');
+} catch (_) { /* already present */ }
+try {
+  db.db.exec("ALTER TABLE workers ADD COLUMN display_name TEXT DEFAULT ''");
 } catch (_) { /* already present */ }
 
 // Service Model

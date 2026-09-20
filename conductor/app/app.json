@@ -24,6 +24,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {
+        "origin": "https://cloud.aerekos.com",
+        "headOrigin": "https://cloud.aerekos.com"
+      }
     }
   }
 }

@@ -35,5 +35,30 @@ router.post('/poll', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.get('/functions/:id/event-sources', async (req, res, next) => {
+  try {
+    res.json({ items: await service.listEventSources(projectId(req), req.params.id) });
+  } catch (e) { next(e); }
+});
+
+router.post('/functions/:id/event-sources', async (req, res, next) => {
+  try {
+    const r = await service.attachQueue(projectId(req), req.params.id, req.body?.ref || req.body?.queue, { engine: req.body?.engine });
+    res.status(201).json(r);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
+});
+
+router.delete('/functions/:id/event-sources/:sid', async (req, res, next) => {
+  try {
+    res.json(await service.detachQueue(projectId(req), req.params.id, req.params.sid));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
+});
+
 router.use('/functions', crudRouter(service));
 module.exports = { router, service };

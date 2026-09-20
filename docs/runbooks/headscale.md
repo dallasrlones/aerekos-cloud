@@ -4,7 +4,7 @@ East-west overlay for workers. Cloudflare stays north-south (`cloud` / `cloudapi
 
 ## Setup
 
-1. Run Headscale on the **control** device (prod-mini). Bind the API to localhost or overlay only.
+1. Run Headscale on the **control** device (prod-mini). Bind the API to the **LAN** (`192.168.0.141:8080`) so other devices can join. Do not publish it on the public internet.
    `docker compose -f docker-compose.headscale.yml up -d --no-deps`
    Worker sidecar: `docker compose -f worker/docker-compose.tailscale.yml up -d --no-deps` (needs `TAILSCALE_AUTHKEY` from preauth).
 2. Store `headscale.api_key` in secrets_manager. Set `HEADSCALE_URL` and `HEADSCALE_BASE_DOMAIN=aerekos.internal` on the conductor.

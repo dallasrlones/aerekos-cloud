@@ -1,123 +1,100 @@
 import api from '../utils/api';
 
-/**
- * Database Manager Service - API calls for db_manager service and database management
- */
+function errMsg(err, fallback) {
+  return err.response?.data?.error?.message || err.message || fallback;
+}
+
+function withProject(params, projectId) {
+  const next = { ...(params || {}) };
+  if (projectId) next.project_id = projectId;
+  return next;
+}
+
 export const dbManagerService = {
-  /**
-   * List all databases
-   * @param {object} [filters] - Filter options (type, worker_id, status)
-   * @returns {Promise<object>} List of databases
-   */
   async getDatabases(filters = {}) {
-    const params = {};
+    const params = withProject({}, filters.project_id);
     if (filters.type) params.type = filters.type;
     if (filters.worker_id) params.worker_id = filters.worker_id;
     if (filters.status) params.status = filters.status;
-    
+    if (filters.environment) params.environment = filters.environment;
     const response = await api.get('/api/services/db_manager/api/databases', { params });
     return response.data;
   },
 
-  /**
-   * Get database by name
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Database details
-   */
-  async getDatabase(name) {
-    const response = await api.get(`/api/services/db_manager/api/databases/${name}`);
+  async getDatabase(name, projectId) {
+    const response = await api.get(`/api/services/db_manager/api/databases/${encodeURIComponent(name)}`, {
+      params: withProject({}, projectId),
+    });
     return response.data;
   },
 
-  /**
-   * Create a new database
-   * @param {object} databaseData - Database data (name, type, username, password, port, resource_limits, etc.)
-   * @returns {Promise<object>} Created database
-   */
   async createDatabase(databaseData) {
     const response = await api.post('/api/services/db_manager/api/databases', databaseData);
     return response.data;
   },
 
-  /**
-   * Delete a database
-   * @param {string} name - Database name
-   * @returns {Promise<void>}
-   */
-  async deleteDatabase(name) {
-    await api.delete(`/api/services/db_manager/api/databases/${name}`);
-  },
-
-  /**
-   * Get database connection string
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Connection details
-   */
-  async getConnectionString(name) {
-    const response = await api.get(`/api/services/db_manager/api/databases/${name}/connection`);
-    return response.data;
-  },
-
-  /**
-   * Start a database container
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Updated database
-   */
-  async startDatabase(name) {
-    const response = await api.post(`/api/services/db_manager/api/databases/${name}/start`);
-    return response.data;
-  },
-
-  /**
-   * Stop a database container
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Updated database
-   */
-  async stopDatabase(name) {
-    const response = await api.post(`/api/services/db_manager/api/databases/${name}/stop`);
-    return response.data;
-  },
-
-  /**
-   * Restart a database container
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Updated database
-   */
-  async restartDatabase(name) {
-    const response = await api.post(`/api/services/db_manager/api/databases/${name}/restart`);
-    return response.data;
-  },
-
-  /**
-   * Create a backup of a database
-   * @param {string} name - Database name
-   * @param {string} [backupType] - e.g. 'full'
-   * @returns {Promise<object>} Backup result
-   */
-  async createBackup(name, backupType = 'full') {
-    const response = await api.post(`/api/services/db_manager/api/databases/${name}/backups`, {
-      backup_type: backupType,
+  async deleteDatabase(name, projectId) {
+    await api.delete(`/api/services/db_manager/api/databases/${encodeURIComponent(name)}`, {
+      params: withProject({}, projectId),
     });
+  },
+
+  async getConnectionString(name, projectId) {
+    const response = await api.get(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/connection`,
+      { params: withProject({}, projectId) },
+    );
     return response.data;
   },
 
-  /**
-   * Probe a single database's health
-   * @param {string} name - Database name
-   * @returns {Promise<object>} Per-database health
-   */
-  async getDatabaseHealth(name) {
-    const response = await api.get(`/api/services/db_manager/api/databases/${name}/health`);
+  async startDatabase(name, projectId) {
+    const response = await api.post(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/start`,
+      { project_id: projectId },
+      { params: withProject({}, projectId) },
+    );
     return response.data;
   },
 
-  /**
-   * Get service health status
-   * @returns {Promise<object>} Health status
-   */
+  async stopDatabase(name, projectId) {
+    const response = await api.post(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/stop`,
+      { project_id: projectId },
+      { params: withProject({}, projectId) },
+    );
+    return response.data;
+  },
+
+  async restartDatabase(name, projectId) {
+    const response = await api.post(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/restart`,
+      { project_id: projectId },
+      { params: withProject({}, projectId) },
+    );
+    return response.data;
+  },
+
+  async createBackup(name, backupType = 'full', projectId) {
+    const response = await api.post(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/backups`,
+      { backup_type: backupType, project_id: projectId },
+      { params: withProject({}, projectId) },
+    );
+    return response.data;
+  },
+
+  async getDatabaseHealth(name, projectId) {
+    const response = await api.get(
+      `/api/services/db_manager/api/databases/${encodeURIComponent(name)}/health`,
+      { params: withProject({}, projectId) },
+    );
+    return response.data;
+  },
+
   async getHealth() {
     const response = await api.get('/api/services/db_manager/health');
     return response.data;
-  }
-};
+  },
 
+  errMsg,
+};

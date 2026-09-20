@@ -31,11 +31,17 @@ import { DatabaseDetails } from './screens/DatabaseManager/DatabaseDetails';
 import { CreateDatabase } from './screens/DatabaseManager/CreateDatabase';
 import { ManagerConsole } from './screens/ManagerConsole/ManagerConsole';
 import { AIManager } from './screens/AIManager/AIManager';
+import { AIManagerStudio } from './screens/AIManager/AIManagerStudio';
+import { AiAgentsScreen } from './screens/AIManager/AiAgentsScreen';
+import { AgentTaskDetails } from './screens/AIManager/AgentTaskDetails';
 import { AiProviderForm } from './screens/AIManager/AiProviderForm';
 import { IntelligenceForm } from './screens/AIManager/IntelligenceForm';
 import { RagCollectionForm } from './screens/AIManager/RagCollectionForm';
 import { AiModelDetails } from './screens/AIManager/AiModelDetails';
 import { AiDeploymentDetails } from './screens/AIManager/AiDeploymentDetails';
+import { MemoryStoreForm } from './screens/AIManager/MemoryStoreForm';
+import { LoraAdapterForm } from './screens/AIManager/LoraAdapterForm';
+import { AiBalancerDetails } from './screens/AIManager/AiBalancerDetails';
 import { ApiGatewayManager } from './screens/ApiGatewayManager/ApiGatewayManager';
 import { ComputeManager } from './screens/ComputeManager/ComputeManager';
 import { CicdManager } from './screens/CicdManager/CicdManager';
@@ -60,6 +66,8 @@ import { BottomTabs } from './components/BottomTabs/BottomTabs';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import { colors } from './styles/theme';
 
+const { getScreenFromPath, getPathFromScreen } = require('./utils/screenPath');
+
 /** Prefer a catalog screen (e.g. aiManager) over the generic ManagerConsole. */
 const resolveNavigation = (screen, params = {}) => {
   if (screen === 'managerConsole' && params.serviceName) {
@@ -72,7 +80,7 @@ const resolveNavigation = (screen, params = {}) => {
 };
 
 const applyPathname = (pathname, search = '') => {
-  const screenData = getScreenFromPath(pathname);
+  const screenData = getScreenFromPath(pathname, { getServiceMeta, search });
   let screen;
   let params;
   if (typeof screenData === 'object' && screenData.screen) {
@@ -90,312 +98,6 @@ const applyPathname = (pathname, search = '') => {
     if (prov) params.provider = prov;
   }
   return { screen, params };
-};
-
-// Helper to get screen name from path
-const getScreenFromPath = (pathname) => {
-  // Dashboard (home) shows current project details
-  if (pathname === '/' || pathname === '') return 'dashboard';
-  const parts = pathname.replace(/^\//, '').split('/');
-  const firstPart = parts[0];
-  
-  if (firstPart === 'devices' && parts.length > 1) {
-    return { screen: 'deviceDetails', params: { deviceId: parts[1] } };
-  }
-  
-  // Generic per-manager consoles. The bare catalog now lives on the Console
-  // Home (dashboard), so /services with no manager name redirects there.
-  if (firstPart === 'services') {
-    if (parts.length > 1 && parts[1]) {
-      const serviceName = parts[1].replace(/\/$/, '');
-      // Explicit bespoke consoles (catalog route is the source of truth; keep fallbacks)
-      if (serviceName === 'ai_manager') {
-        return { screen: 'aiManager', params: {} };
-      }
-      const meta = getServiceMeta(serviceName);
-      if (meta?.route) {
-        return { screen: meta.route, params: {} };
-      }
-      return { screen: 'managerConsole', params: { serviceName } };
-    }
-    return 'dashboard';
-  }
-
-  // Container Hosting (compute_manager)
-  if (firstPart === 'compute-manager') {
-    if (parts[1] === 'run' || parts[1] === 'launch') {
-      return 'launchContainer';
-    }
-    if ((parts[1] === 'tasks' || parts[1] === 'containers') && parts.length > 2) {
-      return { screen: 'containerDetails', params: { containerId: parts[2], taskId: parts[2] } };
-    }
-    return 'computeManager';
-  }
-
-  // Authentication (auth_manager)
-  if (firstPart === 'auth-manager') {
-    if (parts[1] === 'providers' && parts[2] === 'new') {
-      return 'providerForm';
-    }
-    if (parts[1] === 'providers' && parts.length > 2) {
-      return { screen: 'providerForm', params: { providerId: parts[2] } };
-    }
-    return 'authManager';
-  }
-
-  if (firstPart === 'ai-manager') {
-    if (parts[1] === 'models' && parts.length > 2) {
-      return { screen: 'aiModelDetails', params: { modelName: decodeURIComponent(parts.slice(2).join('/')) } };
-    }
-    if (parts[1] === 'deployment' || parts[1] === 'deployments') {
-      return 'aiDeploymentDetails';
-    }
-    if (parts[1] === 'providers' && parts[2] === 'new') {
-      return 'aiProviderForm';
-    }
-    if (parts[1] === 'providers' && parts.length > 2) {
-      return { screen: 'aiProviderForm', params: { providerId: parts[2] } };
-    }
-    if (parts[1] === 'intelligence' && parts[2] === 'new') {
-      return 'aiIntelligenceForm';
-    }
-    if (parts[1] === 'intelligence' && parts.length > 2) {
-      return { screen: 'aiIntelligenceForm', params: { intelligenceId: parts[2] } };
-    }
-    if (parts[1] === 'rag' && parts[2] === 'new') {
-      return 'aiRagForm';
-    }
-    if (parts[1] === 'rag' && parts.length > 2) {
-      return { screen: 'aiRagForm', params: { ragId: parts[2] } };
-    }
-    return 'aiManager';
-  }
-
-  if (firstPart === 'api-gateway-manager') {
-    return 'apiGatewayManager';
-  }
-
-  if (firstPart === 'key-manager' && parts.length > 1) {
-    if (parts[1] === 'secrets' && parts[2] === 'create') {
-      return 'createServiceSecret';
-    }
-    if (parts[1] === 'secrets' && parts.length > 2) {
-      return { screen: 'serviceSecretDetails', params: { secretId: parts[2] } };
-    }
-    if (parts[1] === 'secrets') {
-      return 'serviceSecretsList';
-    }
-    if (parts[1] === 'keys' && parts.length > 2) {
-      return { screen: 'keyDetails', params: { keyName: parts[2] } };
-    }
-    if (parts[1] === 'keys') {
-      return 'keysList';
-    }
-    if (parts[1] === 'create') {
-      return 'createKey';
-    }
-    return 'keyManager';
-  }
-  
-  if (firstPart === 'db-manager' && parts.length > 1) {
-    if (parts[1] === 'databases' && parts.length > 2) {
-      return { screen: 'databaseDetails', params: { databaseName: parts[2] } };
-    }
-    if (parts[1] === 'databases') {
-      return 'databasesList';
-    }
-    if (parts[1] === 'create') {
-      return 'createDatabase';
-    }
-    return 'databaseManager';
-  }
-  
-  if (firstPart === 'storage-manager' && parts.length > 1) {
-    if (parts[1] === 'projects') {
-      return 'projectsList';
-    }
-    if (parts[1] === 'buckets' && parts.length > 3 && parts[3] === 'config') {
-      // /storage-manager/buckets/{bucketName}/config
-      const projectId = typeof window !== 'undefined' && window.location?.search
-        ? new URLSearchParams(window.location.search).get('projectId')
-        : null;
-      return { screen: 'bucketConfig', params: { bucketName: parts[2], projectId } };
-    }
-    if (parts[1] === 'buckets' && parts.length > 3 && parts[2] === 'files') {
-      // /storage-manager/buckets/{bucketName}/files/{key}
-      return { screen: 'fileDetails', params: { bucketName: parts[2], key: decodeURIComponent(parts.slice(3).join('/')) } };
-    }
-    if (parts[1] === 'buckets' && parts.length > 2) {
-      // /storage-manager/buckets/{bucketName}
-      const projectId = typeof window !== 'undefined' && window.location?.search
-        ? new URLSearchParams(window.location.search).get('projectId')
-        : null;
-      return { screen: 'bucketDetails', params: { bucketName: parts[2], projectId } };
-    }
-    if (parts[1] === 'buckets') {
-      // Extract projectId from query params if available
-      const projectId = typeof window !== 'undefined' && window.location?.search
-        ? new URLSearchParams(window.location.search).get('projectId')
-        : null;
-      return { screen: 'bucketsList', params: projectId ? { projectId } : {} };
-    }
-    return 'storageManager';
-  }
-  
-  if (firstPart === 'projects' && parts.length > 1) {
-    if (parts[1] === 'new' || parts[1] === 'create') {
-      return { screen: 'projectForm', params: { mode: 'create' } };
-    }
-    if (parts[1] === 'edit' && parts.length > 2) {
-      return { screen: 'projectForm', params: { mode: 'edit', projectId: parts[2] } };
-    }
-    return { screen: 'projectDetails', params: { projectId: parts[1] } };
-  }
-  
-  if (firstPart === 'compute-manager') {
-    return 'computeManager';
-  }
-
-  if (firstPart === 'auth-manager') {
-    return 'authManager';
-  }
-
-  if (firstPart === 'edge-manager') return 'edgeManager';
-  if (firstPart === 'queue-manager') return 'queueManager';
-  if (firstPart === 'webhook-manager') return 'webhookManager';
-  if (firstPart === 'git-manager') return 'gitManager';
-  if (firstPart === 'cicd-manager') return 'cicdManager';
-  if (firstPart === 'ops' || firstPart === 'whats-broken') return 'opsTimeline';
-  if (firstPart === 'registry-manager') return 'registryManager';
-
-  if (['dashboard', 'settings', 'menu', 'devices', 'key-manager', 'storage-manager', 'db-manager', 'projects'].includes(firstPart)) {
-    return firstPart;
-  }
-  return 'dashboard';
-};
-
-// Helper to get path from screen name
-const getPathFromScreen = (screen, params = {}) => {
-  if (screen === 'dashboard') return '/';
-  if (screen === 'servicesConsole') return '/';
-  if (screen === 'managerConsole' && params.serviceName) {
-    return `/services/${params.serviceName}`;
-  }
-  if (screen === 'computeManager') return '/compute-manager';
-  if (screen === 'launchContainer' || screen === 'runTask') return '/compute-manager/launch';
-  if ((screen === 'containerDetails' || screen === 'taskDetails') && (params.containerId || params.taskId)) {
-    return `/compute-manager/containers/${params.containerId || params.taskId}`;
-  }
-  if (screen === 'authManager') return '/auth-manager';
-  if (screen === 'aiManager') return '/services/ai_manager';
-  if (screen === 'aiDeploymentDetails') return '/ai-manager/deployments';
-  if (screen === 'aiModelDetails' && params.modelName) {
-    return `/ai-manager/models/${encodeURIComponent(params.modelName)}`;
-  }
-  if (screen === 'apiGatewayManager') return '/api-gateway-manager';
-  if (screen === 'edgeManager') return '/edge-manager';
-  if (screen === 'queueManager') return '/queue-manager';
-  if (screen === 'downloadManager') return '/services/download_manager';
-  if (screen === 'functionManager') return '/services/function_manager';
-  if (screen === 'webhookManager') return '/webhook-manager';
-  if (screen === 'gitManager') return '/git-manager';
-  if (screen === 'cicdManager') return '/cicd-manager';
-  if (screen === 'opsTimeline') return '/ops';
-  if (screen === 'registryManager') return '/registry-manager';
-  if (screen === 'aiProviderForm' && params.providerId) {
-    return `/ai-manager/providers/${params.providerId}`;
-  }
-  if (screen === 'aiProviderForm') {
-    const q = new URLSearchParams();
-    if (params.capability) q.set('capability', params.capability);
-    if (params.provider) q.set('provider', params.provider);
-    const qs = q.toString();
-    return `/ai-manager/providers/new${qs ? `?${qs}` : ''}`;
-  }
-  if (screen === 'aiIntelligenceForm' && params.intelligenceId) {
-    return `/ai-manager/intelligence/${params.intelligenceId}`;
-  }
-  if (screen === 'aiIntelligenceForm') return '/ai-manager/intelligence/new';
-  if (screen === 'aiRagForm' && params.ragId) {
-    return `/ai-manager/rag/${params.ragId}`;
-  }
-  if (screen === 'aiRagForm') return '/ai-manager/rag/new';
-  if (screen === 'providerForm' && params.providerId) {
-    return `/auth-manager/providers/${params.providerId}`;
-  }
-  if (screen === 'providerForm') return '/auth-manager/providers/new';
-  if (screen === 'deviceDetails' && params.deviceId) {
-    return `/devices/${params.deviceId}`;
-  }
-  if (screen === 'keyDetails' && params.keyName) {
-    return `/key-manager/keys/${params.keyName}`;
-  }
-  if (screen === 'keysList') {
-    return '/key-manager/keys';
-  }
-  if (screen === 'createKey') {
-    return '/key-manager/create';
-  }
-  if (screen === 'serviceSecretsList') {
-    return '/key-manager/secrets';
-  }
-  if (screen === 'createServiceSecret') {
-    return '/key-manager/secrets/create';
-  }
-  if (screen === 'serviceSecretDetails' && params.secretId) {
-    return `/key-manager/secrets/${params.secretId}`;
-  }
-  if (screen === 'keyManager') {
-    return '/key-manager';
-  }
-  if (screen === 'databaseManager') {
-    return '/db-manager';
-  }
-  if (screen === 'databasesList') {
-    return '/db-manager/databases';
-  }
-  if (screen === 'databaseDetails' && params.databaseName) {
-    return `/db-manager/databases/${params.databaseName}`;
-  }
-  if (screen === 'createDatabase') {
-    return '/db-manager/create';
-  }
-  if (screen === 'storageManager') {
-    return '/storage-manager';
-  }
-  if (screen === 'projectsList') {
-    return '/storage-manager/projects';
-  }
-  if (screen === 'bucketDetails' && params.bucketName) {
-    const projectId = params.projectId ? `?projectId=${params.projectId}` : '';
-    return `/storage-manager/buckets/${params.bucketName}${projectId}`;
-  }
-  if (screen === 'bucketConfig' && params.bucketName) {
-    const projectId = params.projectId ? `?projectId=${params.projectId}` : '';
-    return `/storage-manager/buckets/${params.bucketName}/config${projectId}`;
-  }
-  if (screen === 'fileDetails' && params.bucketName && params.key) {
-    const projectId = params.projectId ? `?projectId=${params.projectId}` : '';
-    return `/storage-manager/buckets/${params.bucketName}/files/${encodeURIComponent(params.key)}${projectId}`;
-  }
-  if (screen === 'bucketsList' && params.projectId) {
-    return `/storage-manager/buckets?projectId=${params.projectId}`;
-  }
-  if (screen === 'bucketsList') {
-    return '/storage-manager/buckets';
-  }
-  if (screen === 'projectForm') {
-    if (params.mode === 'create') {
-      return '/projects/new';
-    }
-    if (params.mode === 'edit' && params.projectId) {
-      return `/projects/edit/${params.projectId}`;
-    }
-  }
-  if (screen === 'projectDetails' && params.projectId) {
-    return `/projects/${params.projectId}`;
-  }
-  return `/${screen}`;
 };
 
 const AppContent = () => {
@@ -544,6 +246,36 @@ const AppContent = () => {
         return <ManagerConsole navigation={navigation} route={{ params: screenParams }} />;
       case 'aiManager':
         return <AIManager navigation={navigation} />;
+      case 'aiAgents':
+        return <AiAgentsScreen navigation={navigation} />;
+      case 'aiAgentTask':
+        return <AgentTaskDetails navigation={navigation} route={{ params: screenParams }} />;
+      case 'aiEngines':
+        return <AIManagerStudio key="aiEngines" navigation={navigation} route={{ params: { section: 'engines', ...screenParams } }} />;
+      case 'aiEndpoints':
+        return <AIManagerStudio key="aiEndpoints" navigation={navigation} route={{ params: { section: 'endpoints', ...screenParams } }} />;
+      case 'aiLlm':
+        return <AIManagerStudio key="aiLlm" navigation={navigation} route={{ params: { section: 'llm', ...screenParams } }} />;
+      case 'aiTts':
+        return <AIManagerStudio key="aiTts" navigation={navigation} route={{ params: { section: 'tts', ...screenParams } }} />;
+      case 'aiStt':
+        return <AIManagerStudio key="aiStt" navigation={navigation} route={{ params: { section: 'stt', ...screenParams } }} />;
+      case 'aiEmbeddings':
+        return <AIManagerStudio key="aiEmbeddings" navigation={navigation} route={{ params: { section: 'embeddings', ...screenParams } }} />;
+      case 'aiBenchmarks':
+        return <AIManagerStudio key="aiBenchmarks" navigation={navigation} route={{ params: { section: 'benchmarks', ...screenParams } }} />;
+      case 'aiIntelligence':
+        return <AIManagerStudio key="aiIntelligence" navigation={navigation} route={{ params: { section: 'intelligence', ...screenParams } }} />;
+      case 'aiRag':
+        return <AIManagerStudio key="aiRag" navigation={navigation} route={{ params: { section: 'rag', ...screenParams } }} />;
+      case 'aiMemory':
+        return <AIManagerStudio key="aiMemory" navigation={navigation} route={{ params: { section: 'memory', ...screenParams } }} />;
+      case 'aiJobs':
+        return <AIManagerStudio key="aiJobs" navigation={navigation} route={{ params: { section: 'jobs', ...screenParams } }} />;
+      case 'aiFinetunes':
+        return <AIManagerStudio key="aiFinetunes" navigation={navigation} route={{ params: { section: 'finetunes', ...screenParams } }} />;
+      case 'aiAccess':
+        return <AIManagerStudio key="aiAccess" navigation={navigation} route={{ params: { section: 'appaccess', ...screenParams } }} />;
       case 'aiProviderForm':
         return <AiProviderForm navigation={navigation} route={{ params: screenParams }} />;
       case 'aiIntelligenceForm':
@@ -554,6 +286,12 @@ const AppContent = () => {
         return <AiModelDetails navigation={navigation} route={{ params: screenParams }} />;
       case 'aiDeploymentDetails':
         return <AiDeploymentDetails navigation={navigation} />;
+      case 'aiMemoryForm':
+        return <MemoryStoreForm navigation={navigation} route={{ params: screenParams }} />;
+      case 'aiLoraForm':
+        return <LoraAdapterForm navigation={navigation} route={{ params: screenParams }} />;
+      case 'aiBalancerDetails':
+        return <AiBalancerDetails navigation={navigation} route={{ params: screenParams }} />;
       case 'apiGatewayManager':
         return <ApiGatewayManager navigation={navigation} />;
       case 'edgeManager':
@@ -567,7 +305,7 @@ const AppContent = () => {
       case 'webhookManager':
         return <WebhookManager navigation={navigation} />;
       case 'gitManager':
-        return <GitManager navigation={navigation} />;
+        return <GitManager navigation={navigation} route={{ params: screenParams }} />;
       case 'cicdManager':
         return <CicdManager navigation={navigation} />;
       case 'opsTimeline':

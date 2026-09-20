@@ -1,6 +1,6 @@
 # Agent prompt — email_manager
 
-Email messages (to/subject/body). Queued; outbound send disabled.
+Email messages (to/subject/body). Send when SMTP secrets exist; otherwise queue-only.
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 

@@ -7,7 +7,7 @@
 
 **Source of truth** for this fleet is the maintainer MacBook checkout. See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`docs/runbooks/README.md`](docs/runbooks/README.md) (deploy, mixed stack, Icarus C0–C8, GPU LoRA).
 
-Icarus is a **separate repo** (`icarus-agent`). It talks to this conductor only. Do not merge the trees. Live Icarus smokes: [`docs/runbooks/icarus-c0.md`](docs/runbooks/icarus-c0.md), [`docs/runbooks/icarus-live-e2e.md`](docs/runbooks/icarus-live-e2e.md).
+Icarus **agents** live in this repo (AI Manager → Agents). The sister `icarus-agent` tree is the older standalone beta — do not vendor it as a submodule. Runbook: [`docs/runbooks/icarus-agents.md`](docs/runbooks/icarus-agents.md). Fleet smokes: [`docs/runbooks/icarus-c0.md`](docs/runbooks/icarus-c0.md).
 
 ## Status — v0.1.0 preview
 

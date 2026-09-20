@@ -30,10 +30,29 @@ describe('git Smart HTTP auth', () => {
     expect(res.status).toBe(404);
   });
 
+  test('development without token → 401', async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.GIT_AUTH_TOKEN;
+    const res = await request(app).get('/git/proj/repo.git/info/refs').query({ service: 'git-upload-pack' });
+    expect(res.status).toBe(401);
+  });
+
   test('rejects unverified eyJ JWT in production', async () => {
     process.env.NODE_ENV = 'production';
     delete process.env.GIT_AUTH_TOKEN;
     process.env.JWT_SECRET = 'unit-test-secret';
+    const bogus = `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({ sub: 'x' })).toString('base64url')}.`;
+    const res = await request(app)
+      .get('/git/proj/repo.git/info/refs')
+      .query({ service: 'git-upload-pack' })
+      .set('Authorization', `Bearer ${bogus}`);
+    expect(res.status).toBe(401);
+  });
+
+  test('rejects unverified eyJ JWT in development', async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.GIT_AUTH_TOKEN;
+    delete process.env.JWT_SECRET;
     const bogus = `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({ sub: 'x' })).toString('base64url')}.`;
     const res = await request(app)
       .get('/git/proj/repo.git/info/refs')

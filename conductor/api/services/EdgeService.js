@@ -21,7 +21,7 @@ async function listProjectSecretNames(projectId, bearerToken) {
       'GET',
       '/api/v1/secrets',
       null,
-      {},
+      { project_id: projectId },
       projectId,
       { authorization: authHeader(bearerToken) },
     );
@@ -30,8 +30,8 @@ async function listProjectSecretNames(projectId, bearerToken) {
     }
     return { ok: true, names: res.data.secrets.map((s) => s.name) };
   } catch (e) {
-    const status = e.status || 503;
-    return { ok: false, status, names: [], error: e.message };
+    const status = e.status || e.statusCode || 503;
+    return { ok: false, status, names: [], error: e.message || e.code || String(e) };
   }
 }
 
@@ -43,6 +43,8 @@ async function probeManagerReady(serviceName) {
   const bases = [
     `http://${serviceName}:${port}`,
     `http://aerekos-${serviceName}:${port}`,
+    `http://host.docker.internal:${port}`,
+    `http://127.0.0.1:${port}`,
     `http://localhost:${port}`,
   ];
   for (const base of bases) {
@@ -160,82 +162,58 @@ class EdgeService {
   }
 
   async hookup(projectId, bearerToken) {
-    const SetupService = require('./SetupService');
-    const ProjectRepository = require('../repos/ProjectRepository');
-    const status = await this.hookupStatus(projectId, bearerToken);
-    const secretMissing = status.missing.filter((m) => m.startsWith('cloudflare_'));
-    if (secretMissing.length) {
+    const before = await this.hookupStatus(projectId, bearerToken);
+    if (!before.probe?.secrets?.cloudflare_api_token || !before.probe?.secrets?.cloudflare_account_id) {
       return {
         hooked_up: false,
-        missing: secretMissing,
-        message: `Store project secrets: ${secretMissing.join(', ')}`,
+        missing: before.missing,
+        message: before.message || 'Store cloudflare_api_token and cloudflare_account_id, then hook up.',
+        project_id: projectId,
       };
     }
-    await SetupService.enableWithDependencies(projectId, 'tunnel_manager', {
-      with_dependencies: true,
-      defaults: true,
-    }).catch((err) => console.warn('[edge] enable tunnel_manager:', err.message));
-    await SetupService.enableWithDependencies(projectId, 'domain_manager', {
-      with_dependencies: true,
-      defaults: true,
-    }).catch((err) => console.warn('[edge] enable domain_manager:', err.message));
-    let tunnel = null;
-    let hostname = null;
-    const auth = { authorization: authHeader(bearerToken) };
+
+    const SetupService = require('./SetupService');
     try {
-      const created = await serviceManager().proxyServiceRequest(
-        'tunnel_manager',
-        'POST',
-        '/api/v1/tunnels',
-        { project_id: projectId, name: `default-${String(projectId).slice(0, 8)}` },
-        {},
-        projectId,
-        auth,
-      );
-      tunnel = created.data?.tunnel || created.data;
-    } catch (err) {
-      console.warn('[edge] create tunnel:', err.message);
-    }
-    const hostnameWanted = process.env.EDGE_BOOTSTRAP_HOSTNAME;
-    if (hostnameWanted && tunnel) {
-      try {
-        const bound = await serviceManager().proxyServiceRequest(
-          'domain_manager',
-          'POST',
-          '/api/v1/dns/hostnames',
-          {
-            project_id: projectId,
-            hostname: hostnameWanted,
-            target_type: 'compute_task',
-            target_id: process.env.EDGE_BOOTSTRAP_TASK_ID || '',
-            tunnel_id: tunnel.cf_tunnel_id || tunnel.id,
-            port: Number(process.env.EDGE_BOOTSTRAP_PORT || 80),
-          },
-          {},
-          projectId,
-          auth,
-        );
-        hostname = bound.data?.binding || bound.data;
-      } catch (err) {
-        console.warn('[edge] bind hostname:', err.message);
-      }
+      await SetupService.enableWithDependencies(projectId, 'tunnel_manager', {
+        with_dependencies: true,
+        defaults: true,
+      });
+    } catch (e) {
+      console.warn('[edge] enable tunnel_manager:', e.message);
     }
     try {
-      const project = await ProjectRepository.findById(projectId);
-      let cfg = {};
-      try { cfg = typeof project.config === 'object' ? { ...project.config } : JSON.parse(project.config || '{}'); } catch { cfg = {}; }
-      cfg.edge_hookup = {
-        hooked_up_at: new Date().toISOString(),
-        tunnel_id: tunnel?.id || tunnel?.cf_tunnel_id || null,
-        hostname: hostnameWanted || null,
-      };
-      await ProjectRepository.update(projectId, { config: JSON.stringify(cfg) });
-    } catch (err) {
-      console.warn('[edge] persist hookup:', err.message);
+      await SetupService.enableWithDependencies(projectId, 'domain_manager', {
+        with_dependencies: true,
+        defaults: true,
+      });
+    } catch (e) {
+      console.warn('[edge] enable domain_manager:', e.message);
     }
-    const finalStatus = await this.hookupStatus(projectId, bearerToken);
-    return { ...finalStatus, tunnel, hostname };
+
+    let named = [];
+    let imported = null;
+    try {
+      named = await this.nameImportedTunnels(projectId, bearerToken);
+    } catch (e) {
+      console.warn('[edge] adopt-known:', e.message);
+    }
+    try {
+      imported = await this.importLiveTunnels(projectId, bearerToken);
+    } catch (e) {
+      console.warn('[edge] import live tunnels:', e.message);
+    }
+
+    const after = await this.hookupStatus(projectId, bearerToken);
+    return {
+      ...after,
+      adopted: Array.isArray(named) ? named.filter((t) => t.cf_tunnel_id).length : 0,
+      imported,
+      message: after.hooked_up
+        ? `Cloudflare connected — adopted existing tunnels, no new tunnel minted.`
+        : after.message,
+    };
   }
+
 
   async importLiveTunnels(projectId, bearerToken) {
     const auth = { authorization: authHeader(bearerToken) };
@@ -252,19 +230,111 @@ class EdgeService {
   }
 
   knownTunnels() {
-    return [
-      { display_name: 'prod', cf_tunnel_id: 'd33010ac-473f-496b-938f-1bac352e415d', device_hostname: 'aerekos-server', default_bind: true, origin_mode: 'host' },
-      { display_name: 'prod-ssh', cf_tunnel_id: '17dd5eb6-a5a9-411c-8d2e-50d8f6617b18', device_hostname: 'aerekos-server', default_bind: false, origin_mode: 'host' },
-      { display_name: 'dev', cf_tunnel_id: '689acb6e-c4c3-4c2a-9e32-898e3c2780a0', device_hostname: 'aerekos-M5-PLUS', default_bind: true, origin_mode: 'host' },
-      { display_name: 'orin', cf_tunnel_id: 'd0efca3a-9127-47ea-a083-9461df4cb25d', device_hostname: 'ubuntu', default_bind: true, origin_mode: 'host' },
-    ];
+    return require('../config/knownTunnels').knownTunnels();
+  }
+
+  /**
+   * Write hostname rows for live CF ingress that already matches this task's
+   * published ports. Does not merge ingress and does not call bind().
+   */
+  async importTaskHostnames(projectId, bearerToken, { task_id: taskId }) {
+    const auth = { authorization: authHeader(bearerToken) };
+    if (!taskId) {
+      const e = new Error('task_id is required');
+      e.status = 400;
+      throw e;
+    }
+    const taskRes = await serviceManager().proxyServiceRequest(
+      'compute_manager',
+      'GET',
+      `/api/v1/tasks/${encodeURIComponent(taskId)}`,
+      null,
+      { refresh: '1' },
+      projectId,
+      auth,
+    );
+    const task = taskRes.data?.task || taskRes.data;
+    if (!task) {
+      const e = new Error('task not found');
+      e.status = 404;
+      throw e;
+    }
+    const named = await this.nameImportedTunnels(projectId, bearerToken);
+    const host = String(task.worker_hostname || '').toLowerCase();
+    let deviceTunnels = named.filter((t) => host && String(t.device_hostname || '').toLowerCase() === host);
+    if (!deviceTunnels.length) {
+      deviceTunnels = named.filter((t) => t.id && t.status !== 'down');
+    }
+    const published = new Set();
+    for (const [k, v] of Object.entries(task.port_bindings || {})) {
+      const fromKey = String(k).split('/')[0];
+      if (/^\d+$/.test(fromKey)) published.add(fromKey);
+      const list = Array.isArray(v) ? v : (v == null ? [] : [v]);
+      for (const item of list) {
+        const hp = item && typeof item === 'object' ? (item.HostPort || item.hostPort) : item;
+        if (hp) published.add(String(hp));
+      }
+    }
+    const listed = await serviceManager().proxyServiceRequest(
+      'domain_manager', 'GET', '/api/v1/dns/hostnames', null, {}, projectId, auth
+    );
+    const existing = listed.data?.hostnames || [];
+    const imported = [];
+    for (const tun of deviceTunnels) {
+      if (!tun.id) continue;
+      const ing = await serviceManager().proxyServiceRequest(
+        'tunnel_manager', 'GET', `/api/v1/tunnels/${encodeURIComponent(tun.id)}/ingress`,
+        null, {}, projectId, auth
+      ).catch(() => ({ data: {} }));
+      const rules = ing.data?.ingress || ing.data?.config?.ingress || [];
+      for (const rule of rules) {
+        const hostname = String(rule.hostname || '').toLowerCase();
+        const svc = String(rule.service || '');
+        const portMatch = svc.match(/:(\d+)\s*$/);
+        const port = portMatch ? portMatch[1] : '';
+        if (!hostname || !port || !published.has(String(port))) continue;
+        if (existing.some((h) => String(h.hostname).toLowerCase() === hostname)) continue;
+        const created = await serviceManager().proxyServiceRequest(
+          'domain_manager', 'POST', '/api/v1/dns/hostnames',
+          {
+            project_id: projectId,
+            hostname,
+            target_type: 'compute_task',
+            target_id: taskId,
+            port: Number(port),
+            tunnel_id: tun.cf_tunnel_id || tun.id,
+            environment: task.environment || 'prod',
+            imported: true,
+          },
+          {},
+          projectId,
+          auth,
+        );
+        if (created.status < 400) {
+          imported.push(created.data?.binding || created.data || { hostname, port });
+        }
+      }
+    }
+    return { imported, task_id: taskId };
   }
 
   async nameImportedTunnels(projectId, bearerToken) {
     const auth = { authorization: authHeader(bearerToken) };
+    const known = this.knownTunnels();
+    try {
+      const workers = await WorkerRepository.findAll();
+      for (const k of known) {
+        const w = (workers || []).find((row) => {
+          const host = String(row.hostname || row.device_hostname || '').toLowerCase();
+          return host && host === String(k.device_hostname || '').toLowerCase();
+        });
+        if (w) k.worker_id = w.id || w.worker_id || '';
+      }
+    } catch (_) { /* attach worker_id when workers are listed */ }
+    const adoptable = known.filter((t) => /^[0-9a-f-]{36}$/i.test(String(t.cf_tunnel_id || '')));
     await serviceManager().proxyServiceRequest(
       'tunnel_manager', 'POST', '/api/v1/tunnels/adopt-known',
-      { project_id: projectId, tunnels: this.knownTunnels() },
+      { project_id: projectId, tunnels: adoptable },
       {}, projectId, auth
     ).catch(() => {});
     const listed = await serviceManager().proxyServiceRequest(
@@ -272,9 +342,13 @@ class EdgeService {
     );
     const rows = listed.data?.tunnels || listed.data?.items || (Array.isArray(listed.data) ? listed.data : []);
     const named = [];
-    for (const known of this.knownTunnels()) {
-      const row = (Array.isArray(rows) ? rows : []).find((t) => t.cf_tunnel_id === known.cf_tunnel_id || t.id === known.cf_tunnel_id);
-      named.push({ ...known, id: row?.id || row?.tunnel_id || known.cf_tunnel_id });
+    for (const k of known) {
+      const row = (Array.isArray(rows) ? rows : []).find((t) => t.cf_tunnel_id === k.cf_tunnel_id || t.id === k.cf_tunnel_id);
+      named.push({
+        ...k,
+        id: row?.id || row?.tunnel_id || k.cf_tunnel_id,
+        worker_id: k.worker_id || row?.worker_id || '',
+      });
     }
     return named;
   }
@@ -283,7 +357,7 @@ class EdgeService {
     const named = await this.nameImportedTunnels(projectId, bearerToken);
     const host = String(task.worker_hostname || '').toLowerCase();
     const match = named.find((t) => t.default_bind && host && String(t.device_hostname).toLowerCase() === host)
-      || named.find((t) => t.display_name === 'prod' && t.default_bind);
+      || named.find((t) => t.default_bind && /prod/i.test(String(t.display_name || '')));
     return match || null;
   }
 
@@ -304,8 +378,8 @@ class EdgeService {
     const auth = { authorization: authHeader(bearerToken) };
     const taskId = body.task_id;
     const hostname = String(body.hostname || '').trim().toLowerCase();
-    const platformGit = !taskId && hostname === 'git.aerekos.com' && Number(body.port || 3130) === 3130;
-    if (!hostname || (!taskId && !platformGit)) {
+    const gitOrigin = !taskId && Number(body.port) === 3130;
+    if (!hostname || (!taskId && !gitOrigin)) {
       const e = new Error('task_id and hostname are required');
       e.status = 400;
       throw e;
@@ -315,11 +389,22 @@ class EdgeService {
       e.status = 400;
       throw e;
     }
+    const existingHosts = await serviceManager().proxyServiceRequest(
+      'domain_manager', 'GET', '/api/v1/dns/hostnames', null, {}, projectId, auth
+    );
+    const already = (existingHosts.data?.hostnames || []).find(
+      (h) => String(h.hostname || '').toLowerCase() === hostname
+    );
+    if (already) {
+      const e = new Error(`${hostname} is already bound`);
+      e.status = 409;
+      throw e;
+    }
     let task = null;
     let hostPort = String(body.port || '');
-    if (platformGit) {
+    if (gitOrigin) {
       hostPort = '3130';
-      task = { worker_hostname: 'aerekos-server', environment: 'prod' };
+      task = { worker_hostname: String(body.worker_hostname || ''), environment: body.environment || 'prod' };
     } else {
       const taskRes = await serviceManager().proxyServiceRequest(
         'compute_manager', 'GET', `/api/v1/tasks/${encodeURIComponent(taskId)}`, null, {}, projectId, auth
@@ -367,7 +452,7 @@ class EdgeService {
       {
         project_id: projectId,
         hostname,
-        target_type: platformGit ? 'platform' : 'compute_task',
+        target_type: gitOrigin ? 'platform' : 'compute_task',
         target_id: taskId || 'git_manager',
         port: Number(hostPort),
         tunnel_id: cfId,
@@ -439,6 +524,155 @@ class EdgeService {
       null, {}, projectId, auth,
     );
     return { deleted: true, id: bindingId };
+  }
+
+  composeHostname(subdomain, domain) {
+    return require('../utils/hostnameParts').composeHostname(subdomain, domain);
+  }
+
+  originService(port, protocol) {
+    return require('../utils/hostnameParts').originService(port, protocol);
+  }
+
+  async resolveNamedTunnel(projectId, bearerToken, tunnelId) {
+    const named = await this.nameImportedTunnels(projectId, bearerToken);
+    const id = String(tunnelId || '');
+    const tun = named.find((t) => t.id === id || t.cf_tunnel_id === id || t.display_name === id);
+    if (!tun || !(tun.id || tun.cf_tunnel_id)) {
+      const e = new Error('tunnel not found');
+      e.status = 404;
+      throw e;
+    }
+    return tun;
+  }
+
+  async mergeTunnelIngress(projectId, auth, tunnelRef, body) {
+    const id = tunnelRef.id || tunnelRef.cf_tunnel_id;
+    const got = await serviceManager().proxyServiceRequest(
+      'tunnel_manager', 'GET', `/api/v1/tunnels/${encodeURIComponent(id)}/ingress`,
+      null, {}, projectId, auth,
+    );
+    const rowId = got.data?.tunnel_id || id;
+    const patched = await serviceManager().proxyServiceRequest(
+      'tunnel_manager', 'PATCH', `/api/v1/tunnels/${encodeURIComponent(rowId)}/ingress`,
+      { project_id: projectId, ...body },
+      {},
+      projectId,
+      auth,
+    );
+    if (patched.status >= 400) {
+      const e = new Error(patched.data?.error?.message || 'ingress merge failed');
+      e.status = patched.status;
+      throw e;
+    }
+    return patched.data;
+  }
+
+  async upsertHostnameRow(projectId, auth, { hostname, port, tunnelId, environment, targetId }) {
+    const listed = await serviceManager().proxyServiceRequest(
+      'domain_manager', 'GET', '/api/v1/dns/hostnames', null, {}, projectId, auth
+    );
+    const rows = listed.data?.hostnames || [];
+    const existing = rows.find((h) => String(h.hostname || '').toLowerCase() === hostname);
+    if (existing
+      && Number(existing.port) === Number(port)
+      && String(existing.tunnel_id || '') === String(tunnelId || '')
+      && String(existing.target_id || '') === String(targetId || '')) {
+      return existing;
+    }
+    if (existing?.id && String(existing.target_id || '') !== String(targetId || '')) {
+      try {
+        const patched = await serviceManager().proxyServiceRequest(
+          'domain_manager', 'PATCH', `/api/v1/dns/hostnames/${encodeURIComponent(existing.id)}`,
+          { project_id: projectId, target_id: targetId || '', port: Number(port), tunnel_id: tunnelId },
+          {},
+          projectId,
+          auth,
+        );
+        if (patched.status < 400) return patched.data?.hostname || patched.data;
+      } catch (_) { /* fall through to recreate */ }
+    }
+    if (existing?.id) {
+      await serviceManager().proxyServiceRequest(
+        'domain_manager', 'DELETE', `/api/v1/dns/hostnames/${encodeURIComponent(existing.id)}`,
+        null, {}, projectId, auth,
+      ).catch(() => {});
+    }
+    const created = await serviceManager().proxyServiceRequest(
+      'domain_manager', 'POST', '/api/v1/dns/hostnames',
+      {
+        project_id: projectId,
+        hostname,
+        target_type: targetId ? 'compute_task' : 'platform',
+        target_id: targetId || '',
+        port: Number(port),
+        tunnel_id: tunnelId,
+        environment: environment || 'prod',
+        imported: true,
+      },
+      {},
+      projectId,
+      auth,
+    );
+    if (created.status >= 400) {
+      return existing || null;
+    }
+    return created.data?.hostname || created.data?.binding || created.data;
+  }
+
+  async attachHostname(projectId, bearerToken, body = {}) {
+    const auth = { authorization: authHeader(bearerToken) };
+    const hostname = String(body.hostname || this.composeHostname(body.subdomain, body.domain)).trim().toLowerCase();
+    const service = this.originService(body.port, body.protocol);
+    const port = String(body.port).trim();
+    const previous = String(body.previous_hostname || '').trim().toLowerCase();
+    const tun = await this.resolveNamedTunnel(projectId, bearerToken, body.tunnel_id);
+    const cfId = tun.cf_tunnel_id || tun.id;
+    if (previous && previous !== hostname) {
+      await this.mergeTunnelIngress(projectId, auth, tun, { removeHostname: previous });
+      const listed = await serviceManager().proxyServiceRequest(
+        'domain_manager', 'GET', '/api/v1/dns/hostnames', null, {}, projectId, auth
+      );
+      const old = (listed.data?.hostnames || []).find((h) => String(h.hostname || '').toLowerCase() === previous);
+      if (old?.id) {
+        await serviceManager().proxyServiceRequest(
+          'domain_manager', 'DELETE', `/api/v1/dns/hostnames/${encodeURIComponent(old.id)}`,
+          null, {}, projectId, auth,
+        ).catch(() => {});
+      }
+    }
+    await this.mergeTunnelIngress(projectId, auth, tun, { hostname, service });
+    const binding = await this.upsertHostnameRow(projectId, auth, {
+      hostname,
+      port,
+      tunnelId: cfId,
+      environment: body.environment,
+      targetId: body.task_id || body.target_id || '',
+    });
+    return { hostname, port: Number(port), service, tunnel: cfId, binding };
+  }
+
+  async detachHostname(projectId, bearerToken, body = {}) {
+    const auth = { authorization: authHeader(bearerToken) };
+    const hostname = String(body.hostname || '').trim().toLowerCase();
+    if (!hostname) {
+      const e = new Error('hostname is required');
+      e.status = 400;
+      throw e;
+    }
+    const tun = await this.resolveNamedTunnel(projectId, bearerToken, body.tunnel_id);
+    await this.mergeTunnelIngress(projectId, auth, tun, { removeHostname: hostname });
+    const listed = await serviceManager().proxyServiceRequest(
+      'domain_manager', 'GET', '/api/v1/dns/hostnames', null, {}, projectId, auth
+    );
+    const row = (listed.data?.hostnames || []).find((h) => String(h.hostname || '').toLowerCase() === hostname);
+    if (row?.id) {
+      await serviceManager().proxyServiceRequest(
+        'domain_manager', 'DELETE', `/api/v1/dns/hostnames/${encodeURIComponent(row.id)}`,
+        null, {}, projectId, auth,
+      ).catch(() => {});
+    }
+    return { deleted: true, hostname, tunnel: tun.cf_tunnel_id || tun.id };
   }
 }
 

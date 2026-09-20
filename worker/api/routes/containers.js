@@ -12,6 +12,26 @@ router.get('/', async (_req, res) => {
   }
 });
 
+router.post('/pull', async (req, res) => {
+  try {
+    const image = String(req.body?.image || '').trim();
+    if (!image) return res.status(400).json({ error: 'image is required' });
+    await containerHost.ensureImage(image);
+    res.json({ pulled: image });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const created = await containerHost.createAndStart(req.body || {});
+    res.status(201).json({ container: created });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const container = await containerHost.getContainer(req.params.id);
@@ -39,6 +59,15 @@ router.post('/:id/stop', async (req, res) => {
   }
 });
 
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const stats = await containerHost.getStats(req.params.id);
+    res.json({ stats });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.get('/:id/logs', async (req, res) => {
   try {
     const logs = await containerHost.getLogs(req.params.id, {
@@ -57,6 +86,15 @@ router.post('/:id/exec', async (req, res) => {
       tty: req.body?.tty,
     });
     res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await containerHost.removeContainer(req.params.id, { force: req.query.force !== '0' });
+    res.json({ deleted: true, id: req.params.id });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

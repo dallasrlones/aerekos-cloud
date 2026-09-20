@@ -35,6 +35,13 @@ services:
       - PORT=3000
       - DATABASE_PATH=/app/data/conductor.db
       - CONDUCTOR_INTERNAL_BASE_URL=${CONDUCTOR_INTERNAL_BASE_URL:-http://aerekos-conductor:3000}
+      - INTERNAL_RELEASE_TOKEN=${INTERNAL_RELEASE_TOKEN:-}
+      - WORKER_TOKEN=${WORKER_TOKEN:-}
+      - WORKER_REGISTRATION_TOKEN=${WORKER_TOKEN:-}
+      - HEADSCALE_URL=${HEADSCALE_URL:-http://192.168.0.141:8080}
+      - HEADSCALE_BASE_DOMAIN=${HEADSCALE_BASE_DOMAIN:-aerekos.internal}
+      - HEADSCALE_API_KEY=${HEADSCALE_API_KEY:-}
+      - APP_VERSION=${APP_VERSION:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
@@ -57,8 +64,12 @@ services:
       - "${FRONTEND_PORT:-38406}:19006"
       - "38400:19000"  # Expo (non-default host ports)
       - "38401:19001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "web-proxy.js"]
     environment:
       - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://cloudapi.aerekos.com}
+      - CONDUCTOR_PROXY_TARGET=${CONDUCTOR_PROXY_TARGET:-http://aerekos-cloud-conductor:3000}
       - NODE_ENV=development
     volumes:
       - ./conductor/app:/app
@@ -80,8 +91,10 @@ services:
     environment:
       - CONDUCTOR_URL=http://conductor:3000
       - CONDUCTOR_TOKEN=${WORKER_TOKEN}
+      - WORKER_HOSTNAME=${WORKER_HOSTNAME:-aerekos-server}
       - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30}
       - RESOURCE_CHECK_INTERVAL=${RESOURCE_CHECK_INTERVAL:-60}
+      - APP_VERSION=${APP_VERSION:-}
       - PORT=3001
       - NODE_ENV=${NODE_ENV:-development}
     ports:

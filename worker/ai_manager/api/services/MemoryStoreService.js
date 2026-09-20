@@ -58,6 +58,23 @@ class MemoryStoreService {
     });
   }
 
+  async get(id, projectId) {
+    this.assertProject(projectId);
+    const rows = await this.M.findAll({ where: { id, project_id: projectId } });
+    if (!rows.length) {
+      const e = new Error('memory store not found');
+      e.status = 404;
+      throw e;
+    }
+    const parsed = parseConfig(rows[0]);
+    const storeName = parsed.name || 'default';
+    return {
+      ...parsed,
+      name: storeName,
+      arn: parsed.arn || `arn:aerekos:${projectId}:ai:memory:store/${storeName}`,
+    };
+  }
+
   async listReadyConfigs() {
     const rows = await this.M.findAll({ where: { status: 'ready' } });
     return rows.map(parseConfig).filter(Boolean);

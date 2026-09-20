@@ -21,10 +21,13 @@ router.use('/llm', llm);
 router.use('/embeddings', embeddings);
 router.use('/memory', memory);
 router.use('/providers', providers);
+router.use('/engines', require('./engines'));
 router.use('/allowlist', require('./allowlist'));
 router.use('/intelligence', require('./intelligence'));
 router.use('/rag', require('./rag'));
 router.use('/lora', require('./lora'));
+router.use('/agents', require('./agents'));
+router.use('/connectors', require('./connectors'));
 
 for (const [mount, file] of [
   ['/stt', './stt'],

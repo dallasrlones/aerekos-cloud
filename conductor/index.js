@@ -181,6 +181,8 @@ app.use('/api/setup', setupRoutes);
 app.use('/api/edge', edgeRoutes);
 app.use('/api/fleet', fleetRoutes);
 app.use('/api/jobs', jobsRoutes);
+const liveRoutes = require('./api/routes/live');
+app.use('/api/live', liveRoutes);
 app.use('/api', serviceOrchestrationRoutes);
 
 const gatewayRoutes = require('./api/routes/gateway');

@@ -67,7 +67,8 @@ router.post('/:projectId/buckets/:bucketName/files/:key(*)', validateServiceToke
 });
 
 // Handle direct binary upload (streams directly to storage)
-async function handleDirectUpload(req, res, next, projectId, bucketName, key) {
+// systemId is optional: when set, the bucket is system-scoped (projectId is null)
+async function handleDirectUpload(req, res, next, projectId, bucketName, key, systemId = null) {
   let tempFilePath = null;
   
   try {
@@ -108,7 +109,9 @@ async function handleDirectUpload(req, res, next, projectId, bucketName, key) {
           bucketName,
           key,
           readStream,
-          metadata
+          metadata,
+          null,
+          systemId
         );
         
         // Clean up temp file
@@ -160,7 +163,8 @@ async function handleDirectUpload(req, res, next, projectId, bucketName, key) {
 }
 
 // Handle multipart/form-data upload with busboy - streams directly to disk
-async function handleMultipartUpload(req, res, next, projectId, bucketName, key) {
+// systemId is optional: when set, the bucket is system-scoped (projectId is null)
+async function handleMultipartUpload(req, res, next, projectId, bucketName, key, systemId = null) {
   let tempFilePath = null;
   let fileReceived = false;
   let writeFinished = Promise.resolve();
@@ -258,7 +262,9 @@ async function handleMultipartUpload(req, res, next, projectId, bucketName, key)
           bucketName,
           key,
           readStream,
-          finalMetadata
+          finalMetadata,
+          null,
+          systemId
         );
         
         // Clean up temp file
@@ -414,3 +420,5 @@ router.get('/:projectId/buckets/:bucketName/files', validateServiceToken, async 
 });
 
 module.exports = router;
+module.exports.handleDirectUpload = handleDirectUpload;
+module.exports.handleMultipartUpload = handleMultipartUpload;

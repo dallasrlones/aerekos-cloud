@@ -1,6 +1,6 @@
 # Agent prompt — push_manager
 
-Push subscriptions. Queued; outbound send disabled.
+Push subscriptions. Send when FCM secret exists; otherwise queue-only.
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 

@@ -2,11 +2,11 @@
 
 export const AI_GUIDES = {
   overview: {
-    title: 'Getting started with AI Services',
+    title: 'Getting started with AI Manager',
     steps: [
       {
         title: 'Seed local endpoints',
-        body: 'Endpoints tab → Setup local fleet. Creates orin-ollama, orin-vllm, orin-tts-cache, orin-stt, etc. from the GPU host env.',
+        body: 'AI Manager hub → Endpoints → Setup local fleet. Creates orin-ollama, orin-vllm, orin-tts-cache, orin-stt, etc. from the GPU host env.',
       },
       {
         title: 'Confirm services are online',
@@ -18,15 +18,15 @@ export const AI_GUIDES = {
       },
       {
         title: 'Pick an integration per capability',
-        body: 'Each tab (LLM, TTS, STT, Embeddings) has an integration picker. Choose orin-ollama, orin-tts-cache, etc. or Host default.',
+        body: 'Each Serve screen (LLM, TTS, STT, Embeddings) has an integration picker. Choose orin-ollama, orin-tts-cache, etc. or Host default.',
       },
       {
         title: 'Intelligence endpoints',
-        body: 'Intelligence tab → Create intelligence. Bind an LLM, attach RAG collections and memory. Apps keep the same ARN when you swap the LLM.',
+        body: 'AI Manager hub → Intelligence → Create intelligence. Bind an LLM, attach RAG collections and memory. Apps keep the same ARN when you swap the LLM.',
       },
       {
         title: 'App access',
-        body: 'App access tab → create credential with endpoint ARNs + scopes → mint token → invoke with resource ARN.',
+        body: 'AI Manager hub → Access → create credential with endpoint ARNs + scopes → mint token → invoke with resource ARN.',
       },
     ],
   },
@@ -128,6 +128,25 @@ export const AI_GUIDES = {
       { key: 'BENCH_MAX_B', desc: 'Max parameter size to bench (default 12B)' },
     ],
   },
+  agents: {
+    title: 'Icarus agents',
+    steps: [
+      { title: 'Setup', body: 'AI Manager → Agents → Setup Icarus. Provisions queued intelligence, per-agent memory, code RAG, and jail /home/aerekos/work on prod-mini. Brain is Orin only.' },
+      { title: 'Chat', body: 'Agents is its own screen. Ask mode talks as a friend. Tokens stream over ai:live while the Orin job runs.' },
+      { title: 'Modes', body: 'Ask = friend chat. Plan = manager + read-only workers + ASK. Agent = workers may write (each write still ASKs).' },
+      { title: 'Computer', body: 'File tree, diffs apply/reject, terminal. Reads run. Writes, git to main/master, and connector sends ASK.' },
+      { title: 'Live canvas', body: 'Live pane shows every agent, user/manager/worker, GPU owner, and queued intelligence jobs via ai:live.' },
+      { title: 'Connectors', body: 'Kinds (gmail, calendar, HTTP, MCP) are accounts + ARNs. Missing connector → ASK to plug in. Not email_manager.' },
+      { title: 'Voice', body: 'Mic uses optional POST /agents/:id/voice (STT→chat→TTS). Apps can call STT/TTS ARNs directly.' },
+      { title: 'Apps', body: 'client.agents.chat / client.connectors.invoke with ai:InvokeAgent and ai:InvokeConnector.' },
+    ],
+    config: [
+      { key: 'llm_max_concurrent', desc: 'Default 1 — one generate on Orin' },
+      { key: 'workspace_root', desc: '/home/aerekos/work on prod-mini' },
+      { key: 'write_policy', desc: 'ask_writes (default)' },
+      { key: 'timezone', desc: 'America/Los_Angeles on the user-agent' },
+    ],
+  },
   embeddings: {
     title: 'Embeddings',
     steps: [
@@ -193,6 +212,24 @@ export const API_EXAMPLES = {
     path: '/api/services/ai_manager/api/v1/llm/benchmarks/run',
     desc: 'Queue serial benchmark for unbenched models',
     body: '{ "integration": "orin-ollama", "project_id": "d57d380d-acfe-49b0-b5a9-ba973892bc8b" }',
+  },
+  agent_setup: {
+    method: 'POST',
+    path: '/api/services/ai_manager/api/v1/agents/setup',
+    desc: 'Idempotent Icarus setup for a project (never ea370977)',
+    body: '{ "project_id": "…", "name": "icarus", "timezone": "America/Los_Angeles" }',
+  },
+  agent_chat: {
+    method: 'POST',
+    path: '/api/services/ai_manager/api/v1/agents/icarus/chat',
+    desc: 'User-layer chat → queued intelligence job',
+    body: '{ "project_id": "…", "content": "what is going on today?" }',
+  },
+  connector_invoke: {
+    method: 'POST',
+    path: '/api/services/ai_manager/api/v1/connectors/invoke',
+    desc: 'Invoke a project connector',
+    body: '{ "project_id": "…", "connector": "mail", "tool": "count_today" }',
   },
   embed: {
     method: 'POST',

@@ -2,7 +2,7 @@
 
 > **Compute** · Implemented
 
-Functions.
+Lambda analog. Deploy/invoke plus EventSource attach/detach. Always-on poller drains inbox queues; invoke failures nack toward DLQ.
 
 - **Port:** `3139`
 - **AWS analog:** Lambda
@@ -19,6 +19,10 @@ Functions.
 | `GET` | `/api/v1/functions/:id` | Get one function |
 | `PATCH` | `/api/v1/functions/:id` | Update a function |
 | `DELETE` | `/api/v1/functions/:id` | Delete a function |
+| `POST` | `/api/v1/functions/:id/event-sources` | Attach a queue (provision inbox+DLQ if missing) |
+| `GET` | `/api/v1/functions/:id/event-sources` | List EventSource mappings |
+| `DELETE` | `/api/v1/functions/:id/event-sources/:sid` | Detach a queue (does not delete it) |
+| `POST` | `/api/v1/functions/:name/invoke` | Invoke a function |
 
 ## Examples
 

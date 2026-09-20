@@ -10,16 +10,21 @@
     "build:web": "npx expo export:web"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@monaco-editor/react": "^4.7.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "axios": "^1.13.2",
     "expo": "~54.0.27",
     "expo-constants": "^18.0.11",
     "expo-status-bar": "~3.0.9",
+    "monaco-editor": "^0.56.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0",
     "react-native": "0.81.5",
     "react-native-web": "^0.21.0",
     "recharts": "^3.5.1",
+    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.1",
     "three": "^0.184.0"
   },

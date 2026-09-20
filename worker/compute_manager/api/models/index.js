@@ -27,7 +27,8 @@ const Task = db.model(
     environment: 'string',
     network: 'string',
     arn: 'string',
-    replica_ids: 'string'
+    replica_ids: 'string',
+    resource_limits: 'string'
   },
   {
     required: ['name', 'project_id', 'image', 'status', 'run_mode'],
@@ -50,6 +51,7 @@ try {
     ['worker_id', "TEXT DEFAULT ''"],
     ['worker_hostname', "TEXT DEFAULT ''"],
     ['environment', "TEXT DEFAULT 'prod'"],
+    ['resource_limits', "TEXT DEFAULT '{}'"],
   ];
   for (const [name, spec] of add) {
     if (!cols.has(name)) {

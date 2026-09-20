@@ -2,13 +2,13 @@
 
 > **Compute** · Implemented
 
-Detect k3s on the worker host. Install only on explicit confirm — never auto-install on prod.
+Docker fleet inventory on the worker host. Optional k3s detect/install only on explicit confirm — never auto-install on prod.
 
 - **Port:** `3151`
 - **AWS analog:** EKS
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/cluster_manager{path}` (JWT or service token)
-- **Capabilities:** `k8s`, `k3s`
+- **Capabilities:** `k8s`, `k3s`, `docker`
 
 ## Endpoints
 
@@ -19,6 +19,7 @@ Detect k3s on the worker host. Install only on explicit confirm — never auto-i
 | `GET` | `/api/v1/clusters/:id` | Get one cluster |
 | `PATCH` | `/api/v1/clusters/:id` | Update a cluster |
 | `DELETE` | `/api/v1/clusters/:id` | Delete a cluster |
+| `GET` | `/api/v1/clusters/:id/fleet` | List docker containers on this host |
 | `GET` | `/api/v1/clusters/:id/k3s/status` | Detect k3s on the host |
 | `POST` | `/api/v1/clusters/:id/k3s/install` | Install k3s only if { confirm: true } |
 

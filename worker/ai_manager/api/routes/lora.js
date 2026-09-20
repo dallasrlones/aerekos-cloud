@@ -98,9 +98,21 @@ function queueJob(adapter, examples) {
   );
 }
 
-r.post('/train', (req, res) => {
+r.post('/train', async (req, res) => {
   const pid = req.query.project_id || req.body?.project_id;
   if (!pid) return res.status(400).json({ error: { message: 'project_id is required' } });
+  try {
+    const { chatRunning, ensureInbox, publish } = require('../services/AiRabbit');
+    if (await chatRunning(pid)) {
+      return res.status(409).json({ error: { message: 'a chat job is running — wait before LoRA train' } });
+    }
+    if (process.env.SKIP_LORA !== '1') {
+      await ensureInbox(pid, 'lora-inbox');
+    }
+  } catch (e) {
+    if (e.status === 409) return res.status(409).json({ error: { message: e.message } });
+    /* continue — disk queue still works */
+  }
   const name = String(req.body?.name || `adapter-${Date.now()}`).trim();
   const examples = Array.isArray(req.body?.examples) ? req.body.examples : [];
   const state = load();
@@ -118,6 +130,12 @@ r.post('/train', (req, res) => {
   adapter.derived_model = `${adapter.base}-${adapter.name}`;
   state.adapters.push(adapter);
   save(state);
+  if (process.env.SKIP_LORA !== '1') {
+    try {
+      const { publish } = require('../services/AiRabbit');
+      await publish(pid, 'lora-inbox', { job_id: adapter.id });
+    } catch (_) { /* disk queued.json remains */ }
+  }
   res.status(201).json({ adapter, job_id: adapter.id, status: adapter.status });
 });
 

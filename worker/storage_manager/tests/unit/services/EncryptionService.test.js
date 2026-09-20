@@ -29,8 +29,23 @@ describe('EncryptionService', () => {
       expect(axios.get).not.toHaveBeenCalled();
     });
 
-    it('should require projectId', async () => {
-      await expect(encryptionService.getEncryptionKey('test-key')).rejects.toThrow('projectId is required');
+    it('should use a global key (no project_id param) when projectId is null', async () => {
+      process.env.MOCK_KEY_MANAGER = 'false';
+      const mockKey = {
+        key_material: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        key_version: 1,
+        algorithm: 'AES-256-GCM'
+      };
+      axios.get.mockResolvedValue({ data: mockKey });
+
+      const key = await encryptionService.getEncryptionKey('test-key', null);
+
+      expect(key).toEqual(mockKey);
+      // No project_id query param for system/global keys
+      expect(axios.get).toHaveBeenCalledWith(
+        `${mockConductorUrl}/api/services/key_manager/api/keys/test-key`,
+        expect.any(Object)
+      );
     });
 
     it('should call key_manager API when MOCK_KEY_MANAGER is false', async () => {

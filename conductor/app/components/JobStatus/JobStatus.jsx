@@ -2,8 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../utils/api';
+import websocketService from '../../services/websocketService';
+import { useAuth } from '../../contexts/AuthContext';
 import { useProject } from '../../contexts/ProjectContext';
 import { colors, spacing } from '../../styles/theme';
+import { applyJobEvent } from '../../utils/jobEvents';
 
 const JobContext = createContext({ jobs: [], refresh: async () => {}, createJob: async () => null });
 
@@ -11,6 +14,7 @@ export const useJobs = () => useContext(JobContext);
 
 export const JobProvider = ({ children }) => {
   const { currentProject } = useProject();
+  const { isAuthenticated, getToken } = useAuth();
   const [jobs, setJobs] = useState([]);
 
   const refresh = useCallback(async () => {
@@ -25,24 +29,45 @@ export const JobProvider = ({ children }) => {
   }, [currentProject?.id]);
 
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 15000);
-    return () => clearInterval(t);
-  }, [refresh]);
+    if (!isAuthenticated) return undefined;
+    getToken().then((token) => {
+      if (token) websocketService.connect(token);
+    });
+    return undefined;
+  }, [isAuthenticated, getToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setJobs([]);
+      return undefined;
+    }
+    if (currentProject?.id) refresh();
+    const offJob = websocketService.on('job:updated', (payload) => {
+      setJobs((prev) => applyJobEvent(prev, payload, currentProject?.id));
+    });
+    const offReconnect = websocketService.on('console:reconnected', refresh);
+    return () => {
+      offJob();
+      offReconnect();
+    };
+  }, [isAuthenticated, currentProject?.id, refresh]);
 
   const createJob = useCallback(async (body) => {
     const res = await api.post('/api/jobs', {
       project_id: currentProject?.id || '',
       ...body,
     });
-    await refresh();
-    return res.data?.job;
-  }, [currentProject?.id, refresh]);
+    const job = res.data?.job;
+    if (job) {
+      setJobs((prev) => applyJobEvent(prev, { action: 'created', job, project_id: job.project_id }, currentProject?.id));
+    }
+    return job;
+  }, [currentProject?.id]);
 
   const deleteJob = useCallback(async (id) => {
     await api.delete(`/api/jobs/${id}`);
-    await refresh();
-  }, [refresh]);
+    setJobs((prev) => applyJobEvent(prev, { action: 'deleted', job: { id } }, currentProject?.id));
+  }, [currentProject?.id]);
 
   const value = useMemo(() => ({ jobs, refresh, createJob, deleteJob }), [jobs, refresh, createJob, deleteJob]);
   return <JobContext.Provider value={value}>{children}</JobContext.Provider>;

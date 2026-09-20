@@ -29,6 +29,9 @@ export const EdgeManagerStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  listItemActive: {
+    backgroundColor: colors.surface || 'rgba(255,255,255,0.04)',
+  },
   listTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   listMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   tokenBox: {

@@ -356,15 +356,15 @@ async function sendHeartbeat() {
       ram_gb: resources.ram_gb,
       disk_gb: resources.disk_gb,
       network_mbps: resources.network_mbps,
-      // Include detailed resource info
       cpu: resources.cpu,
       ram: resources.ram,
       disk: resources.disk,
       network: resources.network,
       processes: resources.processes,
-      // Deployed code version (git short SHA) for outdated-device detection.
+      gpu: resources.gpu,
+      docker: resources.docker,
+      loaded_ai: resources.loaded_ai,
       version: resources.version,
-      // Host OS / Docker patch status (probe only; never auto-updates).
       host,
     });
     

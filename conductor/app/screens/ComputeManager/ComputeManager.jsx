@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
@@ -11,6 +11,7 @@ import { colors } from '../../styles/theme';
 import { ComputeManagerStyles as S } from './ComputeManager.styles';
 import { EnvSwitcher } from '../../components/EnvSwitcher/EnvSwitcher';
 import { NextSteps } from '../../components/NextSteps/NextSteps';
+import { formatBytes, formatCpu } from '../../utils/formatBytes';
 
 const statusColor = (status) => {
   switch (status) {
@@ -35,6 +36,7 @@ export const ComputeManager = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [error, setError] = useState(null);
+  const [taskStats, setTaskStats] = useState({});
 
   const loadStatus = useCallback(async () => {
     try {
@@ -54,6 +56,15 @@ export const ComputeManager = ({ navigation }) => {
       const list = await computeManagerService.listTasks(projectId, currentEnvironment);
       setTasks(list);
       setError(null);
+      const running = (list || []).filter((t) => t.status === 'running');
+      const entries = await Promise.all(running.map(async (t) => {
+        try {
+          return [t.id, await computeManagerService.getTaskStats(projectId, t.id)];
+        } catch {
+          return [t.id, null];
+        }
+      }));
+      setTaskStats(Object.fromEntries(entries));
     } catch (err) {
       setTasks([]);
       setError(err.response?.data?.error?.message || err.message || 'Failed to load containers');
@@ -69,6 +80,24 @@ export const ComputeManager = ({ navigation }) => {
   useEffect(() => {
     if (status?.enabled) loadTasks();
   }, [status?.enabled, loadTasks]);
+
+  useEffect(() => {
+    if (!status?.enabled || !projectId) return undefined;
+    const running = tasks.filter((t) => t.status === 'running');
+    if (!running.length) return undefined;
+    const tick = async () => {
+      const entries = await Promise.all(running.map(async (t) => {
+        try {
+          return [t.id, await computeManagerService.getTaskStats(projectId, t.id)];
+        } catch {
+          return [t.id, null];
+        }
+      }));
+      setTaskStats(Object.fromEntries(entries));
+    };
+    const id = setInterval(tick, 10000);
+    return () => clearInterval(id);
+  }, [status?.enabled, projectId, tasks]);
 
   const handleToggle = async (enabled) => {
     setToggling(true);
@@ -132,6 +161,7 @@ export const ComputeManager = ({ navigation }) => {
       </Box>
 
       {status?.enabled && (
+        <View nativeID="icarus-compute-list" {...(Platform.OS === 'web' ? { dataSet: { icarusAnchor: 'compute-list' } } : {})}>
         <Box title="Containers">
           {!projectId ? (
             <Text style={S.hintText}>Select a project to view and launch containers.</Text>
@@ -167,7 +197,14 @@ export const ComputeManager = ({ navigation }) => {
                           <Text style={[S.statusText, { color: statusColor(task.status) }]}>{task.status}</Text>
                         </View>
                       </View>
-                      <Text style={S.taskSub} numberOfLines={1}>{task.image}</Text>
+                      <Text style={S.taskSub} numberOfLines={1}>
+                        {task.image}
+                        {task.worker_hostname ? ` · ${task.worker_hostname}` : ''}
+                        {(task.env?.AEREKOS_ADOPTED === '1' || task.env?.AEREKOS_ADOPTED === 1) ? ' · adopted' : ''}
+                        {task.status === 'running' && taskStats[task.id]?.cpu_percent != null
+                          ? ` · ${formatCpu(taskStats[task.id].cpu_percent)} · ${formatBytes(taskStats[task.id].memory_bytes)}`
+                          : ''}
+                      </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -176,6 +213,7 @@ export const ComputeManager = ({ navigation }) => {
             </>
           )}
         </Box>
+        </View>
       )}
 
       {status && !status.enabled && (

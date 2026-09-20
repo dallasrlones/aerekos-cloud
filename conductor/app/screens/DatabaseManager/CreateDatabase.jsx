@@ -9,10 +9,10 @@ import { stackService } from '../../services/stackService';
 import { useProject } from '../../contexts/ProjectContext';
 
 export const CreateDatabase = ({ navigation }) => {
-  const { currentProject } = useProject();
+  const { currentProject, currentEnvironment } = useProject();
   const [formData, setFormData] = useState({
     name: '',
-    type: 'postgresql',
+    type: 'sqlite3',
     username: '',
     password: '',
     port: '',
@@ -67,9 +67,16 @@ export const CreateDatabase = ({ navigation }) => {
 
     setLoading(true);
     try {
+      if (!currentProject?.id) {
+        Alert.alert('Error', 'Select a project first.');
+        setLoading(false);
+        return;
+      }
       const databaseData = {
         name: formData.name.trim(),
         type: formData.type,
+        project_id: currentProject.id,
+        environment: currentEnvironment || 'prod',
       };
 
       // Add optional fields
@@ -142,7 +149,7 @@ export const CreateDatabase = ({ navigation }) => {
         <View style={CreateDatabaseStyles.field}>
           <Text style={CreateDatabaseStyles.label}>Database Type *</Text>
           <View style={CreateDatabaseStyles.typeContainer}>
-            {['postgresql', 'mongodb', 'redis', 'neo4j', 'elasticsearch'].map((type) => (
+            {['sqlite3', 'postgresql', 'mongodb', 'redis', 'neo4j', 'elasticsearch'].map((type) => (
               <Button
                 key={type}
                 title={type.charAt(0).toUpperCase() + type.slice(1)}

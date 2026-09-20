@@ -80,7 +80,7 @@ export const SERVICE_CATALOG = [
   { name: 'analytics_manager', label: 'Analytics', category: 'management', icon: 'analytics-outline', description: 'Dashboards and usage analytics.' },
 
   // --- Machine Learning & AI ---
-  { name: 'ai_manager', label: 'AI Services', category: 'ai', icon: 'sparkles-outline', description: 'LLM, embeddings, speech, memory/RAG on GPU workers.', route: 'aiManager' },
+  { name: 'ai_manager', label: 'AI Manager', category: 'ai', icon: 'sparkles-outline', description: 'LLM, embeddings, speech, memory/RAG, and Icarus agents on GPU workers.', route: 'aiManager' },
   { name: 'crawler_manager', label: 'Web Crawler', category: 'ai', icon: 'scan-outline', description: 'Crawl and index web content for data pipelines.' },
   { name: 'websocket_manager', label: 'WebSockets', category: 'integration', icon: 'pulse-outline', description: 'WebSocket channels.' },
   { name: 'event_manager', label: 'Event Bus', category: 'integration', icon: 'git-compare-outline', description: 'Event buses.' },

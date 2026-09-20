@@ -33,6 +33,9 @@ services:
       - PUBLIC_API_URL=${PUBLIC_API_URL:-https://cloudapi.aerekos.com}
       - WORKER_REGISTRATION_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - APP_VERSION=${APP_VERSION:-dev}
+      - HEADSCALE_URL=${HEADSCALE_URL:-http://192.168.0.141:8080}
+      - HEADSCALE_BASE_DOMAIN=${HEADSCALE_BASE_DOMAIN:-aerekos.internal}
+      - HEADSCALE_API_KEY=${HEADSCALE_API_KEY:-}
     ports:
       - "${CONDUCTOR_PORT:-3000}:3000"
     volumes:
@@ -56,6 +59,7 @@ services:
     restart: unless-stopped
     environment:
       - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://cloudapi.aerekos.com}
+      - CONDUCTOR_PROXY_TARGET=${CONDUCTOR_PROXY_TARGET:-http://aerekos-conductor:3000}
       - NODE_ENV=development
     ports:
       - "${FRONTEND_PORT:-19006}:19006"
@@ -67,6 +71,7 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    command: ["node", "web-proxy.js"]
     networks:
       - aerekos
 
@@ -238,6 +243,7 @@ services:
       - PORT=3107
       - SERVICE_NAME=secrets_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - SERVICE_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - MOCK_KEY_MANAGER=${SECRETS_MOCK_KEY_MANAGER:-false}
@@ -483,7 +489,10 @@ services:
       - SERVICE_NAME=git_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
-      - PUBLIC_GIT_URL=${PUBLIC_GIT_URL:-https://git.aerekos.com}
+      - GIT_AUTH_TOKEN=${GIT_AUTH_TOKEN:-}
+      - PUBLIC_GIT_URL=${PUBLIC_GIT_URL:-}
+      - PUBLIC_GIT_SHORT=${PUBLIC_GIT_SHORT:-1}
+      - GIT_LAN_URL=${GIT_LAN_URL:-}
     ports:
       - "3130:3130"
     volumes:

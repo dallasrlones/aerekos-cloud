@@ -6,7 +6,7 @@
 #
 # Phase 0 mapping (oculus, JetPack R36):
 #   Ollama qwen3.6:latest → qwen35moe 36B Q4_K_M
-#   vLLM HF weights      → cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+#   vLLM HF weights      → shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP
 services:
   vllm:
     image: ${VLLM_IMAGE:-ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin}
@@ -19,20 +19,26 @@ services:
       - ${VLLM_MODELS_CACHE:-/home/aerekos/.cache/huggingface}:/root/.cache/huggingface
     environment:
       - HF_HOME=/root/.cache/huggingface
+      - HF_HUB_CACHE=/root/.cache/huggingface/hub
+      - HUGGINGFACE_HUB_CACHE=/root/.cache/huggingface/hub
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - HF_HUB_OFFLINE=1
       - NVIDIA_VISIBLE_DEVICES=all
     command: >
-      vllm serve ${VLLM_MODEL_ID:-cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit}
+      vllm serve ${VLLM_MODEL_ID:-shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP}
       --host 0.0.0.0
       --port 8000
       --quantization awq
       --dtype half
-      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.5}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
       --max-model-len ${VLLM_MAX_MODEL_LEN:-8192}
       --max-num-seqs ${VLLM_MAX_NUM_SEQS:-8}
       --enable-prefix-caching
       --language-model-only
       --enforce-eager
       --reasoning-parser qwen3
+      --enable-auto-tool-choice
+      --tool-call-parser qwen3_xml
     deploy:
       resources:
         reservations:

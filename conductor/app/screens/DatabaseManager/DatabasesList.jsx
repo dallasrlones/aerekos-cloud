@@ -4,8 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { dbManagerService } from '../../services/dbManagerService';
 import { DatabasesListStyles } from './DatabasesList.styles';
 import { colors } from '../../styles/theme';
+import { useProject } from '../../contexts/ProjectContext';
 
 export const DatabasesList = ({ navigation }) => {
+  const { currentProject } = useProject();
+  const projectId = currentProject?.id;
   const [databases, setDatabases] = useState([]);
   const [filteredDatabases, setFilteredDatabases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +20,7 @@ export const DatabasesList = ({ navigation }) => {
 
   useEffect(() => {
     loadDatabases();
-  }, []);
+  }, [projectId, filterType, filterStatus]);
 
   useEffect(() => {
     filterDatabases();
@@ -34,12 +37,18 @@ export const DatabasesList = ({ navigation }) => {
         filters.type = filterType;
       }
       
+      if (!projectId) {
+        setDatabases([]);
+        setError(null);
+        return;
+      }
+      filters.project_id = projectId;
       const response = await dbManagerService.getDatabases(filters);
       setDatabases(response.databases || []);
       setError(null);
     } catch (err) {
       console.error('Error loading databases:', err);
-      setError(err.message || 'Failed to load databases');
+      setError(dbManagerService.errMsg(err, 'Failed to load databases'));
     } finally {
       setLoading(false);
     }
@@ -121,7 +130,7 @@ export const DatabasesList = ({ navigation }) => {
       <View style={DatabasesListStyles.filtersContainer}>
         <Text style={DatabasesListStyles.filterLabel}>Type:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {['all', 'postgresql', 'mongodb', 'redis', 'neo4j', 'elasticsearch'].map((type) => (
+          {['all', 'sqlite3', 'postgresql', 'mongodb', 'redis', 'neo4j', 'elasticsearch'].map((type) => (
             <TouchableOpacity
               key={type}
               style={[

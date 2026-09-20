@@ -7,59 +7,65 @@ const fs = require('fs');
 process.env.NODE_ENV = 'test';
 process.env.SKIP_SERVICE_REGISTRATION = 'true';
 if (!process.env.DATABASE_PATH) {
-  const dir = path.join(os.tmpdir(), 'aerekos-cicd-runforrepo');
+  const dir = path.join(os.tmpdir(), 'aerekos-cicd-rfr');
   fs.mkdirSync(dir, { recursive: true });
   process.env.DATABASE_PATH = path.join(dir, `t_${Date.now()}.db`);
 }
 
+jest.mock('../../api/models', () => ({ CicdPipeline: { findAll: jest.fn(), update: jest.fn(), create: jest.fn(), delete: jest.fn() } }));
+jest.mock('../../../shared/conductorProxy', () => ({
+  proxy: jest.fn(),
+  conductorBase: () => 'http://conductor.test',
+  authHeaders: () => ({ Authorization: 'Bearer t' }),
+}));
+
 const { CicdPipelineService } = require('../../api/services/CicdPipelineService');
 
 describe('CicdPipelineService.runForRepo', () => {
-  test('sandbox aerekos-cloud is a no-op (not apply-stack, not fleet)', async () => {
+  test('parseWorkflow reads test_command and bind', () => {
     const svc = new CicdPipelineService();
-    svc.list = jest.fn().mockResolvedValue([{ id: 'pipe-1', repo: 'aerekos-cloud' }]);
-    svc.get = jest.fn().mockResolvedValue({ id: 'pipe-1', repo: 'aerekos-cloud' });
-    svc.M.update = jest.fn().mockResolvedValue({});
+    const wf = svc.parseWorkflow('jobs:\n  - test\n  - deploy\ntest_command: npm --prefix server test\nbind:\n  hostname: app.example.com\n  port: 8080\n');
+    expect(wf.jobs).toEqual(['test', 'deploy']);
+    expect(wf.test_command).toBe('npm --prefix server test');
+    expect(wf.bind).toEqual({ hostname: 'app.example.com', port: 8080 });
+  });
+
+  test('deployBranchOk only main unless git_ref set', () => {
+    const svc = new CicdPipelineService();
+    expect(svc.deployBranchOk({ git_ref: 'main' }, 'refs/heads/feat')).toBe(false);
+    expect(svc.deployBranchOk({ git_ref: 'main' }, 'refs/heads/main')).toBe(true);
+    expect(svc.deployBranchOk({ git_ref: 'prod' }, 'refs/heads/prod')).toBe(true);
+  });
+
+  test('runs every matching pipeline and skips deploy off main', async () => {
+    const svc = new CicdPipelineService();
+    svc.list = jest.fn().mockResolvedValue([
+      { id: 'p1', name: 'api', repo_name: 'forged-lumen', git_ref: 'main', repo_id: 'r1' },
+      { id: 'p2', name: 'web', repo_name: 'forged-lumen', git_ref: 'main', repo_id: 'r1' },
+    ]);
+    svc.loadWorkflow = jest.fn().mockResolvedValue({ jobs: ['deploy'], bind: null, test_command: '' });
     svc.run = jest.fn();
-    const r = await svc.runForRepo('proj', { repo: 'aerekos-cloud' });
+    svc.get = jest.fn().mockImplementation((id) => Promise.resolve({ id }));
+    svc.M.update = jest.fn().mockResolvedValue({});
+    const r = await svc.runForRepo('proj', { repo_name: 'forged-lumen', ref: 'refs/heads/feat', sha: 'abc' }, {});
     expect(r.ok).toBe(true);
-    expect(r.action).toBe('test');
-    expect(r.results[0].step).toBe('fleet-noop');
+    expect(r.skipped).toBe(true);
+    expect(r.reason).toBe('not_deploy_branch');
     expect(svc.run).not.toHaveBeenCalled();
+    expect(r.results).toHaveLength(2);
   });
 
-  test('system aerekos-cloud main runs fleet', async () => {
+  test('require_pr skips deploy unless the push is a merge', async () => {
     const svc = new CicdPipelineService();
-    svc.list = jest.fn().mockResolvedValue([{ id: 'pipe-1', repo: 'aerekos-cloud', repo_id: 'r-cloud' }]);
-    svc.loadWorkflow = jest.fn().mockResolvedValue({ jobs: ['test', 'fleet'], bind: null });
-    svc.run = jest.fn().mockResolvedValue({ ok: true, action: 'fleet' });
-    const r = await svc.runForRepo('9d8bde11-6933-4732-b746-602dcf72eaa5', {
-      repo: 'aerekos-cloud',
-      ref: 'refs/heads/main',
-    });
-    expect(svc.run).toHaveBeenCalledWith(
-      'pipe-1',
-      '9d8bde11-6933-4732-b746-602dcf72eaa5',
-      expect.objectContaining({ action: 'fleet' }),
-    );
-    expect(r.action).toBe('fleet');
-  });
-
-  test('pipeline with target_container_id deploys on push', async () => {
-    const svc = new CicdPipelineService();
-    svc.list = jest.fn().mockResolvedValue([{ id: 'pipe-3', repo_name: 'my-app', target_container_id: 'task-1', repo_id: 'r1' }]);
-    svc.run = jest.fn().mockResolvedValue({ ok: true, action: 'deploy' });
-    const r = await svc.runForRepo('proj', { repo: 'my-app' });
-    expect(svc.run).toHaveBeenCalledWith('pipe-3', 'proj', expect.objectContaining({ action: 'deploy' }));
-    expect(r.action).toBe('deploy');
-  });
-
-  test('infra repo uses apply-stack', async () => {
-    const svc = new CicdPipelineService();
-    svc.list = jest.fn().mockResolvedValue([{ id: 'pipe-2', repo: 'infra' }]);
-    svc.run = jest.fn().mockResolvedValue({ ok: true, action: 'apply-stack' });
-    const r = await svc.runForRepo('proj', { repo: 'infra' });
-    expect(svc.run).toHaveBeenCalledWith('pipe-2', 'proj', expect.objectContaining({ action: 'apply-stack' }));
-    expect(r.action).toBe('apply-stack');
+    svc.list = jest.fn().mockResolvedValue([
+      { id: 'p1', name: 'api', repo_name: 'app', git_ref: 'main', repo_id: 'r1', require_pr: 1 },
+    ]);
+    svc.loadWorkflow = jest.fn().mockResolvedValue({ jobs: ['deploy'], bind: null, test_command: '' });
+    svc.run = jest.fn();
+    svc.get = jest.fn().mockResolvedValue({ id: 'p1' });
+    svc.M.update = jest.fn().mockResolvedValue({});
+    const r = await svc.runForRepo('proj', { repo_name: 'app', ref: 'refs/heads/main', sha: 'abc' }, {});
+    expect(r.results[0].reason).toBe('require_pr');
+    expect(svc.run).not.toHaveBeenCalled();
   });
 });

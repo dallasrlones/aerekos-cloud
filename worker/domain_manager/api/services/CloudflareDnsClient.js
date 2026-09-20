@@ -21,6 +21,22 @@ class CloudflareDnsClient {
     };
   }
 
+  async listZones({ accountId, name } = {}) {
+    const params = { per_page: 50 };
+    if (accountId) params['account.id'] = accountId;
+    if (name) params.name = name;
+    const { data } = await this.http.get(`${BASE}/zones`, {
+      headers: this.headers(),
+      params,
+    });
+    if (!data.success) {
+      const err = new Error((data.errors && data.errors[0] && data.errors[0].message) || 'Cloudflare zones error');
+      err.status = 502;
+      throw err;
+    }
+    return data.result || [];
+  }
+
   async listRecords(zoneId, { name, type } = {}) {
     const params = { per_page: 100 };
     if (name) params.name = name;

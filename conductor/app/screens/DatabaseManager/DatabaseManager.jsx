@@ -7,8 +7,11 @@ import { dbManagerService } from '../../services/dbManagerService';
 import { DatabaseManagerStyles } from './DatabaseManager.styles';
 import { colors } from '../../styles/theme';
 import { ResourceCrud } from '../../components/ResourceCrud';
+import { useProject } from '../../contexts/ProjectContext';
 
 export const DatabaseManager = ({ navigation }) => {
+  const { currentProject, currentEnvironment } = useProject();
+  const projectId = currentProject?.id;
   const [databases, setDatabases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,12 +26,18 @@ export const DatabaseManager = ({ navigation }) => {
 
   useEffect(() => {
     loadDatabases();
-  }, []);
+  }, [projectId]);
 
   const loadDatabases = async () => {
+    if (!projectId) {
+      setDatabases([]);
+      setStats({ total: 0, running: 0, stopped: 0, creating: 0, failed: 0 });
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
-      const response = await dbManagerService.getDatabases();
+      const response = await dbManagerService.getDatabases({ project_id: projectId });
       const databasesList = response.databases || [];
       setDatabases(databasesList);
       
@@ -43,7 +52,7 @@ export const DatabaseManager = ({ navigation }) => {
       setStats(stats);
     } catch (err) {
       console.error('Error loading databases:', err);
-      setError(err.message || 'Failed to load databases');
+      setError(dbManagerService.errMsg(err, 'Failed to load databases'));
     } finally {
       setLoading(false);
     }
@@ -103,6 +112,9 @@ export const DatabaseManager = ({ navigation }) => {
       }
     >
       <Text style={DatabaseManagerStyles.title}>Database Manager</Text>
+      <Text style={DatabaseManagerStyles.subtitle}>
+        {currentProject?.name || 'No project'} · {currentEnvironment || 'prod'}
+      </Text>
 
       {error && (
         <Box style={DatabaseManagerStyles.errorBox}>
@@ -211,7 +223,7 @@ export const DatabaseManager = ({ navigation }) => {
           </View>
         )}
       </Box>
-      <ResourceCrud serviceName="db_manager" enabled title="Databases" />
+      <ResourceCrud serviceName="db_manager" enabled={!!projectId} title="Databases" />
     </ScrollView>
   );
 };

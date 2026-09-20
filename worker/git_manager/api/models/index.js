@@ -8,8 +8,9 @@ const Repository = db.model(
     name: 'string',
     description: 'string',
     default_branch: 'string',
-    visibility: 'string', // private | public  (advisory; transport auth is separate)
-    last_pushed_at: 'string'
+    visibility: 'string', // always private — public is rejected on write
+    last_pushed_at: 'string',
+    require_approval: 'number'
   },
   {
     required: ['project_id', 'name'],
@@ -55,4 +56,60 @@ const PullRequest = db.model(
   }
 );
 
-module.exports = { Repository, PushEvent, PullRequest, db };
+const Issue = db.model(
+  'Issue',
+  {
+    project_id: 'string',
+    repo_id: 'string',
+    title: 'string',
+    body: 'string',
+    status: 'string',
+    author: 'string'
+  },
+  { required: ['project_id', 'repo_id', 'title'], indexes: ['project_id', 'repo_id'], timestamps: true }
+);
+
+const PullComment = db.model(
+  'PullComment',
+  {
+    project_id: 'string',
+    pull_id: 'string',
+    author: 'string',
+    body: 'string',
+    path: 'string',
+    line: 'number'
+  },
+  { required: ['project_id', 'pull_id', 'body'], indexes: ['project_id', 'pull_id'], timestamps: true }
+);
+
+const PullReview = db.model(
+  'PullReview',
+  {
+    project_id: 'string',
+    pull_id: 'string',
+    author: 'string',
+    state: 'string',
+    body: 'string'
+  },
+  { required: ['project_id', 'pull_id', 'state'], indexes: ['project_id', 'pull_id'], timestamps: true }
+);
+
+const CheckRun = db.model(
+  'CheckRun',
+  {
+    project_id: 'string',
+    repo_id: 'string',
+    sha: 'string',
+    name: 'string',
+    status: 'string',
+    note: 'string'
+  },
+  { required: ['project_id', 'repo_id', 'name'], indexes: ['project_id', 'repo_id', 'sha'], timestamps: true }
+);
+
+try {
+  const cols = new Set((db.db.prepare('PRAGMA table_info(repositories)').all() || []).map((c) => c.name));
+  if (!cols.has('require_approval')) db.db.exec("ALTER TABLE repositories ADD COLUMN require_approval INTEGER DEFAULT 0");
+} catch (_) { /* */ }
+
+module.exports = { Repository, PushEvent, PullRequest, Issue, PullComment, PullReview, CheckRun, db };

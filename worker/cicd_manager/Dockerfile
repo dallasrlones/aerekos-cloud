@@ -3,8 +3,6 @@
 #   docker build -f cicd_manager/Dockerfile -t aerekos-cicd_manager worker/
 FROM node:20-bookworm-slim
 WORKDIR /app/cicd_manager
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
 COPY cicd_manager/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY cicd_manager/ ./

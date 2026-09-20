@@ -17,7 +17,12 @@ function crudRouter(service) {
   });
   r.get('/', async (req, res, next) => {
     try {
-      res.json({ items: await service.list(projectId(req)) });
+      let items = await service.list(projectId(req));
+      const q = String(req.query.q || '').trim().toLowerCase();
+      if (q) {
+        items = items.filter((it) => JSON.stringify(it).toLowerCase().includes(q));
+      }
+      res.json({ items });
     } catch (e) {
       if (e.status) return res.status(e.status).json({ error: { message: e.message } });
       next(e);

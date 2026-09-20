@@ -34,7 +34,8 @@ function resolveNamed(repoParam) {
   return null;
 }
 
-// Optional shared-secret auth for the git transport (Bearer or Basic password).
+// Shared-secret or JWT auth for the git transport (Bearer or Basic password).
+// Always required — repos are private. Unverified tokens are never accepted.
 function presentedToken(req) {
   const hdr = req.headers.authorization || '';
   if (hdr.startsWith('Bearer ')) return hdr.slice(7).trim();
@@ -45,11 +46,17 @@ function presentedToken(req) {
   return '';
 }
 
+function rejectAuth(res) {
+  res.set('WWW-Authenticate', 'Basic realm="aerekos git"');
+  res.status(401).end('Authentication required');
+  return false;
+}
+
 async function checkAuth(req, res) {
-  const required = process.env.GIT_AUTH_TOKEN || process.env.NODE_ENV === 'production';
   const presented = presentedToken(req);
+  if (!presented) return rejectAuth(res);
   if (process.env.GIT_AUTH_TOKEN && presented === process.env.GIT_AUTH_TOKEN) return true;
-  if (presented && presented.startsWith('eyJ')) {
+  if (presented.startsWith('eyJ')) {
     try {
       const { verify } = require('../../../shared/authManagerClient');
       const v = await verify(presented);
@@ -65,16 +72,9 @@ async function checkAuth(req, res) {
         req.gitAuth = jwt.verify(presented, secret);
         return true;
       }
-    } catch (_) { /* reject below in production */ }
-    if (process.env.NODE_ENV !== 'production') {
-      req.gitAuth = { unverified: true };
-      return true;
-    }
+    } catch (_) { /* reject */ }
   }
-  if (!required && !process.env.GIT_AUTH_TOKEN) return true;
-  res.set('WWW-Authenticate', 'Basic realm="aerekos git"');
-  res.status(401).end('Authentication required');
-  return false;
+  return rejectAuth(res);
 }
 
 const router = express.Router();

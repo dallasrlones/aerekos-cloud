@@ -9,7 +9,7 @@ import { computeManagerService } from '../../services/computeManagerService';
 import { EnvSwitcher } from '../../components/EnvSwitcher/EnvSwitcher';
 
 export const CicdManager = ({ navigation }) => {
-  const { currentProject } = useProject();
+  const { currentProject, currentEnvironment } = useProject();
   const [items, setItems] = useState([]);
   const [containers, setContainers] = useState([]);
   const [error, setError] = useState(null);
@@ -20,7 +20,7 @@ export const CicdManager = ({ navigation }) => {
     try {
       const [r, tasks] = await Promise.all([
         api.get('/api/services/cicd_manager/api/v1/pipelines', {
-          params: { project_id: currentProject.id },
+          params: { project_id: currentProject.id, environment: currentEnvironment || undefined },
         }),
         computeManagerService.listTasks(currentProject.id).catch(() => []),
       ]);
@@ -30,7 +30,7 @@ export const CicdManager = ({ navigation }) => {
     } catch (e) {
       setError(e.response?.data?.error?.message || e.message);
     }
-  }, [currentProject?.id]);
+  }, [currentProject?.id, currentEnvironment]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -62,15 +62,18 @@ export const CicdManager = ({ navigation }) => {
   };
 
   return (
-    <Page title="CI / CD Pipelines" subtitle="Merge runs Actions. App repos deploy that environment’s container. system + aerekos-cloud + main publishes a fleet release — devices self-update.">
+    <Page title="CI / CD Pipelines" subtitle="Push to an environment’s branch deploys that env’s Cloud task. Unlinked pipelines never create a container. system + aerekos-cloud + main still publishes a fleet release.">
       <ScrollView>
         <EnvSwitcher />
         {error ? <Text>{error}</Text> : null}
-        {items.map((p) => (
+        {items.filter((p) => !p.environment || !currentEnvironment || p.environment === currentEnvironment).map((p) => (
           <Box key={p.id} title={p.name || p.id}>
             <Text>state: {p.state || 'idle'}</Text>
             {p.repo || p.repo_name ? <Text>repo: {p.repo || p.repo_name}</Text> : null}
-            {p.target_container_id ? <Text>target: {p.target_container_id}</Text> : null}
+            <Text>env: {p.environment || 'prod'} · branch: {p.git_ref || 'main'}{p.require_pr ? ' · require PR' : ''}</Text>
+            {p.pin_worker_id ? <Text>pin: {p.pin_worker_id}</Text> : null}
+            {p.target_container_id ? <Text>target: {p.target_container_id}</Text> : <Text>target: not linked — deploy is blocked</Text>}
+            {p.last_run_json ? <Text>last run: {(() => { try { const j = typeof p.last_run_json === 'string' ? JSON.parse(p.last_run_json) : p.last_run_json; return `${j.action || ''} ${j.reason || j.ok === false ? 'failed' : ''} ${j.at || ''}`.trim(); } catch { return String(p.last_run_json).slice(0, 80); } })()}</Text> : null}
             <Button
               title={busy === `${p.id}:test` ? 'Running…' : 'Run test'}
               onPress={() => run(p.id, 'test')}

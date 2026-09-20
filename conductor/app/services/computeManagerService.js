@@ -90,6 +90,11 @@ export const computeManagerService = {
     return response.data?.logs || '';
   },
 
+  async getTaskStats(projectId, id) {
+    const response = await api.get(`${BASE}/tasks/${id}/stats`, { params: { project_id: projectId } });
+    return response.data;
+  },
+
   async queryLogs(projectId, { source, q, level, since, until, limit = 200 } = {}) {
     const response = await api.get('/api/services/logs_manager/api/v1/logs', {
       params: { project_id: projectId, source, q, level, since, until, limit },

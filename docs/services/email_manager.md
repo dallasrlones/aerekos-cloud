@@ -2,7 +2,7 @@
 
 > **Integrations** · Implemented · needs provider keys for live calls
 
-Email messages (to/subject/body). Queued; outbound send disabled.
+Email messages (to/subject/body). Send when SMTP secrets exist; otherwise queue-only.
 
 - **Port:** `3113`
 - **AWS analog:** SES

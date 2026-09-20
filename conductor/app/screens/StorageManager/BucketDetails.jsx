@@ -4,6 +4,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { storageManagerService } from '../../services/storageManagerService';
 import { chunkedUploadService } from '../../services/chunkedUploadService';
 import { Box } from '../../components/Box/Box';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 import { BucketDetailsStyles } from './BucketDetails.styles';
 
 export const BucketDetails = ({ navigation, route }) => {
@@ -39,6 +40,7 @@ export const BucketDetails = ({ navigation, route }) => {
   const [selectedFiles, setSelectedFiles] = useState(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState('files');
 
   useEffect(() => {
     if (finalProjectId && bucketName) {
@@ -485,9 +487,18 @@ export const BucketDetails = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Bucket Info */}
-      {bucket && (
-        <Box style={BucketDetailsStyles.bucketInfo}>
+      <ScreenTabs
+        tabs={[
+          { id: 'files', label: 'Files' },
+          { id: 'access', label: 'Access' },
+          { id: 'settings', label: 'Settings' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'access' && bucket ? (
+        <Box style={BucketDetailsStyles.bucketInfo} title="Access">
           <View style={BucketDetailsStyles.bucketInfoRow}>
             <Text style={BucketDetailsStyles.bucketInfoLabel}>Encryption:</Text>
             <Text style={BucketDetailsStyles.bucketInfoValue}>
@@ -498,6 +509,21 @@ export const BucketDetails = ({ navigation, route }) => {
             <Text style={BucketDetailsStyles.bucketInfoLabel}>Created:</Text>
             <Text style={BucketDetailsStyles.bucketInfoValue}>
               {new Date(bucket.created_at).toLocaleString()}
+            </Text>
+          </View>
+          <View style={BucketDetailsStyles.bucketInfoRow}>
+            <Text style={BucketDetailsStyles.bucketInfoLabel}>Project:</Text>
+            <Text style={BucketDetailsStyles.bucketInfoValue}>{finalProjectId}</Text>
+          </View>
+        </Box>
+      ) : null}
+
+      {tab === 'settings' && bucket ? (
+        <Box style={BucketDetailsStyles.bucketInfo} title="Settings">
+          <View style={BucketDetailsStyles.bucketInfoRow}>
+            <Text style={BucketDetailsStyles.bucketInfoLabel}>Encryption:</Text>
+            <Text style={BucketDetailsStyles.bucketInfoValue}>
+              {bucket.encryption_key_name ? '✓ Enabled' : 'Disabled'}
             </Text>
           </View>
           <TouchableOpacity
@@ -513,8 +539,9 @@ export const BucketDetails = ({ navigation, route }) => {
             <Text style={BucketDetailsStyles.configButtonText}>⚙️ Configure Bucket</Text>
           </TouchableOpacity>
         </Box>
-      )}
+      ) : null}
 
+      {tab === 'files' ? <>
       {/* Breadcrumbs */}
       {currentPrefix && (
         <View style={BucketDetailsStyles.breadcrumbs}>
@@ -859,6 +886,7 @@ export const BucketDetails = ({ navigation, route }) => {
           </>
         )}
       </ScrollView>
+      </> : null}
 
       {/* Upload Modal */}
       {showUploadModal && (

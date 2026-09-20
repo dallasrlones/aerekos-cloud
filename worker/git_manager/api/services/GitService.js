@@ -153,6 +153,7 @@ done
       return {
         binary,
         content: binary ? '' : slice.toString('utf8'),
+        content_base64: binary ? slice.toString('base64') : undefined,
         size: buf.length,
         truncated,
       };

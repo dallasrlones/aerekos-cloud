@@ -1,8 +1,8 @@
 # Headscale control plane — bind API to localhost / overlay only.
 # Start with: docker compose -f docker-compose.headscale.yml up -d --no-deps
 # Never expose :8080 on the public internet.
-server_url: http://127.0.0.1:8080
-listen_addr: 127.0.0.1:8080
+server_url: http://192.168.0.141:8080
+listen_addr: 0.0.0.0:8080
 metrics_listen_addr: 127.0.0.1:9090
 grpc_listen_addr: 127.0.0.1:50443
 grpc_allow_insecure: false
@@ -25,13 +25,9 @@ dns:
 
 derp:
   server:
-    enabled: true
-    region_id: 900
-    region_code: aerekos
-    region_name: aerekos-prod
-    stun_listen_addr: 127.0.0.1:3478
-    privately_inaccessible: true
-  urls: []
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
   paths: []
   auto_update_enabled: false
 

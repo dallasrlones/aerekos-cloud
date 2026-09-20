@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, ScrollView, RefreshControl, TextInput, ActivityIndicator, TouchableOpacity,
+  View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Alert,
 } from 'react-native';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
@@ -10,10 +10,17 @@ import { useProject } from '../../contexts/ProjectContext';
 import { colors } from '../../styles/theme';
 import { EdgeManagerStyles as S } from './EdgeManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
-import { stackService } from '../../services/stackService';
 import { HookupBanner } from '../../components/ui';
 import { EdgeHookupSheet } from '../../components/EdgeHookup/EdgeHookupSheet';
 import { projectService } from '../../services/projectService';
+import { HostnameSheet } from '../../components/HostnameSheet/HostnameSheet';
+import {
+  attachmentFromRule,
+  companionTunnelsFor,
+  consoleTunnelsFromNamed,
+  hostnameOnConsoleFleet,
+  isCatchAll,
+} from '../../utils/tunnelAttachments';
 
 const TABS = [
   { id: 'connect', label: 'Connect Cloudflare' },
@@ -27,35 +34,27 @@ const CF_SECRETS = [
   { name: 'cloudflare_zone_id', label: 'Zone ID (optional)' },
 ];
 
-const DEFAULT_INGRESS = [
-  { hostname: 'cloud.aerekos.com', service: 'http://conductor:3300' },
-  { hostname: 'cloudapi.aerekos.com', service: 'http://conductor:3300' },
-  { service: 'http_status:404' },
-];
-
 export const EdgeManager = ({ navigation }) => {
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
-  const [tab, setTab] = useState('connect');
+  const [tab, setTab] = useState('tunnels');
   const [probe, setProbe] = useState(null);
   const [tunnels, setTunnels] = useState([]);
   const [hostnames, setHostnames] = useState([]);
   const [namedTunnels, setNamedTunnels] = useState([]);
   const [zones, setZones] = useState([]);
   const [selectedTunnel, setSelectedTunnel] = useState(null);
-  const [ingressText, setIngressText] = useState('');
-  const [tunnelName, setTunnelName] = useState('');
-  const [createdToken, setCreatedToken] = useState(null);
-  const [cloudflaredHint, setCloudflaredHint] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [probing, setProbing] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [reconciling, setReconciling] = useState(false);
-  const [savingIngress, setSavingIngress] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [edgeStatus, setEdgeStatus] = useState(null);
   const [edgeSheet, setEdgeSheet] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formRow, setFormRow] = useState(null);
+  const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState(null);
 
   const runProbe = useCallback(async () => {
     if (!projectId) return;
@@ -93,16 +92,33 @@ export const EdgeManager = ({ navigation }) => {
     }
   }, [projectId]);
 
-  const loadIngress = useCallback(async (tunnel) => {
+  const loadAttachments = useCallback(async (tunnel, named) => {
     if (!projectId || !tunnel) return;
+    setSelectedTunnel(tunnel);
+    setAttachments([]);
+    setAttachmentsLoading(true);
+    setError(null);
     try {
-      const data = await edgeService.getIngress(projectId, tunnel.id);
-      setIngressText(JSON.stringify(data.ingress || DEFAULT_INGRESS, null, 2));
-      setSelectedTunnel(tunnel);
-    } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || 'Failed to load ingress');
+      const group = [tunnel, ...companionTunnelsFor(tunnel, named || namedTunnels)];
+      const rows = [];
+      for (const tun of group) {
+        const id = tun.id || tun.cf_tunnel_id;
+        if (!id) continue;
+        try {
+          const data = await edgeService.getIngress(projectId, id);
+          for (const rule of data.ingress || []) {
+            if (isCatchAll(rule)) continue;
+            rows.push(attachmentFromRule(rule, tun));
+          }
+        } catch (err) {
+          setError(err.response?.data?.error?.message || err.message || 'Failed to load hostnames');
+        }
+      }
+      setAttachments(rows);
+    } finally {
+      setAttachmentsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, namedTunnels]);
 
   const load = useCallback(async () => {
     await runProbe();
@@ -117,72 +133,6 @@ export const EdgeManager = ({ navigation }) => {
     load();
   }, [load]);
 
-  const handleCreateTunnel = async () => {
-    if (!projectId || !tunnelName.trim()) return;
-    setCreating(true);
-    setCreatedToken(null);
-    setCloudflaredHint(null);
-    setError(null);
-    try {
-      const data = await edgeService.createTunnel(projectId, tunnelName.trim());
-      await stackService.record(projectId, { service: 'tunnel_manager', resource: { name: tunnelName.trim() } });
-      setCreatedToken(data.token || null);
-      setCloudflaredHint(data.cloudflared || null);
-      setTunnelName('');
-      await loadTunnels();
-    } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || 'Create tunnel failed');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!projectId) return;
-    setImporting(true);
-    setError(null);
-    try {
-      const data = await edgeService.importFromCloudflare(projectId);
-      await loadTunnels();
-      setError(null);
-      if (data.imported?.length === 0) {
-        setError(`No new tunnels imported (${data.skipped || 0} already in DB)`);
-      }
-    } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || 'Import failed');
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleReconcile = async () => {
-    if (!projectId) return;
-    setReconciling(true);
-    try {
-      await edgeService.reconcileTunnels(projectId);
-      await loadTunnels();
-    } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || 'Reconcile failed');
-    } finally {
-      setReconciling(false);
-    }
-  };
-
-  const handleSaveIngress = async () => {
-    if (!projectId || !selectedTunnel) return;
-    setSavingIngress(true);
-    setError(null);
-    try {
-      const ingress = JSON.parse(ingressText);
-      await edgeService.setIngress(projectId, selectedTunnel.id, ingress);
-      await loadTunnels();
-    } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || 'Save ingress failed');
-    } finally {
-      setSavingIngress(false);
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
@@ -190,6 +140,95 @@ export const EdgeManager = ({ navigation }) => {
   };
 
   const goSecrets = () => navigation.navigate('createServiceSecret');
+
+  const openCreate = () => {
+    if (!selectedTunnel) return;
+    if (!zones.length) loadZones().catch(() => {});
+    setFormRow(null);
+    setFormError(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (row) => {
+    if (!zones.length) loadZones().catch(() => {});
+    setFormRow(row);
+    setFormError(null);
+    setFormOpen(true);
+  };
+
+  const tunnelForPort = (port, row) => {
+    if (row?.tunnel_id) {
+      return namedTunnels.find((t) => t.id === row.tunnel_id || t.cf_tunnel_id === row.tunnel_id)
+        || selectedTunnel;
+    }
+    const companions = companionTunnelsFor(selectedTunnel, namedTunnels);
+    if (String(port) !== '22' && companions[0]) return companions[0];
+    return selectedTunnel;
+  };
+
+  const handleSaveAttachment = async ({ subdomain, domain, port, hostname }) => {
+    if (!projectId || !selectedTunnel) return;
+    if (!hostname || !port) {
+      setFormError('Domain and port are required.');
+      return;
+    }
+    setFormBusy(true);
+    setFormError(null);
+    try {
+      const tun = tunnelForPort(port, formRow);
+      await edgeService.attachHostname(projectId, {
+        tunnel_id: tun.id || tun.cf_tunnel_id,
+        subdomain,
+        domain,
+        port,
+        previous_hostname: formRow?.hostname || '',
+      });
+      setFormOpen(false);
+      await loadTunnels();
+      await loadAttachments(selectedTunnel);
+    } catch (err) {
+      setFormError(err.response?.data?.error?.message || err.message || 'Save failed');
+    } finally {
+      setFormBusy(false);
+    }
+  };
+
+  const handleRemoveAttachment = (row) => {
+    if (!projectId || !row?.hostname) return;
+    Alert.alert(
+      'Remove hostname',
+      `Remove ${row.hostname} from this tunnel? Other hostnames stay.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setError(null);
+              await edgeService.detachHostname(projectId, {
+                tunnel_id: row.tunnel_id || selectedTunnel.id || selectedTunnel.cf_tunnel_id,
+                hostname: row.hostname,
+              });
+              await loadTunnels();
+              await loadAttachments(selectedTunnel);
+            } catch (err) {
+              setError(err.response?.data?.error?.message || err.message || 'Remove failed');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const visibleTunnels = useMemo(
+    () => consoleTunnelsFromNamed(namedTunnels, tunnels),
+    [namedTunnels, tunnels],
+  );
+  const visibleHostnames = useMemo(
+    () => (hostnames || []).filter((h) => hostnameOnConsoleFleet(h, namedTunnels)),
+    [hostnames, namedTunnels],
+  );
 
   return (
     <ScrollView
@@ -201,7 +240,7 @@ export const EdgeManager = ({ navigation }) => {
       <Text style={S.subtitle}>
         Cloudflare tunnels, DNS, and public hostnames for cloud.aerekos.com
       </Text>
-      {edgeStatus && edgeStatus.hooked_up === false ? (
+      {edgeStatus && edgeStatus.hooked_up === false && !visibleTunnels.some((t) => t.status === 'healthy') ? (
         <HookupBanner
           title="Tunnels / DNS aren’t hooked up"
           body={edgeStatus.message || 'Uses existing Cloudflare secrets. Does not create an account.'}
@@ -231,11 +270,14 @@ export const EdgeManager = ({ navigation }) => {
 
       {error ? <Text style={S.error}>{error}</Text> : null}
 
-      <ServiceSetupWizard
-        serviceName="tunnel_manager"
-        onEnabled={load}
-        onNavigateToSecrets={goSecrets}
-      />
+      {edgeStatus?.hooked_up || visibleTunnels.some((t) => t.status === 'healthy') ? null : (
+        <ServiceSetupWizard
+          serviceName="tunnel_manager"
+          onEnabled={load}
+          onNavigateToSecrets={goSecrets}
+          navigation={navigation}
+        />
+      )}
 
       {tab === 'connect' && (
         <Box title="Connect Cloudflare">
@@ -266,81 +308,88 @@ export const EdgeManager = ({ navigation }) => {
 
       {tab === 'tunnels' && (
         <>
-          <Box title="Cloudflare Tunnels">
-            <Text style={S.hint}>Create a tunnel to receive a one-time cloudflared token.</Text>
-            <TextInput
-              style={S.input}
-              placeholder="tunnel name (e.g. prod-edge)"
-              placeholderTextColor={colors.textMuted}
-              value={tunnelName}
-              onChangeText={setTunnelName}
-            />
-            <View style={S.row}>
-              <Button title="Create tunnel" onPress={handleCreateTunnel} loading={creating} />
-              <Button title="Import from CF" variant="secondary" onPress={handleImport} loading={importing} />
-              <Button title="Reconcile status" variant="secondary" onPress={handleReconcile} loading={reconciling} />
-            </View>
-            {createdToken ? (
-              <View style={S.tokenBox}>
-                <Text style={S.tokenLabel}>One-time token — copy now; not shown again</Text>
-                <Text style={S.tokenValue} selectable>{createdToken}</Text>
-                {cloudflaredHint?.command ? (
-                  <Text style={[S.hint, { marginTop: 8 }]} selectable>{cloudflaredHint.command}</Text>
-                ) : null}
-              </View>
-            ) : null}
-            {tunnels.length === 0 ? (
-              <Text style={S.hint}>No tunnels yet. Create one or import existing CF tunnels.</Text>
+          <Box title="Fleet tunnels">
+            <Text style={S.hint}>
+              prod-mini, dev-mini, and orin only. Click a tunnel to see hostname, domain, and port.
+            </Text>
+            {visibleTunnels.length === 0 ? (
+              <Text style={S.hint}>No fleet tunnels attached yet.</Text>
             ) : (
-              tunnels.map((t) => (
-                <TouchableOpacity key={t.id} style={S.listItem} onPress={() => loadIngress(t)}>
+              visibleTunnels.map((t) => (
+                <TouchableOpacity
+                  key={t.cf_tunnel_id || t.id || t.display_name}
+                  style={[S.listItem, selectedTunnel?.cf_tunnel_id === t.cf_tunnel_id && S.listItemActive]}
+                  onPress={() => loadAttachments(t)}
+                >
                   <Text style={S.listTitle}>{t.display_name || t.name}</Text>
                   <Text style={S.listMeta}>
-                    {t.device_hostname || 'unattached'} · {t.status || 'unknown'} · {t.ingress_rules || 0} rules · CNAME {t.cname_target || '—'}
+                    {t.device_hostname || 'unattached'} · {t.status || 'unknown'}
+                    {companionTunnelsFor(t, namedTunnels).length ? ' · includes HTTP companion' : ''}
                   </Text>
                 </TouchableOpacity>
               ))
             )}
           </Box>
 
+          {selectedTunnel ? (
+            <Box title={`${selectedTunnel.display_name || selectedTunnel.name} · attached hostnames`}>
+              <Text style={S.hint}>
+                Domain, subdomain, and origin port on this device
+                {companionTunnelsFor(selectedTunnel, namedTunnels).length
+                  ? ' (includes the Prod-Mini HTTP connector)'
+                  : ''}
+                . Save merges one rule — it does not replace the tunnel.
+              </Text>
+              <View style={S.row}>
+                <Button title="Add hostname" onPress={openCreate} />
+              </View>
+              {attachmentsLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 8 }} />
+              ) : null}
+              {!attachmentsLoading && attachments.length === 0 ? (
+                <Text style={S.hint}>No hostname / port rules on this tunnel.</Text>
+              ) : null}
+              {attachments.map((row, idx) => (
+                <View key={`${row.hostname}-${row.port}-${idx}`} style={S.listItem}>
+                  <Text style={S.listTitle}>{row.hostname}</Text>
+                  <Text style={S.listMeta}>
+                    {[
+                      row.subdomain ? `subdomain ${row.subdomain}` : null,
+                      row.domain ? `domain ${row.domain}` : null,
+                      row.port ? `port ${row.port}` : 'no port',
+                      row.path ? `path ${row.path}` : null,
+                      row.tunnel_name && row.tunnel_name !== (selectedTunnel.display_name || selectedTunnel.name)
+                        ? `via ${row.tunnel_name}`
+                        : null,
+                    ].filter(Boolean).join(' · ')}
+                  </Text>
+                  {row.service ? <Text style={S.listMeta}>{row.service}</Text> : null}
+                  <View style={S.row}>
+                    <Button title="Edit" variant="secondary" onPress={() => openEdit(row)} />
+                    <Button title="Remove" variant="secondary" onPress={() => handleRemoveAttachment(row)} />
+                  </View>
+                </View>
+              ))}
+            </Box>
+          ) : null}
+
           <Box title="Hostnames">
-            {hostnames.length === 0 ? (
-              <Text style={S.hint}>No hostnames yet. Bind from a container — do not start here for the happy path.</Text>
-            ) : hostnames.map((h) => {
+            {visibleHostnames.length === 0 ? (
+              <Text style={S.hint}>No hostnames on the fleet tunnels yet. Bind from a container.</Text>
+            ) : visibleHostnames.map((h) => {
               const tun = namedTunnels.find((t) => t.cf_tunnel_id === h.tunnel_id || t.id === h.tunnel_id)
                 || tunnels.find((t) => t.cf_tunnel_id === h.tunnel_id || t.id === h.tunnel_id);
+              const label = tun?.companion_of || tun?.display_name || h.tunnel_id || '—';
               return (
                 <View key={h.id || h.hostname} style={S.listItem}>
                   <Text style={S.listTitle}>{h.hostname}</Text>
                   <Text style={S.listMeta}>
-                    Device {tun?.device_hostname || tun?.display_name || '—'} · tunnel {tun?.display_name || h.tunnel_id || '—'} · :{h.port}
+                    Device {tun?.device_hostname || tun?.display_name || '—'} · {label} · :{h.port}
                   </Text>
                 </View>
               );
             })}
           </Box>
-
-          {selectedTunnel ? (
-            <Box title={`Ingress — ${selectedTunnel.name}`}>
-              <Text style={S.hint}>
-                CNAME target: {selectedTunnel.cname_target}. Pair with domain_manager DNS records.
-              </Text>
-              <TextInput
-                style={[S.input, { minHeight: 140, fontFamily: 'monospace' }]}
-                multiline
-                value={ingressText}
-                onChangeText={setIngressText}
-              />
-              <View style={S.row}>
-                <Button title="Save ingress" onPress={handleSaveIngress} loading={savingIngress} />
-                <Button
-                  title="Use prod defaults"
-                  variant="secondary"
-                  onPress={() => setIngressText(JSON.stringify(DEFAULT_INGRESS, null, 2))}
-                />
-              </View>
-            </Box>
-          ) : null}
         </>
       )}
 
@@ -361,12 +410,20 @@ export const EdgeManager = ({ navigation }) => {
         </Box>
       )}
 
-      {tab === 'tunnels' ? (
-        <ResourceCrud serviceName="tunnel_manager" enabled={!!projectId} title="Tunnels" onChanged={loadTunnels} />
-      ) : null}
       {tab === 'dns' ? (
         <ResourceCrud serviceName="domain_manager" enabled={!!projectId} title="DNS records" onChanged={loadZones} />
       ) : null}
+
+      <HostnameSheet
+        visible={formOpen}
+        title={formRow ? `Edit ${formRow.hostname}` : 'Add hostname'}
+        initial={formRow}
+        zones={zones}
+        busy={formBusy}
+        error={formError}
+        onClose={() => setFormOpen(false)}
+        onSave={handleSaveAttachment}
+      />
     </ScrollView>
   );
 };

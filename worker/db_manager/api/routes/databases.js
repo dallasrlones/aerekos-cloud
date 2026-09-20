@@ -42,7 +42,8 @@ const createDatabaseSchema = joi.object({
     driver: joi.string().optional(),  // Volume driver (e.g., 'local', 'nfs', etc.)
     driver_options: joi.object().optional()  // Volume driver options
   }).optional(),
-  metadata: joi.object().optional()
+  metadata: joi.object().optional(),
+  environment: joi.string().optional().allow('')
 });
 
 /**
@@ -81,7 +82,11 @@ router.post('/', validateServiceToken, async (req, res, next) => {
         worker_id: value.worker_id,
         port: value.port,
         resource_limits: value.resource_limits,
-        metadata: value.metadata
+        storage: value.storage,
+        metadata: {
+          ...(value.metadata || {}),
+          ...(value.environment ? { environment: value.environment } : {}),
+        },
       }
     );
 
@@ -120,7 +125,16 @@ router.get('/', validateServiceToken, async (req, res, next) => {
     if (req.query.worker_id) filter.worker_id = req.query.worker_id;
     if (req.query.status) filter.status = req.query.status;
 
-    const databases = await databaseService.listDatabases(projectId, filter);
+    let databases = await databaseService.listDatabases(projectId, filter);
+    if (req.query.environment) {
+      const env = String(req.query.environment);
+      databases = databases.filter((d) => {
+        let meta = {};
+        try { meta = typeof d.metadata === 'object' ? (d.metadata || {}) : JSON.parse(d.metadata || '{}'); } catch { meta = {}; }
+        const e = d.environment || meta.environment || '';
+        return !e || e === env;
+      });
+    }
 
     res.json({
       databases,

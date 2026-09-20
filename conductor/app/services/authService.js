@@ -26,7 +26,12 @@ export const authService = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error?.message || 'Login failed',
+        error: error.response?.data?.error?.message
+          || (error.code === 'ERR_NETWORK' || error.message === 'Network Error'
+            ? 'Cannot reach API (network/TLS)'
+            : null)
+          || error.message
+          || 'Login failed',
       };
     }
   },

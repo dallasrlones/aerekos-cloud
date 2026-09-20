@@ -169,6 +169,28 @@ const ResourceCrudPanel = ({ serviceName, ops, enabled, title, onChanged }) => {
     setEditingId(itemId(item, ops));
   };
 
+  const analogAction = serviceName === 'schedule_manager'
+    ? { label: 'Run now', suffix: '/run' }
+    : serviceName === 'workflow_manager'
+      ? { label: 'Run', suffix: '/run' }
+      : null;
+
+  const handleAnalog = async (item) => {
+    if (!analogAction) return;
+    const id = itemId(item, ops);
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`${itemUrl(serviceName, ops, projectId, id)}${analogAction.suffix}`, { project_id: projectId });
+      await load();
+      onChanged?.();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || err.message || `${analogAction.label} failed`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDelete = (item) => {
     const id = itemId(item, ops);
     const label = item.name || id;
@@ -268,6 +290,9 @@ const ResourceCrudPanel = ({ serviceName, ops, enabled, title, onChanged }) => {
                 {item.target_url ? <Text style={S.rowSub} numberOfLines={1}>{item.target_url}</Text> : null}
               </View>
               <View style={S.rowActions}>
+                {analogAction ? (
+                  <TouchableOpacity onPress={() => handleAnalog(item)}><Text style={S.link}>{analogAction.label}</Text></TouchableOpacity>
+                ) : null}
                 {ops.allowUpdate !== false ? (
                   <TouchableOpacity onPress={() => handleEdit(item)}><Text style={S.link}>Edit</Text></TouchableOpacity>
                 ) : null}

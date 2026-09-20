@@ -13,6 +13,11 @@ export const DatabaseManagerStyles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.textMuted || colors.textSecondary,
     marginBottom: 24,
   },
   loadingContainer: {

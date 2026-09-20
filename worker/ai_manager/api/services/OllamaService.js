@@ -241,6 +241,8 @@ class OllamaService {
     if (body.options) payload.options = body.options;
     if (body.format) payload.format = body.format;
     if (body.keep_alive != null) payload.keep_alive = body.keep_alive;
+    if (body.tools) payload.tools = body.tools;
+    if (body.tool_choice) payload.tool_choice = body.tool_choice;
     const { data } = await this.http.post('/api/chat', payload);
     return data;
   }
@@ -255,6 +257,32 @@ class OllamaService {
   async stream(endpoint, body) {
     const res = await this.http.post(`/api/${endpoint}`, { ...body, stream: true }, { responseType: 'stream' });
     return res.data;
+  }
+
+  async streamChat(body, { onDelta, abortSignal } = {}) {
+    const payload = {
+      model: body.model,
+      messages: body.messages,
+      stream: true,
+    };
+    if (body.options) payload.options = body.options;
+    if (body.tools) payload.tools = body.tools;
+    if (body.tool_choice) payload.tool_choice = body.tool_choice;
+    const res = await this.http.post('/api/chat', payload, { responseType: 'stream', signal: abortSignal });
+    let content = '';
+    const last = await this._consumeNdjson(res.data, (obj) => {
+      const delta = obj.message?.content || '';
+      if (delta) {
+        content += delta;
+        if (onDelta) onDelta(delta);
+      }
+    });
+    const done = last[last.length - 1] || { message: { role: 'assistant', content }, done: true };
+    if (!done.message) done.message = { role: 'assistant', content };
+    if (!done.message.content) done.message.content = content;
+    const toolCalls = last.map((o) => o.message?.tool_calls).find((t) => Array.isArray(t) && t.length);
+    if (toolCalls) done.message.tool_calls = toolCalls;
+    return done;
   }
 
   _consumeNdjson(stream, onLine) {

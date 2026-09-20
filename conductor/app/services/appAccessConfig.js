@@ -11,6 +11,8 @@ export const APP_ACCESS_MANAGERS = {
       { id: 'ai:InvokeStt', label: 'STT' },
       { id: 'ai:InvokeRag', label: 'RAG' },
       { id: 'ai:InvokeMemory', label: 'Memory' },
+      { id: 'ai:InvokeAgent', label: 'Agent' },
+      { id: 'ai:InvokeConnector', label: 'Connector' },
     ],
     defaultScopes: ['ai:InvokeLlm'],
     prettyPreset: (resource, projectId) => {
@@ -22,6 +24,8 @@ export const APP_ACCESS_MANAGERS = {
       if (cap === 'tts') return `/v1/projects/${projectId}/ai/tts/${name}/synthesize`;
       if (cap === 'stt') return `/v1/projects/${projectId}/ai/stt/${name}/transcribe`;
       if (cap === 'intelligence') return `/v1/projects/${projectId}/ai/intelligence/${name}/chat`;
+      if (cap === 'agent') return `/v1/projects/${projectId}/ai/agent/${name}/chat`;
+      if (cap === 'connector') return `/v1/projects/${projectId}/connector/${name}/invoke`;
       return null;
     },
   },

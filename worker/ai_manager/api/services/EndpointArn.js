@@ -10,12 +10,16 @@ const SCOPE_BY_CAPABILITY = {
   intelligence: 'ai:InvokeIntelligence',
   rag: 'ai:InvokeRag',
   memory: 'ai:InvokeMemory',
+  agent: 'ai:InvokeAgent',
+  connector: 'ai:InvokeConnector',
 };
 
 function resourceTypeForCapability(capability) {
   const cap = String(capability || 'llm').toLowerCase();
   if (cap === 'rag') return 'rag:collection';
   if (cap === 'memory') return 'memory:store';
+  if (cap === 'connector') return 'connector:account';
+  if (cap === 'agent') return 'agent:endpoint';
   return `${cap}:endpoint`;
 }
 
@@ -31,7 +35,11 @@ function buildEndpointArn(projectId, capability, name) {
 function parseEndpointArn(raw) {
   const p = arn.parse(raw);
   if (!p || p.namespace !== 'ai') return null;
-  const cap = p.resourceType.replace(/:endpoint$/, '').replace(/:collection$/, '').replace(/:store$/, '');
+  const cap = p.resourceType
+    .replace(/:endpoint$/, '')
+    .replace(/:collection$/, '')
+    .replace(/:store$/, '')
+    .replace(/:account$/, '');
   if (!cap || cap === p.resourceType) return null;
   return { ...p, capability: cap };
 }
@@ -45,6 +53,8 @@ function invokePathForCapability(capability) {
   if (cap === 'intelligence') return '/api/v1/intelligence/chat';
   if (cap === 'rag') return '/api/v1/rag/search';
   if (cap === 'memory') return '/api/v1/memory/search';
+  if (cap === 'agent') return '/api/v1/agents';
+  if (cap === 'connector') return '/api/v1/connectors/invoke';
   return `/api/v1/${cap}`;
 }
 

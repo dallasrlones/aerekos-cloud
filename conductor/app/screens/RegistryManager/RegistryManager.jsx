@@ -11,7 +11,7 @@ export const RegistryManager = (props) => (
     listKey="registries"
     createFields={[
       { key: 'name', label: 'Name', placeholder: 'homelab' },
-      { key: 'url', label: 'URL', placeholder: 'http://192.168.0.221:5050' },
+      { key: 'url', label: 'URL', placeholder: 'https://registry.example.com' },
     ]}
   />
 );

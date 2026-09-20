@@ -28,6 +28,11 @@ Master orchestrator: authentication, the service registry + proxy, worker fleet 
 | `POST` | `/api/workers/:id/host/update` | Update host OS or Docker ({ target }) |
 | `GET` | `/api/projects/:id/iac/status` | IaC hookup status |
 | `POST` | `/api/projects/:id/iac/hookup` | Hook up IaC ({ mode, repo }) |
+| `GET` | `/api/projects/:id/stack` | Get project-stack JSON |
+| `PUT` | `/api/projects/:id/stack` | Put project-stack JSON draft |
+| `POST` | `/api/projects/:id/stack/apply` | Enable wanted[] then provision resources (never prod UUID) |
+| `POST` | `/api/projects/:id/stack/diff` | Diff draft vs applied stack |
+| `POST` | `/api/projects/:id/stack/rollback` | Roll back last applied stack revision |
 | `GET` | `/api/projects/:id/edge/status` | Edge (tunnel/DNS) hookup status |
 | `POST` | `/api/projects/:id/edge/hookup` | Hook up edge using existing Cloudflare secrets |
 | `GET` | `/api/resources` | Fleet resource snapshot |

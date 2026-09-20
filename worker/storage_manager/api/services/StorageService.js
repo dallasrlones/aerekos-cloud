@@ -31,12 +31,43 @@ class StorageService {
   }
   
   /**
+   * Physical base dir for a bucket. System buckets may override via base_path
+   * (e.g. /mnt/usb24tb/aerekos-media) so data lands on a specific disk.
+   */
+  getBucketBase(bucket) {
+    return (bucket && bucket.base_path) || this.storagePath;
+  }
+  
+  /**
    * Get storage path for a file
    */
-  getStoragePath(bucketId, fileId, key) {
+  getStoragePath(bucket, fileId, key) {
     // Create a safe filename from key
     const safeKey = key.replace(/[^a-zA-Z0-9._-]/g, '_');
-    return path.join(this.storagePath, bucketId, `${fileId}_${safeKey}`);
+    return path.join(this.getBucketBase(bucket), bucket.id, `${fileId}_${safeKey}`);
+  }
+  
+  /**
+   * Resolve a bucket by project+name or system+name (system takes precedence)
+   */
+  async _resolveBucket({ projectId = null, systemId = null, name }) {
+    if (systemId) {
+      const bucket = await this.bucketRepo.findBySystemAndName(systemId, name);
+      if (!bucket) {
+        throw new Error(`Bucket '${name}' not found in system '${systemId}'`);
+      }
+      return bucket;
+    }
+    const bucket = await this.bucketRepo.findByProjectAndName(projectId, name);
+    if (!bucket) {
+      throw new Error(`Bucket '${name}' not found in project '${projectId}'`);
+    }
+    // CRITICAL: Double-check ownership only when the bucket claims a project.
+    // (System buckets / mocks may carry a null project_id.)
+    if (bucket.project_id && bucket.project_id !== projectId) {
+      throw new Error(`Bucket '${name}' does not belong to project '${projectId}'`);
+    }
+    return bucket;
   }
   
   /**
@@ -48,30 +79,24 @@ class StorageService {
    * @param {object} metadata - File metadata
    * @param {string} [existingFileId] - Optional existing file ID (for updating placeholder records)
    */
-  async uploadFile(projectId, bucketName, key, fileStream, metadata = {}, existingFileId = null) {
-    try {
-      const { assertQuota } = require('../../../shared/quotaGate');
-      await assertQuota(projectId, 'storage_bytes');
-    } catch (e) {
-      if (e.status === 429) throw e;
+  async uploadFile(projectId, bucketName, key, fileStream, metadata = {}, existingFileId = null, systemId = null) {
+    if (projectId) {
+      try {
+        const { assertQuota } = require('../../../shared/quotaGate');
+        await assertQuota(projectId, 'storage_bytes');
+      } catch (e) {
+        if (e.status === 429) throw e;
+      }
     }
-    // CRITICAL: Validate inputs
-    if (!projectId || !bucketName || !key) {
-      throw new Error('Missing required parameters: projectId, bucketName, and key are required');
+    // CRITICAL: Validate inputs (either projectId or systemId must be provided)
+    if ((!projectId && !systemId) || !bucketName || !key) {
+      throw new Error('Missing required parameters: projectId (or systemId), bucketName, and key are required');
     }
     
     await this.ensureStorageDir();
     
-    // Get bucket - CRITICAL: This ensures bucket belongs to the specified project
-    const bucket = await this.bucketRepo.findByProjectAndName(projectId, bucketName);
-    if (!bucket) {
-      throw new Error(`Bucket '${bucketName}' not found in project '${projectId}'`);
-    }
-    
-    // CRITICAL: Double-check bucket belongs to project
-    if (bucket.project_id !== projectId) {
-      throw new Error(`Bucket '${bucketName}' does not belong to project '${projectId}'`);
-    }
+    // Get bucket (project-scoped or system-scoped)
+    const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
     // If existingFileId is provided, find the placeholder record by ID
     // Otherwise, check if file already exists by bucket and key
@@ -94,7 +119,7 @@ class StorageService {
       fileId = existing ? existing.id : crypto.randomUUID();
     }
     
-    const storagePath = this.getStoragePath(bucket.id, fileId, key);
+    const storagePath = this.getStoragePath(bucket, fileId, key);
     
     // Ensure bucket directory exists
     const bucketDir = path.dirname(storagePath);
@@ -139,7 +164,7 @@ class StorageService {
     
     if (existing && existing.storage_path && existing.storage_path !== storagePath) {
       try {
-        const versionDir = path.join(this.storagePath, bucket.id, 'versions', existing.id);
+        const versionDir = path.join(this.getBucketBase(bucket), bucket.id, 'versions', existing.id);
         await fs.mkdir(versionDir, { recursive: true });
         await fs.copyFile(existing.storage_path, path.join(versionDir, `${existing.etag || 'prev'}`));
       } catch (e) {
@@ -197,12 +222,9 @@ class StorageService {
   /**
    * Download a file (decrypted)
    */
-  async downloadFile(projectId, bucketName, key) {
+  async downloadFile(projectId, bucketName, key, systemId = null) {
     // Get bucket
-    const bucket = await this.bucketRepo.findByProjectAndName(projectId, bucketName);
-    if (!bucket) {
-      throw new Error(`Bucket '${bucketName}' not found in project`);
-    }
+    const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
     // Get file record
     const file = await this.fileRepo.findByBucketAndKey(bucket.id, key);
@@ -244,12 +266,9 @@ class StorageService {
   /**
    * Delete a file
    */
-  async deleteFile(projectId, bucketName, key) {
+  async deleteFile(projectId, bucketName, key, systemId = null) {
     // Get bucket
-    const bucket = await this.bucketRepo.findByProjectAndName(projectId, bucketName);
-    if (!bucket) {
-      throw new Error(`Bucket '${bucketName}' not found in project`);
-    }
+    const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
     // Get file record
     const file = await this.fileRepo.findByBucketAndKey(bucket.id, key);
@@ -277,12 +296,9 @@ class StorageService {
    * List files in a bucket (S3-style with folders)
    * Returns files and folders separately for better navigation
    */
-  async listFiles(projectId, bucketName, prefix = '', maxKeys = 1000, delimiter = '/', offset = 0) {
+  async listFiles(projectId, bucketName, prefix = '', maxKeys = 1000, delimiter = '/', offset = 0, systemId = null) {
     // Get bucket
-    const bucket = await this.bucketRepo.findByProjectAndName(projectId, bucketName);
-    if (!bucket) {
-      throw new Error(`Bucket '${bucketName}' not found in project`);
-    }
+    const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
     // Get more files to account for folders and pagination
     const fetchLimit = Math.max(maxKeys * 2, maxKeys + offset);
@@ -353,12 +369,9 @@ class StorageService {
   /**
    * Get file metadata
    */
-  async getFileMetadata(projectId, bucketName, key) {
+  async getFileMetadata(projectId, bucketName, key, systemId = null) {
     // Get bucket
-    const bucket = await this.bucketRepo.findByProjectAndName(projectId, bucketName);
-    if (!bucket) {
-      throw new Error(`Bucket '${bucketName}' not found in project`);
-    }
+    const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
     // Get file record
     const file = await this.fileRepo.findByBucketAndKey(bucket.id, key);

@@ -94,6 +94,31 @@
       },
       {
         "method": "GET",
+        "path": "/api/projects/:id/stack",
+        "summary": "Get project-stack JSON"
+      },
+      {
+        "method": "PUT",
+        "path": "/api/projects/:id/stack",
+        "summary": "Put project-stack JSON draft"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/:id/stack/apply",
+        "summary": "Enable wanted[] then provision resources (never prod UUID)"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/:id/stack/diff",
+        "summary": "Diff draft vs applied stack"
+      },
+      {
+        "method": "POST",
+        "path": "/api/projects/:id/stack/rollback",
+        "summary": "Roll back last applied stack revision"
+      },
+      {
+        "method": "GET",
         "path": "/api/projects/:id/edge/status",
         "summary": "Edge (tunnel/DNS) hookup status"
       },
@@ -387,7 +412,7 @@
       "category": "Compute",
       "port": 3101,
       "status": "implemented",
-      "summary": "Message queues: create queues, send/receive/delete messages, visibility timeouts.",
+      "summary": "Message queues with four real engines: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream (XADD/XREADGROUP). List returns engine, dlq, depth.",
       "proxyBase": "/api/v1",
       "capabilities": [
         "queues",
@@ -1088,7 +1113,7 @@
       "category": "Integrations",
       "port": 3113,
       "status": "needs-keys",
-      "summary": "Email messages (to/subject/body). Queued; outbound send disabled.",
+      "summary": "Email messages (to/subject/body). Send when SMTP secrets exist; otherwise queue-only.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "messages"
@@ -1131,7 +1156,7 @@
       "category": "Integrations",
       "port": 3114,
       "status": "needs-keys",
-      "summary": "SMS messages (to_number/body). Queued; outbound send disabled.",
+      "summary": "SMS messages (to_number/body). Send when Twilio secrets exist; otherwise queue-only.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "messages"
@@ -1174,7 +1199,7 @@
       "category": "Integrations",
       "port": 3115,
       "status": "needs-keys",
-      "summary": "Slack posts (channel/text). Queued; outbound send disabled.",
+      "summary": "Slack posts (channel/text). Send when Slack secrets exist; otherwise queue-only.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "messages"
@@ -1547,7 +1572,7 @@
         {
           "method": "GET",
           "path": "/api/v1/platform-tools",
-          "summary": "Catalog input_schema for platform tools (backup, iac, edge, systems, graphql, search)"
+          "summary": "Catalog input_schema for platform tools (backup, iac, edge, systems, graphql, search, stack)"
         },
         {
           "method": "POST",
@@ -1562,7 +1587,7 @@
       "category": "AI",
       "port": 3126,
       "status": "needs-keys",
-      "summary": "Intelligence endpoints, providers, STT/TTS, usage. Invoke via pretty gateway URLs or the SDK.",
+      "summary": "Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / workers) and dynamic connectors. Poll + WS ai:live, ai:agent.ask, ai:agent.pulse, ai:agent.done.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "intelligence"
@@ -1571,7 +1596,9 @@
         "ai",
         "intelligence",
         "stt",
-        "tts"
+        "tts",
+        "agents",
+        "connectors"
       ],
       "needsKeys": "LLM endpoint/URL + provider keys (e.g. Ollama URL) to run inference.",
       "endpoints": [
@@ -1599,6 +1626,341 @@
           "method": "DELETE",
           "path": "/api/v1/intelligence/:id",
           "summary": "Delete a intelligence"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/engines",
+          "summary": "Fleet AI engine placements + catalog"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/engines/catalog",
+          "summary": "Placeable engine kinds (vLLM, STT, Kokoro, XTTS, Ollama, cache)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/engines",
+          "summary": "Place { kind, worker_id } on a GPU worker (no auto-start for vLLM/XTTS/Ollama)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/engines/:id/start",
+          "summary": "Start a placed engine"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/engines/:id/stop",
+          "summary": "Stop a placed engine"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/intelligence/jobs",
+          "summary": "Submit a queued intelligence job"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/intelligence/jobs",
+          "summary": "List jobs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/intelligence/jobs/:id",
+          "summary": "Get job snapshot (partial/result)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/intelligence/jobs/:id/cancel",
+          "summary": "Cancel a queued or running job"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/setup/status",
+          "summary": "Icarus fabric probe (Orin AI, prod-mini computer)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/setup",
+          "summary": "Idempotent agent setup (intelligence, memory, RAG, settings)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/settings",
+          "summary": "Project agent settings (concurrency, jail, write policy)"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/agents/settings",
+          "summary": "Update project agent settings"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/fleet",
+          "summary": "Live fleet canvas snapshot"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/resume",
+          "summary": "Boot resume: heal, due crons (late labeled), learn jobs, workers, idle last"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents",
+          "summary": "Create a named Icarus agent (ARN ai:agent:endpoint/name)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents",
+          "summary": "List agents"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id",
+          "summary": "Get agent by id or name"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/agents/:id",
+          "summary": "Update agent knobs (mode, binds, timezone, notify)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/agents/:id",
+          "summary": "Delete agent"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/chat",
+          "summary": "User-layer chat → queued intelligence job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/voice",
+          "summary": "Optional STT→chat→TTS compose"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/interrupt",
+          "summary": "Stop or add context mid-flight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/approve",
+          "summary": "Answer an ASK card"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/pulse",
+          "summary": "Manager pulse + gateway snapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/messages",
+          "summary": "Chat history"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/pins",
+          "summary": "Friend memory pins"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/pins",
+          "summary": "Pin a durable fact"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/agents/:id/pins/:key",
+          "summary": "Forget a pin"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/memory/export",
+          "summary": "Export pins, rolls, messages"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/memory/wipe",
+          "summary": "Wipe friend memory for this agent"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/rolls",
+          "summary": "Temporal rolls (today/week/month/year)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/rolls/refresh",
+          "summary": "Rebuild temporal rolls"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/work",
+          "summary": "Goal/Task/Subtask graph"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/work",
+          "summary": "Create a work item"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/agents/:id/work/:workId",
+          "summary": "Update work priority/status"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/work/reorder",
+          "summary": "Reorder work ids now→later"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/prompts",
+          "summary": "Get effective + override prompts"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/agents/:id/prompts",
+          "summary": "Patch per-agent prompt overrides"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/prompts/reset",
+          "summary": "Reset prompts to bundled defaults"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/browser/frames/:frameId",
+          "summary": "JPEG screenshot for a browse ASK"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/prs/:id/diff",
+          "summary": "Local PR diff (capped)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/asks",
+          "summary": "Open and answered ASK cards (one open at a time)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/timeline",
+          "summary": "Shop timeline (chat, brief, ask, tool, replan, deploy)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/workers",
+          "summary": "Worker agents for this Icarus"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/workers",
+          "summary": "Spawn a queued worker (handoff packet)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/workers/:wid/run",
+          "summary": "Run a worker tool loop"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/cron",
+          "summary": "Routines"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/cron",
+          "summary": "Create a cron/routine"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/cron/:cid/fire",
+          "summary": "Fire a cron via runtime (user_turn / idle_review / shop plan)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/skills",
+          "summary": "Skill templates"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/skills",
+          "summary": "Create a skill"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/audit",
+          "summary": "Tool and connector audit (no secrets)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/fs",
+          "summary": "List or read workspace files (jail)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/fs",
+          "summary": "Write a workspace file (ASK)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/term",
+          "summary": "Run a workspace command (ASK if mutating)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/tools",
+          "summary": "Execute a workspace tool (ASK on writes)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/claim",
+          "summary": "Claim a worktree prefix"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/message",
+          "summary": "Inter-agent message"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/compact",
+          "summary": "Queued compact job (never pins/ASK/DoD)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/connectors/kinds",
+          "summary": "Dynamic connector kind catalog"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/connectors",
+          "summary": "Create a connector account (ARN connector:account/name)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/connectors",
+          "summary": "List project connectors"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/connectors/:id",
+          "summary": "Get a connector"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/connectors/:id",
+          "summary": "Update connector (secret_ref, OAuth reconnect)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/connectors/:id",
+          "summary": "Revoke a connector"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/connectors/invoke",
+          "summary": "Invoke a connector tool (ASK if needs_auth)"
         }
       ]
     },
@@ -2195,7 +2557,7 @@
       "category": "Compute",
       "port": 3139,
       "status": "implemented",
-      "summary": "Functions.",
+      "summary": "Lambda analog. Deploy/invoke plus EventSource attach/detach. Always-on poller drains inbox queues; invoke failures nack toward DLQ.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "functions"
@@ -2229,6 +2591,26 @@
           "method": "DELETE",
           "path": "/api/v1/functions/:id",
           "summary": "Delete a function"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/functions/:id/event-sources",
+          "summary": "Attach a queue (provision inbox+DLQ if missing)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/functions/:id/event-sources",
+          "summary": "List EventSource mappings"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/functions/:id/event-sources/:sid",
+          "summary": "Detach a queue (does not delete it)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/functions/:name/invoke",
+          "summary": "Invoke a function"
         }
       ]
     },
@@ -2760,14 +3142,15 @@
       "category": "Compute",
       "port": 3151,
       "status": "implemented",
-      "summary": "Detect k3s on the worker host. Install only on explicit confirm — never auto-install on prod.",
+      "summary": "Docker fleet inventory on the worker host. Optional k3s detect/install only on explicit confirm — never auto-install on prod.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "clusters"
       },
       "capabilities": [
         "k8s",
-        "k3s"
+        "k3s",
+        "docker"
       ],
       "endpoints": [
         {
@@ -2794,6 +3177,11 @@
           "method": "DELETE",
           "path": "/api/v1/clusters/:id",
           "summary": "Delete a cluster"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/clusters/:id/fleet",
+          "summary": "List docker containers on this host"
         },
         {
           "method": "GET",
@@ -2866,7 +3254,7 @@
       "category": "Integrations",
       "port": 3153,
       "status": "implemented",
-      "summary": "Push subscriptions. Queued; outbound send disabled.",
+      "summary": "Push subscriptions. Send when FCM secret exists; otherwise queue-only.",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "subscriptions"

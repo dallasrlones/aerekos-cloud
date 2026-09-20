@@ -16,5 +16,13 @@ const { app, listen } = createManagerApp({
   },
 });
 
-if (require.main === module) listen();
+if (require.main === module) {
+  listen();
+  if (process.env.SKIP_POLLER !== '1' && process.env.SKIP_POLLER !== 'true') {
+    const ms = Number(process.env.FUNCTION_POLL_MS || 1000);
+    setInterval(() => {
+      service.pollAll().catch((e) => console.error('[function_manager] poll', e.message));
+    }, Number.isFinite(ms) ? ms : 1000);
+  }
+}
 module.exports = app;

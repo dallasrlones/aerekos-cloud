@@ -2,15 +2,30 @@
 
 const { PlatformJob } = require('../models');
 
+function notifyFrontend(action, job) {
+  try {
+    const WorkerSocketService = require('./WorkerSocketService');
+    WorkerSocketService.broadcastToFrontend('job:updated', {
+      action,
+      job,
+      project_id: job?.project_id || '',
+    });
+  } catch {
+    // Socket server is optional in unit tests / early boot.
+  }
+}
+
 class JobService {
   async create({ project_id, kind, summary, detail, status } = {}) {
-    return PlatformJob.create({
+    const job = await PlatformJob.create({
       project_id: project_id || '',
       kind: kind || 'generic',
       summary: summary || '',
       detail: detail || '',
       status: status || 'succeeded',
     });
+    notifyFrontend('created', job);
+    return job;
   }
 
   async list({ project_id, limit } = {}) {
@@ -30,6 +45,7 @@ class JobService {
     const row = await this.get(id);
     if (!row) return { deleted: false };
     await PlatformJob.delete(id);
+    notifyFrontend('deleted', row);
     return { deleted: true, id };
   }
 }

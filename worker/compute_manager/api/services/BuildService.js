@@ -75,17 +75,30 @@ class BuildService {
       await this.shipBuildLogs(projectId, logSource, `building ${tag}`);
       const out = await this.docker.buildImage({ contextDir: ctx, dockerfile, tag });
       await this.shipBuildLogs(projectId, logSource, (out.logs || '').slice(-4000) || `built ${tag}`);
+      let image = tag;
+      const registry = String(process.env.INTERNAL_REGISTRY || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+      if (registry) {
+        try {
+          const pushed = await this.docker.tagAndPush(tag, registry);
+          if (pushed?.image) {
+            image = pushed.image;
+            await this.shipBuildLogs(projectId, logSource, `pushed ${image}`);
+          }
+        } catch (e) {
+          await this.shipBuildLogs(projectId, logSource, `registry push skipped: ${e.message}`, 'warn');
+        }
+      }
       try {
         await proxy({
           service: 'registry_manager',
           method: 'POST',
           path: '/api/v1/artifacts',
           projectId,
-          body: { project_id: projectId, name: tag, kind: 'docker', version: sha, uri: tag },
+          body: { project_id: projectId, name: image, kind: 'docker', version: sha, uri: image },
           timeout: 10000,
         });
       } catch (_) { /* */ }
-      return { image: tag, logs: out.logs || '' };
+      return { image, logs: out.logs || '' };
     } finally {
       try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) { /* */ }
     }

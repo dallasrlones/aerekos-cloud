@@ -10,7 +10,7 @@ Icarus T40 live e2e (`e2e/lora-train.js`, `e2e/lora-attach.js`) hits `ai_manager
 |-------|--------|------|
 | HTTP catalog | `worker/ai_manager/api/routes/lora.js` | `POST /train` queues a job, `POST /attach` flags an adapter, `GET /` and `GET /:id` reconcile disk status |
 | Job files | volume `aerekos-ai_ai_manager-data` → `/data/lora-jobs/<id>/` | `examples.jsonl`, `queued.json`, `running.json`, `done.json` / `failed.json`, `adapter/` |
-| Worker | `worker/ai_manager/jobs/lora_worker.py` | Polls jobs; PEFT on **CUDA**; bind-mounted `:ro` into the trainer |
+| Worker | `worker/ai_manager/jobs/lora_worker.py` | Consumes `lora-inbox` (AMQP via `pika` in `LORA_PIP_DIR`) and still polls disk if RabbitMQ is down; PEFT on **CUDA** |
 | Compose | `worker/docker-compose.ai.yml` service `lora_trainer` | Image `ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin` (same as vLLM — already has CUDA torch + transformers). `runtime: nvidia`. Project `-p aerekos-ai` |
 
 `POST /train` returns **201** with `status: queued` immediately so C5 e2e does not wait for GPU.
@@ -77,6 +77,8 @@ Live HTTP e2e (does not wait for `done.json`):
 node e2e/lora-train.js
 node e2e/lora-attach.js
 ```
+
+`POST /train` also publishes `{ job_id }` to `lora-inbox` (`engine: rabbitmq`). If a chat job is `running`, train returns **409**. `pika` is pip-installed into `LORA_PIP_DIR` — it is not in the Jetson vLLM image.
 
 ## Attach vs chat
 

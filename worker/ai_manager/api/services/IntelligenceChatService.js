@@ -8,6 +8,8 @@ const { MemoryRetrieveService } = require('./MemoryRetrieveService');
 const { MemoryIngestService } = require('./MemoryIngestService');
 const { parseEndpointArn } = require('./EndpointArn');
 const { resolveLlmByIntegration } = require('./llmResolve');
+const { resolveOwnedChatModel } = require('./ownedChatModel');
+const { mergeContext } = require('../utils/mergeContext');
 
 function lastUserText(messages) {
   const list = Array.isArray(messages) ? messages : [];
@@ -17,22 +19,6 @@ function lastUserText(messages) {
   return '';
 }
 
-function pickChatModel(models) {
-  const list = Array.isArray(models) ? models : [];
-  const chat = list.filter((m) => {
-    const name = String(m?.name || m?.model || '');
-    const family = String(m?.details?.family || '');
-    if (!name) return false;
-    if (family.includes('bert') || /embed/i.test(name)) return false;
-    return true;
-  });
-  const byName = (re) => chat.find((m) => re.test(m.name || m.model || ''));
-  const hit = byName(/llama3\.2:3b/i) || byName(/:1b\b|:3b\b|:8b\b/i);
-  if (hit) return hit.name || hit.model;
-  const sorted = [...chat].sort((a, b) => (a.size || Infinity) - (b.size || Infinity));
-  return sorted[0]?.name || sorted[0]?.model;
-}
-
 class IntelligenceChatService {
   constructor(deps = {}) {
     this.intel = deps.intel || new IntelligenceService();
@@ -40,6 +26,7 @@ class IntelligenceChatService {
     this.retrieve = deps.retrieve || new MemoryRetrieveService();
     this.ingest = deps.ingest || new MemoryIngestService();
     this.usage = deps.usage || new UsageService();
+    this.resolveLlm = deps.resolveLlm || resolveLlmByIntegration;
   }
 
   async resolveEndpoint(projectId, req) {
@@ -64,8 +51,12 @@ class IntelligenceChatService {
   async gatherContext(projectId, endpoint, queryText, body) {
     const parts = [];
     const used = { rag: [], memory: [] };
+    const { laneInject } = require('./layerContext');
+    const policy = laneInject(body?.lane);
+    const wantRag = policy.rag == null ? !!endpoint.inject_rag : policy.rag;
+    const wantMemory = policy.memory == null ? !!endpoint.inject_memory : policy.memory;
 
-    if (endpoint.inject_rag && queryText) {
+    if (wantRag && queryText) {
       for (const att of endpoint.rag || []) {
         try {
           const hit = await this.rag.search(projectId, att.name, { query: queryText, top_k: 4 });
@@ -80,7 +71,7 @@ class IntelligenceChatService {
       }
     }
 
-    if (endpoint.inject_memory && body.user_id) {
+    if (wantMemory && body.user_id) {
       for (const att of endpoint.memory || []) {
         try {
           const mem = await this.retrieve.retrieve(projectId, {
@@ -133,32 +124,35 @@ class IntelligenceChatService {
       messages.unshift({ role: 'system', content: appendix });
     }
 
-    const svc = await resolveLlmByIntegration(projectId, endpoint.llm_integration);
+    const svc = await this.resolveLlm(projectId, endpoint.llm_integration);
     await svc.ensureRunning();
-    let model = body.model;
+    let llm = null;
+    try {
+      llm = await this.intel.providers.getByName(projectId, endpoint.llm_integration, 'llm');
+    } catch { /* bound name may still resolve via env */ }
+    let listedModels = [];
+    if (typeof svc.listModels === 'function') {
+      try { listedModels = await svc.listModels(); } catch { /* */ }
+    }
+    const { model } = resolveOwnedChatModel({ endpoint, provider: llm, listedModels });
     if (!model) {
-      try {
-        const llm = await this.intel.providers.getByName(projectId, endpoint.llm_integration, 'llm');
-        model = llm.model || undefined;
-      } catch { /* caller must pass model for Ollama */ }
-    }
-    if (!model && typeof svc.listModels === 'function') {
-      try {
-        const models = await svc.listModels();
-        model = pickChatModel(models);
-      } catch { /* */ }
-    }
-    const loraAtt = (endpoint.lora || [])[0];
-    if (loraAtt && model) {
-      model = loraAtt.derived_model || `${model}-${loraAtt.name}`;
-    }
-    if (!model) {
-      const e = new Error('model is required (set it on the bound LLM endpoint or pass model in the body)');
+      const e = new Error('model is required (set it on the intelligence endpoint)');
       e.status = 400;
       throw e;
     }
+    const { model: _clientModel, messages: _clientMessages, ...chatBody } = body;
     const started = Date.now();
-    const result = await svc.chat({ ...body, model, messages });
+    const onDelta = req.onDelta;
+    const abortSignal = req.abortSignal;
+    let result;
+    const useStream = onDelta && typeof svc.streamChat === 'function' && !body.tools;
+    if (useStream) {
+      result = await svc.streamChat({ ...chatBody, model, messages }, { onDelta, abortSignal });
+    } else {
+      result = await svc.chat({ ...chatBody, model, messages });
+      const text = result?.message?.content || result?.response || '';
+      if (onDelta && text) onDelta(text);
+    }
     const tokens = estimateTokens(messages, result);
     try {
       await this.usage.record({
@@ -174,7 +168,9 @@ class IntelligenceChatService {
       /* usage must not fail chat */
     }
 
-    if (endpoint.ingest_on_chat && body.user_id && body.session_id) {
+    const ingestLane = require('./layerContext').laneInject(body.lane);
+    const wantIngest = ingestLane.memory == null ? true : ingestLane.memory;
+    if (endpoint.ingest_on_chat && wantIngest && body.user_id && body.session_id) {
       const reply = result?.message?.content || result?.response || '';
       for (const att of endpoint.memory || []) {
         try {
@@ -209,9 +205,10 @@ class IntelligenceChatService {
       intelligence: endpoint.name,
       arn: endpoint.arn,
       llm_integration: endpoint.llm_integration,
+      model,
       used,
     };
   }
 }
 
-module.exports = { IntelligenceChatService };
+module.exports = { IntelligenceChatService, mergeContext };

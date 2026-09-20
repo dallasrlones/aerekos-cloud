@@ -7,4 +7,9 @@ export const fleetService = {
     const res = await api.get('/api/fleet/health', { params });
     return res.data;
   },
+
+  async getCapacity() {
+    const res = await api.get('/api/fleet/capacity');
+    return res.data?.hosts || [];
+  },
 };

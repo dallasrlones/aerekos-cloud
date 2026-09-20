@@ -47,6 +47,42 @@ router.post('/unbind', authenticate, async (req, res, next) => {
   }
 });
 
+router.post('/import-task-hostnames', authenticate, async (req, res, next) => {
+  try {
+    const projectId = req.body?.project_id || req.query.project_id;
+    if (!projectId) return res.status(400).json({ error: { message: 'project_id required', status: 400 } });
+    const result = await EdgeService.importTaskHostnames(projectId, req.headers.authorization, req.body || {});
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message, status: e.status } });
+    next(e);
+  }
+});
+
+router.post('/attachments', authenticate, async (req, res, next) => {
+  try {
+    const projectId = req.body?.project_id || req.query.project_id;
+    if (!projectId) return res.status(400).json({ error: { message: 'project_id required', status: 400 } });
+    const result = await EdgeService.attachHostname(projectId, req.headers.authorization, req.body || {});
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message, status: e.status } });
+    next(e);
+  }
+});
+
+router.post('/attachments/remove', authenticate, async (req, res, next) => {
+  try {
+    const projectId = req.body?.project_id || req.query.project_id;
+    if (!projectId) return res.status(400).json({ error: { message: 'project_id required', status: 400 } });
+    const result = await EdgeService.detachHostname(projectId, req.headers.authorization, req.body || {});
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message, status: e.status } });
+    next(e);
+  }
+});
+
 router.get('/tunnels/named', authenticate, async (req, res, next) => {
   try {
     const projectId = req.query.project_id;

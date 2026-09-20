@@ -27,7 +27,7 @@ class HostnameBindingService {
       tunnel_id: row.tunnel_id || '',
       dns_record_id: row.dns_record_id || '',
       visibility: row.visibility || 'public',
-      environment: row.environment || 'prod',
+      environment: row.environment == null || row.environment === '' ? '' : String(row.environment),
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
@@ -60,7 +60,8 @@ class HostnameBindingService {
     }
     let dns_record_id = String(body.dns_record_id || '');
     const tunnelId = String(body.tunnel_id || '');
-    if (!dns_record_id && tunnelId && process.env.CLOUDFLARE_ZONE_ID && process.env.SKIP_CLOUDFLARE !== '1') {
+    const skipDns = body.imported === true || body.imported === 'true' || body.skip_dns === true;
+    if (!skipDns && !dns_record_id && tunnelId && process.env.CLOUDFLARE_ZONE_ID && process.env.SKIP_CLOUDFLARE !== '1') {
       try {
         const { DnsRecordService } = require('./DnsRecordService');
         const dns = new DnsRecordService();
@@ -96,6 +97,25 @@ class HostnameBindingService {
   async list(projectId) {
     this.assertP(projectId);
     return (await this.M.findAll({ where: { project_id: projectId } })).map((r) => this.serialize(r));
+  }
+
+  async update(id, projectId, body = {}) {
+    this.assertP(projectId);
+    const rows = await this.M.findAll({ where: { id, project_id: projectId } });
+    if (!rows.length) {
+      const e = new Error('Not found');
+      e.status = 404;
+      throw e;
+    }
+    const patch = {};
+    if (body.target_id !== undefined) patch.target_id = String(body.target_id || '');
+    if (body.target_type !== undefined) patch.target_type = String(body.target_type);
+    if (body.port !== undefined) patch.port = Number(body.port);
+    if (body.tunnel_id !== undefined) patch.tunnel_id = String(body.tunnel_id || '');
+    if (body.environment !== undefined) patch.environment = String(body.environment || 'prod');
+    if (Object.keys(patch).length) await this.M.update(id, patch);
+    const next = await this.M.findAll({ where: { id } });
+    return this.serialize(next[0]);
   }
 
   async del(id, projectId) {

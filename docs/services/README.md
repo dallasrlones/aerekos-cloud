@@ -21,12 +21,12 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
 | [`compute_manager`](compute_manager.md) | ECS / Fargate | 3100 | implemented | Run containerized tasks (dockerode): create/list/get/stop/delete project-scoped tasks with port maps and labels. |
-| [`queue_manager`](queue_manager.md) | SQS | 3101 | implemented | Message queues: create queues, send/receive/delete messages, visibility timeouts. |
+| [`queue_manager`](queue_manager.md) | SQS | 3101 | implemented | Message queues with four real engines: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream (XADD/XREADGROUP). |
 | [`schedule_manager`](schedule_manager.md) | EventBridge Scheduler | 3102 | implemented | Cron schedules that dispatch to a webhook or a queue. |
 | [`network_manager`](network_manager.md) | VPC | 3103 | implemented | Per-project Docker bridge networks with stable names. |
 | [`workflow_manager`](workflow_manager.md) | Step Functions | 3135 | implemented | Run state machines (http, queue, wait, choice, function). |
-| [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Functions. |
-| [`cluster_manager`](cluster_manager.md) | EKS | 3151 | implemented | Detect k3s on the worker host. |
+| [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Lambda analog. |
+| [`cluster_manager`](cluster_manager.md) | EKS | 3151 | implemented | Docker fleet inventory on the worker host. |
 
 ## Observability
 
@@ -92,7 +92,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Intelligence endpoints, providers, STT/TTS, usage. |
+| [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / workers) and dynamic connectors. |
 | [`crawler_manager`](crawler_manager.md) | Glue Crawler | 3121 | needs-keys | Crawl job metadata (start_url/max_depth/state). |
 | [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Store notebooks; Run launches a compute oneshot (jupyter/python). |
 | [`vector_manager`](vector_manager.md) | OpenSearch kNN | 3152 | implemented | Upsert/query via db_manager vectors or sqlite cosine (facade, not a second RAG). |

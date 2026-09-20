@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Alert, TextInput, Linking } from 'react-native';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
 import { computeManagerService } from '../../services/computeManagerService';
@@ -9,8 +9,20 @@ import { TaskDetailsStyles as S } from './TaskDetails.styles';
 import { stackService } from '../../services/stackService';
 import { edgeService } from '../../services/edgeService';
 import { secretsManagerService } from '../../services/secretsManagerService';
+import {
+  formatPortMapping,
+  publishedHostPort,
+  resolveTaskDevice,
+  stripDockerLogMux,
+} from '../../utils/tunnelAttachments';
+import websocketService from '../../services/websocketService';
+import { applyLogAppend } from '../../utils/liveEvents';
+import { Chart } from '../../components/Chart/Chart';
+import { formatBytes, formatCpu } from '../../utils/formatBytes';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 
 const HIDDEN_ENV = new Set(['AEREKOS_ADOPTED']);
+const SECRET_ENV_RE = /password|secret|token|key|credential|auth|private|jwt/i;
 const statusColor = (status) => {
   switch (status) {
     case 'running': return '#4CAF50';
@@ -41,6 +53,9 @@ export const ContainerDetails = ({ navigation, route }) => {
   const [logQuery, setLogQuery] = useState('');
   const [logLevel, setLogLevel] = useState('');
   const [metrics, setMetrics] = useState({ cpu: [], mem: [] });
+  const [liveStats, setLiveStats] = useState(null);
+  const [statsError, setStatsError] = useState(null);
+  const [spark, setSpark] = useState([]);
   const [health, setHealth] = useState(null);
   const [hostnames, setHostnames] = useState([]);
   const [pipelines, setPipelines] = useState([]);
@@ -52,6 +67,9 @@ export const ContainerDetails = ({ navigation, route }) => {
   const [cfToken, setCfToken] = useState('');
   const [cfAccount, setCfAccount] = useState('');
   const [cfZone, setCfZone] = useState('');
+  const [namedTunnels, setNamedTunnels] = useState([]);
+  const [showCfPaste, setShowCfPaste] = useState(false);
+  const [tab, setTab] = useState('overview');
   const lastSince = useRef('');
 
   const loadLogs = useCallback(async (mode, append) => {
@@ -65,7 +83,9 @@ export const ContainerDetails = ({ navigation, route }) => {
         since: mode === 'live' && lastSince.current ? lastSince.current : undefined,
         limit: 200,
       });
-      const ordered = [...rows].reverse();
+      const ordered = [...rows].reverse().map((r) => (
+        r?.message ? { ...r, message: stripDockerLogMux(r.message) } : r
+      ));
       if (ordered.length) lastSince.current = ordered[ordered.length - 1].created_at;
       if (append && mode === 'live') {
         setLogRows((prev) => [...prev, ...ordered].slice(-400));
@@ -74,13 +94,13 @@ export const ContainerDetails = ({ navigation, route }) => {
       }
       if (!rows.length && mode === 'live' && !append) {
         const text = await computeManagerService.getLogs(projectId, taskId, 200);
-        if (text) setLogRows([{ id: 'docker', message: text, created_at: '', level: 'info' }]);
+        if (text) setLogRows([{ id: 'docker', message: stripDockerLogMux(text), created_at: '', level: 'info' }]);
       }
     } catch (_) {
       if (!append) {
         try {
           const text = await computeManagerService.getLogs(projectId, taskId, 200);
-          setLogRows(text ? [{ id: 'docker', message: text, created_at: '', level: 'info' }] : []);
+          setLogRows(text ? [{ id: 'docker', message: stripDockerLogMux(text), created_at: '', level: 'info' }] : []);
         } catch (__) {
           setLogRows([]);
         }
@@ -94,15 +114,25 @@ export const ContainerDetails = ({ navigation, route }) => {
       setError(null);
       const t = await computeManagerService.getTask(projectId, taskId, true);
       setTask(t);
-      const [h, hosts, pipes, cpu, mem] = await Promise.all([
+      const [h, hosts, pipes, cpu, mem, named] = await Promise.all([
         computeManagerService.getHealth(projectId, taskId).catch(() => null),
         computeManagerService.listHostnames(projectId).catch(() => []),
         computeManagerService.listPipelines(projectId).catch(() => []),
-        computeManagerService.queryMetrics(projectId, { metric_name: 'compute.cpu_percent', task_id: taskId, limit: 40 }).catch(() => []),
-        computeManagerService.queryMetrics(projectId, { metric_name: 'compute.memory_bytes', task_id: taskId, limit: 40 }).catch(() => []),
+        computeManagerService.queryMetrics(projectId, { metric_name: 'compute.cpu_percent', task_id: taskId, limit: 40 }).catch((e) => {
+          console.warn('[container] cpu series', e.message);
+          return [];
+        }),
+        computeManagerService.queryMetrics(projectId, { metric_name: 'compute.memory_bytes', task_id: taskId, limit: 40 }).catch((e) => {
+          console.warn('[container] mem series', e.message);
+          return [];
+        }),
+        edgeService.namedTunnels(projectId).catch(() => []),
       ]);
       setHealth(h);
-      setHostnames((hosts || []).filter((x) => String(x.target_id || '') === String(taskId)));
+      setNamedTunnels(named || []);
+      await edgeService.importTaskHostnames(projectId, taskId).catch(() => null);
+      const hostsAfter = await computeManagerService.listHostnames(projectId).catch(() => hosts);
+      setHostnames((hostsAfter || hosts || []).filter((x) => String(x.target_id || '') === String(taskId)));
       const linked = (pipes || []).filter((p) => String(p.target_container_id || p.task_id || '') === String(taskId));
       setPipelines(linked);
       setMetrics({ cpu: cpu || [], mem: mem || [] });
@@ -123,14 +153,56 @@ export const ContainerDetails = ({ navigation, route }) => {
     }
   }, [projectId, taskId, loadLogs, logMode]);
 
+  const refreshStats = useCallback(async () => {
+    if (!projectId || !taskId) return;
+    try {
+      const s = await computeManagerService.getTaskStats(projectId, taskId);
+      setLiveStats(s);
+      setStatsError(s?.error || null);
+      if (s && Number.isFinite(Number(s.cpu_percent))) {
+        setSpark((prev) => [...prev, {
+          timestamp: Date.now(),
+          usagePercent: Number(s.cpu_percent),
+          memoryMb: Number(s.memory_bytes) / (1024 * 1024),
+        }].slice(-40));
+      }
+    } catch (e) {
+      setStatsError(e.response?.data?.error?.message || e.message || 'stats failed');
+    }
+  }, [projectId, taskId]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
+    refreshStats();
+    if (task?.status !== 'running') return undefined;
+    const t = setInterval(refreshStats, 5000);
+    return () => clearInterval(t);
+  }, [refreshStats, task?.status]);
+
+  useEffect(() => {
     if (logMode !== 'live' || !projectId || !taskId) return undefined;
-    const id = setInterval(() => { loadLogs('live', true); }, 2000);
-    return () => clearInterval(id);
+    const room = `logs:compute.${taskId}`;
+    websocketService.subscribeRoom(room);
+    const off = websocketService.on('log:appended', (payload) => {
+      const incoming = applyLogAppend([], payload, { source: `compute.${taskId}`, projectId });
+      if (!incoming.length) return;
+      const cleaned = incoming.map((r) => (
+        r?.message ? { ...r, message: stripDockerLogMux(r.message) } : r
+      ));
+      if (cleaned.length) lastSince.current = cleaned[cleaned.length - 1].created_at || lastSince.current;
+      setLogRows((prev) => [...prev, ...cleaned].slice(-400));
+    });
+    const offReconnect = websocketService.on('console:reconnected', () => {
+      loadLogs('live', true);
+    });
+    return () => {
+      off();
+      offReconnect();
+      websocketService.unsubscribeRoom(room);
+    };
   }, [logMode, projectId, taskId, loadLogs]);
 
   const runAction = async (fn, label) => {
@@ -190,10 +262,24 @@ export const ContainerDetails = ({ navigation, route }) => {
     );
   }
 
-  const envEntries = Object.entries(task.env || {}).filter(([k]) => !HIDDEN_ENV.has(k) && !String(k).startsWith('AEREKOS_'));
+  const envEntries = Object.entries(task.env || {}).filter(([k]) => (
+    !HIDDEN_ENV.has(k) && !String(k).startsWith('AEREKOS_') && !SECRET_ENV_RE.test(k)
+  ));
   const portEntries = Object.entries(task.port_bindings || {});
-  const lastCpu = metrics.cpu[0];
-  const lastMem = metrics.mem[0];
+  const lastCpu = liveStats?.cpu_percent != null ? liveStats.cpu_percent : metrics.cpu[0]?.value;
+  const lastMem = liveStats?.memory_bytes != null ? liveStats.memory_bytes : metrics.mem[0]?.value;
+  const cpuLabel = lastCpu != null && lastCpu !== '' ? formatCpu(lastCpu) : (statsError || (task.status === 'running' ? 'waiting…' : 'not running'));
+  const memLabel = lastMem != null && lastMem !== '' ? formatBytes(lastMem) : (statsError || (task.status === 'running' ? 'waiting…' : 'not running'));
+  const adopted = isAdopted(task);
+  const { deviceLabel, defaultTunnel } = resolveTaskDevice(task, hostnames, namedTunnels);
+  const tunnelLabel = (h) => {
+    const t = namedTunnels.find((n) => n.cf_tunnel_id === h.tunnel_id || n.id === h.tunnel_id);
+    return t?.display_name || h.tunnel_id || 'tunnel';
+  };
+  const openPublic = (hostname) => {
+    const url = /^https?:\/\//i.test(hostname) ? hostname : `https://${hostname}`;
+    Linking.openURL(url).catch(() => {});
+  };
 
   return (
     <ScrollView
@@ -207,7 +293,7 @@ export const ContainerDetails = ({ navigation, route }) => {
           <View style={[S.statusDot, { backgroundColor: statusColor(task.status) }]} />
           <Text style={[S.statusText, { color: statusColor(task.status) }]}>{task.status}</Text>
         </View>
-        {isAdopted(task) ? (
+        {adopted ? (
           <View style={[S.statusBadge, { backgroundColor: colors.textMuted + '20', marginTop: 0 }]}>
             <Text style={[S.statusText, { color: colors.textMuted }]}>Adopted</Text>
           </View>
@@ -220,6 +306,14 @@ export const ContainerDetails = ({ navigation, route }) => {
           </View>
         ) : null}
       </View>
+      {task.error_message ? (
+        <Box title="Host status">
+          <Text style={{ color: '#F44336' }}>{task.error_message}</Text>
+          <Text style={{ color: colors.textMuted, marginTop: 8 }}>
+            The Cloud record is still here, but Docker no longer has this container. Start recreates it from the saved image and spec.
+          </Text>
+        </Box>
+      ) : null}
 
       <Box title="Actions">
         <View style={S.actions}>
@@ -230,15 +324,37 @@ export const ContainerDetails = ({ navigation, route }) => {
           )}
           <Button title="Restart" onPress={() => runAction(() => computeManagerService.restartTask(projectId, taskId), 'Restart')} loading={actionLoading} variant="secondary" style={S.actionButton} />
           <Button title="Refresh" onPress={load} variant="secondary" style={S.actionButton} />
-          <Button
-            title={`Scale (${task.desired == null ? 1 : task.desired})`}
-            onPress={() => runAction(() => computeManagerService.scaleTask(projectId, taskId, task.desired === 0 ? 1 : 0, { balancer_id: task.balancer_id }), 'Scale')}
-            variant="secondary"
-            style={S.actionButton}
-          />
+          {adopted ? null : (
+            <Button
+              title={`Scale (${task.desired == null ? 1 : task.desired})`}
+              onPress={() => runAction(() => computeManagerService.scaleTask(projectId, taskId, task.desired === 0 ? 1 : 0, { balancer_id: task.balancer_id }), 'Scale')}
+              variant="secondary"
+              style={S.actionButton}
+            />
+          )}
           <Button title="Delete" onPress={handleDelete} variant="secondary" style={S.actionButton} />
         </View>
       </Box>
+      <ScreenTabs
+        tabs={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'network', label: 'Network' },
+          { id: 'metrics', label: 'Metrics' },
+          { id: 'logs', label: 'Logs' },
+          { id: 'ci', label: 'CI' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === 'overview' && adopted ? (
+        <Box title="Adopted">
+          <Text style={{ color: colors.textMuted }}>
+            This container was already running on the host — the console tracks it instead of launching a new one.
+            Start, stop, and restart still work. Delete only unregisters it; the live container keeps running.
+            Image rebuild is blocked so we do not replace someone else’s process.
+          </Text>
+        </Box>
+      ) : null}
 
       <Box title="Container">
         <Row label="Image" value={task.image} />
@@ -250,39 +366,53 @@ export const ContainerDetails = ({ navigation, route }) => {
         {task.container_id ? <Row label="Container" value={task.container_id.slice(0, 12)} /> : null}
         {task.command && task.command.length ? <Row label="Command" value={task.command.join(' ')} /> : null}
         {task.created_at && <Row label="Created" value={new Date(task.created_at).toLocaleString()} />}
-        <Row label="Device" value={task.worker_hostname || task.worker_id || 'unknown'} />
+        <Row label="Device" value={deviceLabel} />
         <Row label="Environment" value={task.environment || 'prod'} />
       </Box>
 
-      <Box title="Public URL">
+      {tab === 'network' ? <Box title="Public URL">
+        <Row
+          label="Device tunnel"
+          value={defaultTunnel
+            ? `${defaultTunnel.display_name} · ${defaultTunnel.status || 'unknown'}`
+            : 'None — attach a tunnel on Device Details if you need a public hostname'}
+        />
         {hostnames.map((h) => (
           <View key={h.id || h.hostname} style={{ marginBottom: 8 }}>
-            <Row label={h.hostname} value={`port ${h.port || ''}`} />
-            <Button
-              title="Unbind"
-              variant="secondary"
-              onPress={async () => {
-                try {
-                  await edgeService.unbind(projectId, h.id);
-                  await load();
-                } catch (err) {
-                  Alert.alert('Unbind', err.response?.data?.error?.message || err.message);
-                }
-              }}
-            />
+            <Row label={h.hostname} value={`:${h.port || ''} · ${tunnelLabel(h)}`} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Button title="Open" variant="secondary" onPress={() => openPublic(h.hostname)} />
+              <Button
+                title="Unbind"
+                variant="secondary"
+                onPress={async () => {
+                  try {
+                    await edgeService.unbind(projectId, h.id);
+                    await load();
+                  } catch (err) {
+                    Alert.alert('Unbind', err.response?.data?.error?.message || err.message);
+                  }
+                }}
+              />
+            </View>
           </View>
         ))}
+        {!hostnames.length && portEntries.length ? (
+          <Text style={{ color: colors.textMuted, marginBottom: 8 }}>Not attached — bind a published port below.</Text>
+        ) : null}
         <Text style={{ color: colors.textMuted, marginBottom: 8 }}>
-          Bind a published host port to a hostname on this device’s tunnel.
+          {defaultTunnel
+            ? `Bind merges onto ${defaultTunnel.display_name}. This does not create a tunnel.`
+            : 'This device has no Cloudflare tunnel. Open Device Details to attach one only if you need a public URL.'}
         </Text>
         {portEntries.length ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             {portEntries.map(([container, host]) => {
-              const hostPort = Array.isArray(host) ? (host[0]?.HostPort || host[0]) : host;
+              const hostPort = publishedHostPort(host);
               return (
                 <Button
                   key={container}
-                  title={`:${hostPort}`}
+                  title={hostPort ? `:${hostPort}` : String(container)}
                   variant={String(bindPort) === String(hostPort) ? 'primary' : 'secondary'}
                   onPress={() => setBindPort(String(hostPort))}
                 />
@@ -302,8 +432,9 @@ export const ContainerDetails = ({ navigation, route }) => {
         />
         {bindError ? <Text style={S.errorText}>{bindError}</Text> : null}
         <Button
-          title={bindBusy ? 'Binding…' : 'Bind'}
+          title={!defaultTunnel ? 'Attach a tunnel first' : (bindBusy ? 'Binding…' : 'Bind')}
           loading={bindBusy}
+          disabled={!defaultTunnel}
           onPress={async () => {
             setBindBusy(true);
             setBindError('');
@@ -331,10 +462,16 @@ export const ContainerDetails = ({ navigation, route }) => {
               }
               let hostname = bindHost.trim().toLowerCase();
               if (hostname && !hostname.includes('.')) hostname = `${hostname}.aerekos.com`;
-              await edgeService.bind(projectId, {
+              const port = bindPort || publishedHostPort(portEntries[0]?.[1]);
+              if (!hostname || !port) {
+                setBindError('Hostname and port are required.');
+                return;
+              }
+              await edgeService.attachHostname(projectId, {
                 task_id: taskId,
-                port: bindPort,
+                port,
                 hostname,
+                tunnel_id: defaultTunnel.cf_tunnel_id || defaultTunnel.id,
                 environment: task.environment || 'prod',
               });
               setBindHost('');
@@ -346,23 +483,33 @@ export const ContainerDetails = ({ navigation, route }) => {
             }
           }}
         />
-        <Text style={{ color: colors.textMuted, marginTop: 12, marginBottom: 6 }}>
-          Missing Cloudflare token? Paste it here (saved to this environment’s secrets), then Bind again.
-        </Text>
-        <TextInput value={cfToken} onChangeText={setCfToken} placeholder="API token" placeholderTextColor={colors.textMuted} secureTextEntry style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
-        <TextInput value={cfAccount} onChangeText={setCfAccount} placeholder="Account ID" placeholderTextColor={colors.textMuted} autoCapitalize="none" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
-        <TextInput value={cfZone} onChangeText={setCfZone} placeholder="Zone ID" placeholderTextColor={colors.textMuted} autoCapitalize="none" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
-      </Box>
+        <Button
+          title={showCfPaste ? 'Hide Cloudflare paste' : 'Paste Cloudflare secrets (only if missing)'}
+          variant="secondary"
+          onPress={() => setShowCfPaste((v) => !v)}
+          style={{ marginTop: 12 }}
+        />
+        {showCfPaste ? (
+          <>
+            <Text style={{ color: colors.textMuted, marginTop: 12, marginBottom: 6 }}>
+              Saved to this environment’s secrets, then Bind again.
+            </Text>
+            <TextInput value={cfToken} onChangeText={setCfToken} placeholder="API token" placeholderTextColor={colors.textMuted} secureTextEntry style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
+            <TextInput value={cfAccount} onChangeText={setCfAccount} placeholder="Account ID" placeholderTextColor={colors.textMuted} autoCapitalize="none" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
+            <TextInput value={cfZone} onChangeText={setCfZone} placeholder="Zone ID" placeholderTextColor={colors.textMuted} autoCapitalize="none" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.textPrimary, marginBottom: 8 }} />
+          </>
+        ) : null}
+      </Box> : null}
 
-      {portEntries.length > 0 && (
+      {tab === 'overview' && portEntries.length > 0 && (
         <Box title="Port mappings">
           {portEntries.map(([container, host]) => (
-            <Row key={container} label={`Container ${container}`} value={`Host ${host}`} />
+            <Row key={container} label={`Container ${String(container).split('/')[0]}`} value={formatPortMapping(container, host)} />
           ))}
         </Box>
       )}
 
-      {envEntries.length > 0 && (
+      {tab === 'overview' && envEntries.length > 0 && (
         <Box title="Environment">
           {envEntries.map(([k, v]) => (
             <Row key={k} label={k} value={String(v)} />
@@ -370,19 +517,27 @@ export const ContainerDetails = ({ navigation, route }) => {
         </Box>
       )}
 
-      {task.error_message ? (
+      {tab === 'overview' && task.error_message ? (
         <Box title="Error">
           <Text style={S.errorText}>{task.error_message}</Text>
         </Box>
       ) : null}
 
-      <Box title="Metrics">
-        <Row label="CPU" value={lastCpu ? `${lastCpu.value}%` : 'no samples yet'} />
-        <Row label="Memory" value={lastMem ? `${lastMem.value} bytes` : 'no samples yet'} />
+      {tab === 'metrics' ? <Box title="Metrics">
+        <Row label="CPU" value={cpuLabel} />
+        <Row label="Memory" value={memLabel} />
+        {statsError && lastCpu != null ? (
+          <Text style={{ color: colors.textMuted, marginTop: 4 }}>{statsError}</Text>
+        ) : null}
+        {spark.length >= 2 ? (
+          <View style={{ marginTop: 12 }}>
+            <Chart title="CPU" data={spark} dataKey="usagePercent" color="#4CAF50" height={160} unit="%" />
+          </View>
+        ) : null}
         <Button title="Open in Metrics" onPress={() => navigation.navigate('managerConsole', { serviceName: 'metrics_manager' })} variant="secondary" style={{ marginTop: 8 }} />
-      </Box>
+      </Box> : null}
 
-      <Box title="CI / CD">
+      {tab === 'ci' ? <Box title="CI / CD">
         {pipelines.length ? pipelines.map((p) => (
           <View key={p.id} style={{ marginBottom: 8 }}>
             <Row label={p.name} value={p.state || 'idle'} />
@@ -396,9 +551,9 @@ export const ContainerDetails = ({ navigation, route }) => {
             {buildLogs.map((r) => r.message).join('\n')}
           </Text>
         ) : null}
-      </Box>
+      </Box> : null}
 
-      <Box title="Logs">
+      {tab === 'logs' ? <Box title="Logs">
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
           <Button title="Live" onPress={() => { lastSince.current = ''; setLogMode('live'); loadLogs('live', false); }} variant={logMode === 'live' ? 'primary' : 'secondary'} />
           <Button title="Historical" onPress={() => { setLogMode('historical'); loadLogs('historical', false); }} variant={logMode === 'historical' ? 'primary' : 'secondary'} />
@@ -432,7 +587,7 @@ export const ContainerDetails = ({ navigation, route }) => {
           variant="secondary"
           style={{ marginTop: 8 }}
         />
-      </Box>
+      </Box> : null}
     </ScrollView>
   );
 };

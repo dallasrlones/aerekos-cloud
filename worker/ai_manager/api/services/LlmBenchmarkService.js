@@ -1,6 +1,7 @@
 'use strict';
 
 const { AiModelBenchmark } = require('../models');
+const { emitBench } = require('../utils/aiLive');
 const {
   chatModelFilter,
   parseParamB,
@@ -53,6 +54,10 @@ class LlmBenchmarkService {
 
   getRunState() {
     return { ...runState };
+  }
+
+  _notifyRun() {
+    emitBench(this.getRunState());
   }
 
   async listResults({ endpoint, suite = DEFAULT_SUITE, limit = 200 } = {}) {
@@ -211,23 +216,41 @@ class LlmBenchmarkService {
    * Queue a serial benchmark run — one model at a time, never parallel.
    * Returns immediately; work runs on a single background chain.
    */
-  schedulePending(ollamaSvc, { models = null, force = false, suite = DEFAULT_SUITE, maxB = MAX_B } = {}) {
+  schedulePending(ollamaSvc, { models = null, force = false, suite = DEFAULT_SUITE, maxB = MAX_B, projectId } = {}) {
     queuedJobs += 1;
     runState.queued = queuedJobs;
     const queueDepth = queuedJobs;
+    this._notifyRun();
+    const names = Array.isArray(models) ? models : [];
+    if (projectId && process.env.SKIP_BROKER !== '1' && names.length) {
+      const { ensureInbox, publish } = require('./AiRabbit');
+      ensureInbox(projectId, 'bench-inbox').then(async () => {
+        for (const model of names) {
+          await publish(projectId, 'bench-inbox', { model, force, suite, maxB });
+        }
+      }).catch((e) => console.warn('[ai_manager] bench enqueue', e.message));
+    }
 
     serialChain = serialChain
-      .then(() => this._runSerial(ollamaSvc, { models, force, suite, maxB }))
+      .then(async () => {
+        const { chatRunning } = require('./AiRabbit');
+        while (projectId && await chatRunning(projectId)) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        return this._runSerial(ollamaSvc, { models, force, suite, maxB });
+      })
       .catch((e) => {
         if (runState.status === 'running') {
           runState.status = 'error';
           runState.error = e.message;
         }
         console.error('[ai_manager] benchmark run failed:', e.message);
+        this._notifyRun();
       })
       .finally(() => {
         queuedJobs = Math.max(0, queuedJobs - 1);
         runState.queued = queuedJobs;
+        this._notifyRun();
       });
 
     return {
@@ -264,12 +287,14 @@ class LlmBenchmarkService {
     runState.started_at = new Date().toISOString();
     runState.updated_at = runState.started_at;
     runState.error = null;
+    this._notifyRun();
 
     try {
       await ollamaSvc.ensureRunning();
       for (const m of todo) {
         runState.current = m.name;
         runState.updated_at = new Date().toISOString();
+        this._notifyRun();
         let result;
         try {
           result = await this.benchOne(ollamaSvc, m);
@@ -279,16 +304,19 @@ class LlmBenchmarkService {
         await this.saveResult(ep, m, result, suite);
         runState.done += 1;
         runState.updated_at = new Date().toISOString();
+        this._notifyRun();
         console.log(`[ai_manager] bench ${m.name}: ${result.pass ? 'PASS' : 'FAIL'} ${result.reason} (${result.wallMs || '?'}ms)`);
         await this._gap();
       }
       runState.status = 'idle';
       runState.current = null;
+      this._notifyRun();
       return { started: true, endpoint: ep, suite, pending: todo.length, run: this.getRunState() };
     } catch (e) {
       runState.status = 'error';
       runState.error = e.message;
       runState.updated_at = new Date().toISOString();
+      this._notifyRun();
       console.error('[ai_manager] benchmark run failed:', e.message);
       throw e;
     }

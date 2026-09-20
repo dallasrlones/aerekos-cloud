@@ -8,6 +8,8 @@ class WebSocketService {
   constructor() {
     this.socket = null;
     this.listeners = new Map();
+    this.rooms = new Set();
+    this.workers = new Set();
     this.isConnected = false;
   }
 
@@ -16,15 +18,22 @@ class WebSocketService {
    * @param {string} token - JWT authentication token
    */
   connect(token) {
-    if (this.socket && this.isConnected) {
+    if (this.socket?.connected) {
+      this.isConnected = true;
       return;
+    }
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
     }
 
     const baseURL = getApiBaseUrl();
-    const wsURL = baseURL.replace(/^http/, 'ws');
 
-    this.socket = io(`${wsURL}/frontend`, {
-      transports: ['websocket', 'polling'],
+    this.socket = io(`${baseURL}/frontend`, {
+      path: '/socket.io',
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: Infinity,
@@ -36,6 +45,8 @@ class WebSocketService {
     this.socket.on('connect', () => {
       console.log('[WebSocket] Connected to conductor');
       this.isConnected = true;
+      this.rooms.forEach((room) => this.socket.emit('live:subscribe', { room }));
+      this.workers.forEach((workerId) => this.socket.emit('worker:subscribe', { workerId }));
       this.emit('connected');
       this.emit('console:reconnected');
     });
@@ -52,32 +63,9 @@ class WebSocketService {
       this.isConnected = false;
     });
 
-    // Listen for worker events
-    this.socket.on('worker:online', (data) => {
-      this.emit('worker:online', data);
-    });
-
-    this.socket.on('worker:offline', (data) => {
-      this.emit('worker:offline', data);
-    });
-
-    this.socket.on('service:unhealthy', (data) => {
-      this.emit('service:unhealthy', data);
-    });
-    this.socket.on('service:recovered', (data) => {
-      this.emit('service:recovered', data);
-    });
-    this.socket.on('service:degraded', (data) => {
-      this.emit('service:degraded', data);
-    });
-
-    this.socket.on('worker:resources:updated', (data) => {
-      this.emit('worker:resources:updated', data);
-    });
-
-    // Listen for live worker updates (for device details screen)
-    this.socket.on('worker:live:update', (data) => {
-      this.emit('worker:live:update', data);
+    this.socket.onAny((event, data) => {
+      if (event === 'connect' || event === 'disconnect' || event === 'connect_error') return;
+      this.emit(event, data);
     });
   }
 
@@ -86,7 +74,9 @@ class WebSocketService {
    * @param {string} workerId - Worker ID to subscribe to
    */
   subscribeToWorker(workerId) {
-    if (this.socket && this.isConnected) {
+    if (!workerId) return;
+    this.workers.add(workerId);
+    if (this.socket && this.socket.connected) {
       this.socket.emit('worker:subscribe', { workerId });
     }
   }
@@ -96,8 +86,28 @@ class WebSocketService {
    * @param {string} workerId - Worker ID to unsubscribe from
    */
   unsubscribeFromWorker(workerId) {
-    if (this.socket && this.isConnected) {
+    if (!workerId) return;
+    this.workers.delete(workerId);
+    if (this.socket && this.socket.connected) {
       this.socket.emit('worker:unsubscribe', { workerId });
+    }
+  }
+
+  subscribeRoom(room, extra = {}) {
+    if (!room) return;
+    this.rooms.add(room);
+    const m = /^ai:live:([0-9a-f-]{36})$/i.exec(room);
+    const projectId = extra.projectId || extra.project_id || (m && m[1]);
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('live:subscribe', { room, project_id: projectId });
+    }
+  }
+
+  unsubscribeRoom(room) {
+    if (!room) return;
+    this.rooms.delete(room);
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('live:unsubscribe', { room });
     }
   }
 
@@ -164,4 +174,3 @@ class WebSocketService {
 }
 
 export default new WebSocketService();
-

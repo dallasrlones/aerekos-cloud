@@ -2,7 +2,7 @@
 
 > **Integrations** · Implemented
 
-Push subscriptions. Queued; outbound send disabled.
+Push subscriptions. Send when FCM secret exists; otherwise queue-only.
 
 - **Port:** `3153`
 - **AWS analog:** SNS mobile

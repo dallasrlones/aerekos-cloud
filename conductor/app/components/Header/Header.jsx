@@ -4,13 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { HeaderStyles } from './Header.styles';
 import { colors } from '../../styles/theme';
 import { ProjectSwitcher } from '../ProjectSwitcher/ProjectSwitcher';
+import { EnvSwitcher } from '../EnvSwitcher/EnvSwitcher';
 import { GlobalSearch } from '../GlobalSearch/GlobalSearch';
+import { IcarusOverlay } from './IcarusOverlay';
 import { NotificationBell } from '../NotificationBell/NotificationBell';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen }) => {
   const { compact } = useBreakpoint();
   const [localSearch, setLocalSearch] = useState(false);
+  const [icarusOpen, setIcarusOpen] = useState(false);
   const open = searchOpen ?? localSearch;
   const setOpen = setSearchOpen || setLocalSearch;
 
@@ -58,6 +61,7 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
 
       <View style={HeaderStyles.switcherWrap}>
         <ProjectSwitcher navigation={navigation} />
+        <EnvSwitcher variant="header" />
       </View>
 
       {!compact ? (
@@ -77,10 +81,27 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity
+        style={HeaderStyles.iconButton}
+        onPress={() => { setIcarusOpen(true); setOpen(false); }}
+        activeOpacity={0.7}
+        accessibilityLabel="Icarus"
+      >
+        <Ionicons name="sparkles-outline" size={24} color={colors.textPrimary} />
+      </TouchableOpacity>
+
       <NotificationBell navigation={navigation} />
 
       {!compact ? (
         <>
+          <TouchableOpacity
+            style={HeaderStyles.iconButton}
+            onPress={() => currentScreen !== 'gitManager' && navigation?.navigate('gitManager')}
+            activeOpacity={0.7}
+            accessibilityLabel="Git"
+          >
+            <Ionicons name="git-branch-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={HeaderStyles.iconButton}
             onPress={() => currentScreen !== 'settings' && navigation?.navigate('settings')}
@@ -99,6 +120,7 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
       ) : null}
 
       <GlobalSearch visible={open} onClose={() => setOpen(false)} navigation={navigation} />
+      <IcarusOverlay visible={icarusOpen} onClose={() => setIcarusOpen(false)} navigation={navigation} />
     </View>
   );
 };

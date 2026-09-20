@@ -3,26 +3,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Resolve API base per request — never cache at module load (SSR/bundle init has no window).
- * No localhost, loopback, or RFC1918 fallbacks. Off-LAN clients use EXPO_PUBLIC_API_URL
- * (prod: public conductor). Browser on cloud.* derives cloudapi.* of the same zone.
+ * Browser on cloud.* stays same-origin (Metro proxies /api to conductor). A second
+ * TLS session to cloudapi.* flakes with ERR_SSL_PROTOCOL_ERROR after the UI already loaded.
+ * Native / off-origin clients still use EXPO_PUBLIC_API_URL.
  */
 export const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = String(window.location.hostname);
+    const privateLan = host === 'localhost'
+      || host === '127.0.0.1'
+      || /^192\.168\./.test(host)
+      || /^10\./.test(host)
+      || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+    if (host === 'cloud.aerekos.com' || host.startsWith('cloud.') || privateLan) {
+      return String(window.location.origin || '').replace(/\/$/, '');
+    }
+  }
+
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (fromEnv && String(fromEnv).trim()) {
     return String(fromEnv).replace(/\/$/, '');
   }
 
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const { protocol, hostname } = window.location;
-    if (hostname.startsWith('cloud.')) {
-      return `${protocol}//cloudapi.${hostname.slice('cloud.'.length)}`.replace(/\/$/, '');
-    }
-  }
-
   throw new Error('EXPO_PUBLIC_API_URL is required (no localhost or LAN fallback)');
 };
 
-const SLOW_AI = /\/(llm|tts|stt|embeddings|intelligence|memory|rag)\//i;
+import { resolveClientTimeout } from './apiTimeout';
 const DEFAULT_TIMEOUT_MS = parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || '15000', 10);
 const SLOW_AI_TIMEOUT_MS = parseInt(process.env.CONDUCTOR_PROXY_TIMEOUT_MS || '1800000', 10);
 
@@ -79,9 +85,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    if (config.timeout == null && SLOW_AI.test(String(config.url || ''))) {
-      config.timeout = SLOW_AI_TIMEOUT_MS;
-    }
+    config.timeout = resolveClientTimeout(
+      config.url,
+      config.timeout,
+      DEFAULT_TIMEOUT_MS,
+      SLOW_AI_TIMEOUT_MS,
+    );
     return config;
   },
   (error) => {

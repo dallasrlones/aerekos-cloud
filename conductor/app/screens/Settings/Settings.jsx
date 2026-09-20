@@ -191,7 +191,11 @@ export const Settings = ({ navigation }) => {
         </View>
 
         {/* Registration Token Card */}
-        <View style={SettingsStyles.card}>
+        <View
+          style={SettingsStyles.card}
+          nativeID="icarus-settings-token"
+          {...(typeof document !== 'undefined' ? { dataSet: { icarusAnchor: 'settings-token' } } : {})}
+        >
           <Text style={SettingsStyles.cardTitle}>Registration Token</Text>
           
           {tokenLoading && !registrationToken ? (

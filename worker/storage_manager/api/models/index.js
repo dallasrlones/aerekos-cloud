@@ -26,17 +26,19 @@ async function initializeModels() {
     hasMany: ['Bucket']  // Projects have many buckets
   });
   
-  // Bucket Model (belongs to Project)
+  // Bucket Model (belongs to Project, OR to a System when system_id is set)
   const Bucket = db.model('Bucket', {
     name: 'string',
     created_by: 'string',  // Service that created bucket
     encryption_key_name: 'string',  // Key name from key_manager (all files encrypted)
-    metadata: 'string'  // JSON string for additional metadata
+    metadata: 'string',  // JSON string for additional metadata
+    system_id: 'string',  // Nullable: when set, bucket belongs to a system (project_id may be null)
+    base_path: 'string'  // Nullable: physical base dir override, e.g. /mnt/usb24tb/aerekos-media
   }, {
     required: ['name'],
     // Do not use unique: ['project_id','name'] — adapter creates two single-column uniques
     // (one bucket per project / global bucket name). Enforce name uniqueness per project in services.
-    belongsTo: ['Project'],  // Creates project_id foreign key automatically
+    belongsTo: ['Project'],  // Creates project_id foreign key automatically (nullable for system buckets)
     hasMany: ['File'],  // Buckets have many files
     timestamps: true
   });

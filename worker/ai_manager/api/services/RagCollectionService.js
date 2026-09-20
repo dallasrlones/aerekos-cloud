@@ -148,6 +148,13 @@ class RagCollectionService {
     const title = String(body.title || body.name || 'document').trim();
     const text = String(body.text || body.content || '').trim();
     if (!text) throw fail(400, 'text is required');
+    const docBase = String(body.doc_id || body.id || '');
+    if (docBase) {
+      const existing = await this.D.findAll({ where: { project_id: projectId, collection_name: col.name, doc_id: docBase } });
+      if (existing.length) {
+        return { ingested: 0, skipped: true, documents: existing.map((d) => ({ id: d.id, doc_id: d.doc_id, title: d.title })) };
+      }
+    }
     const chunks = chunkText(text);
     const created = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -186,6 +193,13 @@ class RagCollectionService {
       score: cosine(qv, parseVector(d.vector)),
     })).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Number(topK) || 6));
     return { collection: col.name, items: scored };
+  }
+
+  async hasDocument(projectId, collectionName, docId) {
+    const docs = await this.D.findAll({
+      where: { project_id: projectId, collection_name: collectionName, doc_id: String(docId || '') },
+    });
+    return docs.length > 0;
   }
 
   async listDocuments(id, projectId) {

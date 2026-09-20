@@ -7,6 +7,7 @@ import { managerService } from '../../services/managerService';
 import { useProject } from '../../contexts/ProjectContext';
 import { colors } from '../../styles/theme';
 import { AiProviderFormStyles as S } from './AiProviderForm.styles';
+import { ModelSelect } from '../../components/ModelSelect/ModelSelect';
 
 const CAPABILITIES = [
   { id: 'llm', label: 'LLM' },
@@ -32,11 +33,13 @@ const LOCAL_ENDPOINTS = {
 };
 
 const MODEL_HINTS = {
-  llm: 'llama3.2:3b or cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit',
+  llm: 'Ollama tag or Hugging Face id',
   embeddings: 'mxbai-embed-large',
   tts: 'af_heart',
   stt: '',
 };
+
+const DEFAULT_VLLM_MODEL = 'shawnw3i/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP';
 
 const VLLM_QUANT = ['awq', 'gptq', 'bitsandbytes', 'fp8', 'none'];
 const VLLM_DTYPE = ['half', 'float16', 'bfloat16', 'auto'];
@@ -44,7 +47,7 @@ const VLLM_DTYPE = ['half', 'float16', 'bfloat16', 'auto'];
 const EMPTY_VLLM = {
   quantization: 'awq',
   dtype: 'half',
-  gpu_memory_utilization: '0.5',
+  gpu_memory_utilization: '0.90',
   max_model_len: '8192',
   max_num_seqs: '8',
   enable_prefix_caching: true,
@@ -71,7 +74,7 @@ export const AiProviderForm = ({ navigation, route }) => {
     capability: presetCapability || 'llm',
     provider: presetProvider || 'ollama',
     endpoint: LOCAL_ENDPOINTS[presetProvider] || LOCAL_ENDPOINTS.ollama,
-    model: presetProvider === 'vllm' ? 'cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit' : '',
+    model: presetProvider === 'vllm' ? DEFAULT_VLLM_MODEL : '',
     is_default: false,
     enabled: true,
     options: '',
@@ -83,6 +86,10 @@ export const AiProviderForm = ({ navigation, route }) => {
   const [testResult, setTestResult] = useState(null);
   const [fetching, setFetching] = useState(isEdit);
   const [instances, setInstances] = useState([]);
+  const [servedModels, setServedModels] = useState([]);
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [addModel, setAddModel] = useState('');
+  const [applyNote, setApplyNote] = useState('');
 
   const types = PROVIDER_TYPES[form.capability] || PROVIDER_TYPES.llm;
 
@@ -121,6 +128,19 @@ export const AiProviderForm = ({ navigation, route }) => {
   useEffect(() => { loadProvider(); }, [loadProvider]);
 
   useEffect(() => {
+    if (!projectId || form.capability !== 'llm') { setServedModels([]); return undefined; }
+    const integration = form.name.trim();
+    if (!integration && !isEdit) return undefined;
+    let cancelled = false;
+    const args = { projectId };
+    if (integration) args.integration = integration;
+    aiManagerService.listModels(args)
+      .then((list) => { if (!cancelled) setServedModels(list || []); })
+      .catch(() => { if (!cancelled) setServedModels([]); });
+    return () => { cancelled = true; };
+  }, [projectId, form.capability, form.name, form.provider, isEdit]);
+
+  useEffect(() => {
     if (!projectId) { setInstances([]); return undefined; }
     let cancelled = false;
     managerService.listInstances('ai_manager', projectId)
@@ -140,7 +160,7 @@ export const AiProviderForm = ({ navigation, route }) => {
       }
       if (field === 'provider') {
         next.endpoint = LOCAL_ENDPOINTS[value] || next.endpoint;
-        if (value === 'vllm' && !next.model) next.model = 'cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit';
+        if (value === 'vllm' && !next.model) next.model = DEFAULT_VLLM_MODEL;
         if (value === 'ollama' && next.model.includes('/')) next.model = '';
       }
       return next;
@@ -197,7 +217,7 @@ export const AiProviderForm = ({ navigation, route }) => {
         data.options = {
           quantization: vllm.quantization === 'none' ? null : vllm.quantization,
           dtype: vllm.dtype,
-          gpu_memory_utilization: parseFloat(vllm.gpu_memory_utilization) || 0.5,
+          gpu_memory_utilization: parseFloat(vllm.gpu_memory_utilization) || 0.90,
           max_model_len: parseInt(vllm.max_model_len, 10) || 8192,
           max_num_seqs: parseInt(vllm.max_num_seqs, 10) || 8,
           enable_prefix_caching: !!vllm.enable_prefix_caching,
@@ -209,8 +229,25 @@ export const AiProviderForm = ({ navigation, route }) => {
       }
       if (isEdit) {
         await aiManagerService.updateIntegration(projectId, providerId, data);
+        if (form.provider === 'vllm') {
+          const applied = await aiManagerService.applyVllm(projectId, providerId, {
+            model: data.model,
+            options: data.options,
+          });
+          if (applied?.left_stopped) {
+            Alert.alert('vLLM left stopped', applied.message || 'Engine failed');
+          } else {
+            setApplyNote(applied?.message || 'vLLM restart requested');
+          }
+        }
       } else {
-        await aiManagerService.createIntegration(projectId, data);
+        const created = await aiManagerService.createIntegration(projectId, data);
+        if (form.provider === 'vllm' && created?.id) {
+          await aiManagerService.applyVllm(projectId, created.id, {
+            model: data.model,
+            options: data.options,
+          }).catch(() => {});
+        }
       }
       navigation.goBack();
     } catch (error) {
@@ -333,17 +370,54 @@ export const AiProviderForm = ({ navigation, route }) => {
 
         <View style={S.field}>
           <Text style={S.label}>Default model / voice {form.provider === 'vllm' ? '*' : ''}</Text>
-          <TextInput
-            style={[S.input, errors.model && S.inputError]}
-            value={form.model}
-            onChangeText={(v) => update('model', v)}
-            placeholder={form.provider === 'vllm' ? 'cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit' : MODEL_HINTS[form.capability]}
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-          />
+          {form.capability === 'llm' ? (
+            <>
+              <ModelSelect
+                models={servedModels}
+                value={form.model}
+                onChange={(v) => update('model', v)}
+                placeholder={form.provider === 'vllm' ? 'Served Hugging Face id' : 'Pulled Ollama model'}
+              />
+              <Button
+                title={showAddModel ? 'Hide add / load' : (form.provider === 'vllm' ? 'Load Hugging Face id' : 'Add model (pull tag)')}
+                variant="secondary"
+                onPress={() => setShowAddModel((v) => !v)}
+                style={{ alignSelf: 'flex-start', marginBottom: 8 }}
+              />
+              {showAddModel ? (
+                <TextInput
+                  style={S.input}
+                  value={addModel}
+                  onChangeText={setAddModel}
+                  placeholder={form.provider === 'vllm' ? DEFAULT_VLLM_MODEL : 'llama3.2:3b'}
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  onSubmitEditing={() => {
+                    if (addModel.trim()) update('model', addModel.trim());
+                  }}
+                />
+              ) : null}
+              {showAddModel && addModel.trim() ? (
+                <Button
+                  title={form.provider === 'vllm' ? 'Use this Hugging Face id' : 'Use this tag'}
+                  variant="secondary"
+                  onPress={() => { update('model', addModel.trim()); setShowAddModel(false); }}
+                />
+              ) : null}
+            </>
+          ) : (
+            <TextInput
+              style={[S.input, errors.model && S.inputError]}
+              value={form.model}
+              onChangeText={(v) => update('model', v)}
+              placeholder={MODEL_HINTS[form.capability]}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+            />
+          )}
           {errors.model && <Text style={S.errorText}>{errors.model}</Text>}
           {form.provider === 'vllm' ? (
-            <Text style={S.help}>Hugging Face model id served by vLLM. Changing it here does not restart the GPU process.</Text>
+            <Text style={S.help}>Saving restarts vLLM on the GPU host with this id. Exit 1 or 137 leaves it stopped.</Text>
           ) : null}
         </View>
 
@@ -383,6 +457,7 @@ export const AiProviderForm = ({ navigation, route }) => {
                 {testResult.backend ? ` · ${testResult.backend}` : ''}
               </Text>
             )}
+            {applyNote ? <Text style={[S.help, { marginTop: 8 }]}>{applyNote}</Text> : null}
           </View>
         )}
       </Box>
@@ -390,7 +465,7 @@ export const AiProviderForm = ({ navigation, route }) => {
       {form.provider === 'vllm' && (
         <Box title="vLLM serving">
           <Text style={S.help}>
-            Stored on this endpoint. Applying them requires restarting the vLLM container on the GPU host with matching flags — this form does not start or stop the process.
+            Stored on this endpoint. Save applies them by recreating aerekos-vllm on the GPU host (canFit first; leave stopped on exit 1/137).
           </Text>
           <View style={[S.field, { marginTop: 12 }]}>
             <Text style={S.label}>Quantization</Text>
@@ -426,7 +501,7 @@ export const AiProviderForm = ({ navigation, route }) => {
               style={S.input}
               value={vllm.gpu_memory_utilization}
               onChangeText={(v) => setVllm((p) => ({ ...p, gpu_memory_utilization: v }))}
-              placeholder="0.5"
+              placeholder="0.90"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               keyboardType="decimal-pad"

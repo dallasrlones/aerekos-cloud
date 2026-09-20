@@ -3,8 +3,33 @@
 #   docker compose -f docker-compose.core.yml -f docker-compose.platform.yml up -d --build --no-deps <svc>
 #
 # Data is still project_id-scoped. Do not start these on orin (GPU) or as a second copy per project.
-# billing / ai / comms / app / function stay out of this file.
+# billing / ai / comms / app stay out of this file. function_manager is here so Lambda drains.
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: aerekos-rabbitmq
+    restart: unless-stopped
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-aerekos}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-aerekos}
+    ports:
+      - "5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./worker/queue_manager/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks: [aerekos]
+
+  redis:
+    image: redis:7-alpine
+    container_name: aerekos-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: [redis-data:/data]
+    networks: [aerekos]
+
   queue_manager:
     build: { context: ./worker, dockerfile: queue_manager/Dockerfile }
     container_name: aerekos-queue_manager
@@ -16,8 +41,27 @@ services:
       - SKIP_SERVICE_REGISTRATION=true
       - PORT=3101
       - SERVICE_NAME=queue_manager
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://aerekos:aerekos@rabbitmq:5672}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     ports: ["3101:3101"]
     volumes: [queue_manager-data:/app/queue_manager/data]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [aerekos]
+    depends_on: [rabbitmq, redis]
+
+  function_manager:
+    build: { context: ./worker, dockerfile: function_manager/Dockerfile }
+    container_name: aerekos-function_manager
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      - SKIP_SERVICE_REGISTRATION=true
+      - PORT=3139
+      - SERVICE_NAME=function_manager
+    ports: ["3139:3139"]
+    volumes: [function_manager-data:/app/function_manager/data]
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [aerekos]
 
@@ -48,6 +92,10 @@ services:
       - SKIP_SERVICE_REGISTRATION=true
       - PORT=3103
       - SERVICE_NAME=network_manager
+      - HEADSCALE_URL=${HEADSCALE_URL:-http://192.168.0.141:8080}
+      - HEADSCALE_BASE_DOMAIN=${HEADSCALE_BASE_DOMAIN:-aerekos.internal}
+      - HEADSCALE_API_KEY=${HEADSCALE_API_KEY:-}
+      - HEADSCALE_USER=${HEADSCALE_USER:-aerekos}
     ports: ["3103:3103"]
     volumes:
       - network_manager-data:/app/network_manager/data
@@ -308,6 +356,9 @@ networks:
     external: true
 
 volumes:
+  rabbitmq-data:
+  redis-data:
+  function_manager-data:
   queue_manager-data:
   schedule_manager-data:
   network_manager-data:

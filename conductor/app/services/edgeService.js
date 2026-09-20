@@ -98,4 +98,22 @@ export const edgeService = {
     const res = await api.get('/api/edge/tunnels/named', { params: { project_id: projectId } });
     return res.data?.tunnels || [];
   },
+
+  async attachHostname(projectId, body) {
+    const res = await api.post('/api/edge/attachments', { project_id: projectId, ...body });
+    return res.data;
+  },
+
+  async detachHostname(projectId, body) {
+    const res = await api.post('/api/edge/attachments/remove', { project_id: projectId, ...body });
+    return res.data;
+  },
+
+  async importTaskHostnames(projectId, taskId) {
+    const res = await api.post('/api/edge/import-task-hostnames', {
+      project_id: projectId,
+      task_id: taskId,
+    });
+    return res.data;
+  },
 };

@@ -10,6 +10,9 @@ const bucketRoutes = require('./api/routes/buckets');
 const signedUrlRoutes = require('./api/routes/signedUrls');
 const chunkedUploadRoutes = require('./api/routes/chunkedUploads');
 const fileRoutes = require('./api/routes/files');
+const systemBucketRoutes = require('./api/routes/systemBuckets');
+const systemFileRoutes = require('./api/routes/systemFiles');
+const { ensureBucketSystemColumns, ensureBucketArnColumn } = require('./api/utils/migrations');
 const errorHandler = require('./api/middleware/errorHandler');
 const logger = require('./api/utils/logger');
 
@@ -188,6 +191,8 @@ app.use('/api/projects', bucketRoutes);
 app.use('/api/projects', signedUrlRoutes); // Must come before fileRoutes
 app.use('/api/projects', chunkedUploadRoutes);
 app.use('/api/projects', fileRoutes);
+app.use('/api/systems', systemBucketRoutes);
+app.use('/api/systems', systemFileRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -206,9 +211,11 @@ async function startService() {
       process.exit(1);
     }
     
-    // Initialize database and models first
+    // Initialize database, run lightweight column migrations, then models
     logger.info('[storage_manager] Initializing database...');
     await getDatabase();
+    ensureBucketSystemColumns();
+    ensureBucketArnColumn();
     await initializeModels();
     logger.info('[storage_manager] Database initialized');
     
@@ -224,6 +231,11 @@ async function startService() {
         // Initialize bucket service with conductor URL and token
         const bucketRoutes = require('./api/routes/buckets');
         bucketRoutes.initializeBucketService(
+          process.env.CONDUCTOR_URL,
+          serviceToken
+        );
+        const systemBucketRoutes = require('./api/routes/systemBuckets');
+        systemBucketRoutes.initializeSystemBucketService(
           process.env.CONDUCTOR_URL,
           serviceToken
         );

@@ -1,10 +1,12 @@
 # Icarus C0 — aerekos-cloud fleet smoke
 
-Icarus (separate repo: `icarus-agent`) talks to **this** conductor. C0 confirms LLM, embeddings, memory, secrets, and object storage, and that **proxy timeouts can outlast a local generate**.
+Icarus **agents** are part of aerekos-cloud (AI Manager → Agents). C0 confirms LLM, embeddings, memory, secrets, and object storage, and that **proxy timeouts can outlast a local generate**. Named teammates use queued intelligence jobs, not a sister process. See [icarus-agents.md](icarus-agents.md).
 
 Icarus-side map: `icarus-agent/docs/cloud.md`. Mixed-stack networking/auth: [mixed-stack.md](mixed-stack.md). Later tickets: [icarus-live-e2e.md](icarus-live-e2e.md).
 
 ## Timeouts (non-negotiable)
+
+Queued intelligence (`execution: queued`) is the Cloudflare-safe path: `POST /intelligence/jobs` then poll `GET /jobs/:id`. Sync `POST /intelligence/chat` on a queued endpoint is **409**. Do not hold CF for the GPU.
 
 Local vLLM/Ollama on Jetson Orin can sit silent for **minutes**. SaaS 60s/120s defaults will kill Icarus.
 

@@ -106,13 +106,16 @@ ${C.bold}Discover${C.reset}
 
 ${C.bold}Operate${C.reset}
   backup run|jobs|get|restore [--project P] [--data JSON]
-  iac status|hookup|apply [--project P] [--data JSON]
+  iac status|hookup|apply|put [--project P] [--data JSON]
   edge status|hookup [--project P]
   setup <service>|graph|status [--project P]
   vpc status|move --worker <id> --vpc <id>
   systems check|update --worker <id> [--target os|docker]
   graphql execute [--project P] --data '{"query":"{ users { id } }"}'
   search query [--project P] --data '{"q":"hello"}'
+  intelligence submit|job|wait|cancel [--project P]
+  agents setup|list|chat|interrupt|approve|asks|timeline|fleet|prompts [--project P] [--id NAME]
+  connectors kinds|list|invoke [--project P]
   <service> <segment> <list|get|create|update|delete> [id] [--project P] [--data JSON]
   call <service> <METHOD> <path> [--project P] [--data JSON]   Generic proxy
 
@@ -223,7 +226,8 @@ async function main() {
     if (act === 'status') return out(await client.iac.status(project), asJson);
     if (act === 'hookup') return out(await client.iac.hookup(project, dataOf(flags) || { mode: 'conductor' }), asJson);
     if (act === 'apply') return out(await client.iac.apply(project), asJson);
-    die('usage: aerekos iac status|hookup|apply');
+    if (act === 'put') return out(await client.iac.put(project, dataOf(flags) || {}), asJson);
+    die('usage: aerekos iac status|hookup|apply|put');
   }
   if (cmd === 'setup') {
     const act = positionals[1];
@@ -265,6 +269,85 @@ async function main() {
   if (cmd === 'graphql') {
     const project = projectOf(flags); if (!project) die('needs --project');
     return out(await client.graphql.execute(project, dataOf(flags) || {}), asJson);
+  }
+  if (cmd === 'intelligence') {
+    const project = projectOf(flags); if (!project) die('needs --project');
+    const act = positionals[1];
+    if (act === 'submit') return out(await client.intelligence.submit(project, dataOf(flags) || {}), asJson);
+    if (act === 'job') return out(await client.intelligence.job(project, positionals[2]), asJson);
+    if (act === 'wait') return out(await client.intelligence.wait(project, positionals[2], { intervalMs: Number(flags.interval) || 2000 }), asJson);
+    if (act === 'cancel') return out(await client.intelligence.cancel(project, positionals[2]), asJson);
+    die('usage: aerekos intelligence submit|job|wait|cancel --project P [--data JSON]');
+  }
+  if (cmd === 'agents') {
+    const project = projectOf(flags); if (!project) die('needs --project');
+    const act = positionals[1];
+    const id = flags.id || positionals[2];
+    if (act === 'setup') return out(await client.agents.setup(project, dataOf(flags) || {}), asJson);
+    if (act === 'status') return out(await client.agents.setupStatus(project), asJson);
+    if (act === 'list') return out(await client.agents.list(project), asJson);
+    if (act === 'fleet') return out(await client.agents.fleet(project), asJson);
+    if (act === 'settings') return out(await client.agents.settings(project), asJson);
+    if (act === 'get') {
+      if (!id) die('agents get needs --id');
+      return out(await client.agents.get(project, id), asJson);
+    }
+    if (act === 'chat') {
+      if (!id) die('agents chat needs --id');
+      return out(await client.agents.chat(project, id, dataOf(flags) || {}), asJson);
+    }
+    if (act === 'interrupt') {
+      if (!id) die('agents interrupt needs --id');
+      return out(await client.agents.interrupt(project, id, dataOf(flags) || { content: 'stop' }), asJson);
+    }
+    if (act === 'approve') {
+      if (!id) die('agents approve needs --id');
+      return out(await client.agents.approve(project, id, dataOf(flags) || {}), asJson);
+    }
+    if (act === 'asks') {
+      if (!id) die('agents asks needs --id');
+      return out(await client.agents.asks(project, id), asJson);
+    }
+    if (act === 'timeline') {
+      if (!id) die('agents timeline needs --id');
+      return out(await client.agents.timeline(project, id, flags.since), asJson);
+    }
+    if (act === 'prompts') {
+      if (!id) die('agents prompts needs --id');
+      if (flags.reset) return out(await client.agents.resetPrompts(project, id), asJson);
+      const data = dataOf(flags);
+      if (data) return out(await client.agents.patchPrompts(project, id, data), asJson);
+      return out(await client.agents.prompts(project, id), asJson);
+    }
+    if (act === 'work') {
+      const sub = positionals[2];
+      const agentId = flags.id || positionals[3];
+      if (sub === 'reorder') {
+        if (!agentId) die('agents work reorder needs --id');
+        const data = dataOf(flags) || {};
+        return out(await client.agents.reorderWork(project, agentId, data.ids || []), asJson);
+      }
+      die('usage: aerekos agents work reorder --id AGENT --data \'{"ids":[]}\'');
+    }
+    if (act === 'plans') {
+      if (!id) die('agents plans needs --id');
+      return out(await client.agents.plans(project, id), asJson);
+    }
+    if (act === 'compact') {
+      if (!id) die('agents compact needs --id');
+      return out(await client.agents.compact(project, id), asJson);
+    }
+    die('usage: aerekos agents setup|status|list|fleet|get|chat|interrupt|approve|asks|timeline|prompts|work|plans|compact --project P [--id NAME] [--data JSON]');
+  }
+  if (cmd === 'connectors') {
+    const project = projectOf(flags);
+    const act = positionals[1];
+    if (act === 'kinds') return out(await client.connectors.kinds(), asJson);
+    if (!project) die('needs --project');
+    if (act === 'list') return out(await client.connectors.list(project), asJson);
+    if (act === 'invoke') return out(await client.connectors.invoke(project, dataOf(flags) || {}), asJson);
+    if (act === 'create') return out(await client.connectors.create(project, dataOf(flags) || {}), asJson);
+    die('usage: aerekos connectors kinds|list|create|invoke --project P [--data JSON]');
   }
   if (cmd === 'search' && positionals[1] === 'query') {
     const project = projectOf(flags); if (!project) die('needs --project');

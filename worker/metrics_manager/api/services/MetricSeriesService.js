@@ -10,6 +10,23 @@ class MetricSeriesService {
     if (d.length) { const e = new Error('name taken'); e.status=409; throw e; }
     return this.M.create(body);
   }
+
+  async sample(body) {
+    this.assertP(body.project_id);
+    const name = String(body.name || '').trim();
+    if (!name) { const e = new Error('name required'); e.status = 400; throw e; }
+    const existing = await this.M.findAll({ where: { project_id: body.project_id, name } });
+    const patch = {
+      metric_name: body.metric_name || name,
+      value: String(body.value ?? '0'),
+      labels: typeof body.labels === 'string' ? body.labels : JSON.stringify(body.labels || {}),
+    };
+    if (existing.length) {
+      await this.M.update(existing[0].id, patch);
+      return this.get(existing[0].id, body.project_id);
+    }
+    return this.M.create({ ...patch, project_id: body.project_id, name });
+  }
   async list(projectId, { metric_name, task_id, limit } = {}) {
     this.assertP(projectId);
     const where = { project_id: projectId };

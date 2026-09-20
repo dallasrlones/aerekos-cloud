@@ -19,7 +19,7 @@ MCP tool registry (description + input_schema). GET /platform-tools lists schema
 | `GET` | `/api/v1/tools/:id` | Get one tool |
 | `PATCH` | `/api/v1/tools/:id` | Update a tool |
 | `DELETE` | `/api/v1/tools/:id` | Delete a tool |
-| `GET` | `/api/v1/platform-tools` | Catalog input_schema for platform tools (backup, iac, edge, systems, graphql, search) |
+| `GET` | `/api/v1/platform-tools` | Catalog input_schema for platform tools (backup, iac, edge, systems, graphql, search, stack) |
 | `POST` | `/api/v1/tools/:id/invoke` | Invoke a registered tool against input_schema.endpoint |
 
 ## Examples

@@ -3,6 +3,8 @@ import { View, Text, ScrollView, RefreshControl, TouchableOpacity, ActivityIndic
 import { Ionicons } from '@expo/vector-icons';
 import { useProject } from '../../contexts/ProjectContext';
 import { projectService } from '../../services/projectService';
+import { deviceService } from '../../services/deviceService';
+import { managerService } from '../../services/managerService';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
 import { ServiceConfigModal } from '../../components/ServiceConfigModal/ServiceConfigModal';
@@ -15,9 +17,10 @@ import { ProjectDetailsStyles } from './ProjectDetails.styles';
 import { colors } from '../../styles/theme';
 import { HookupBanner } from '../../components/ui';
 import { IacHookupSheet } from '../../components/IacHookup/IacHookupSheet';
+import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 
 // Service Item Component
-const ServiceItem = ({ service, projectId, onRefresh, navigation }) => {
+const ServiceItem = ({ service, projectId, onRefresh, navigation, placement }) => {
   const [enabled, setEnabled] = useState(service.enabled === 1 || service.enabled === true);
   const [loading, setLoading] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -41,7 +44,16 @@ const ServiceItem = ({ service, projectId, onRefresh, navigation }) => {
       if (enabled) {
         result = await projectService.disableServiceForProject(projectId, service.id);
       } else {
-        result = await projectService.enableServiceForProject(projectId, service.id);
+        const devices = await deviceService.getDevices().catch(() => []);
+        const online = (devices || []).filter((d) => d.status === 'online');
+        let workerId = null;
+        if (online.length && typeof window !== 'undefined' && window.prompt) {
+          const names = online.map((d, i) => `${i + 1}. ${d.display_name || d.hostname}`).join('\n');
+          const pick = window.prompt(`Device for ${service.name} (blank = auto-place)\n${names}`);
+          const idx = Number(pick) - 1;
+          if (Number.isInteger(idx) && online[idx]) workerId = online[idx].id;
+        }
+        result = await projectService.enableServiceForProject(projectId, service.id, workerId);
       }
 
       if (result.success) {
@@ -49,8 +61,10 @@ const ServiceItem = ({ service, projectId, onRefresh, navigation }) => {
         Alert.alert(
           'Success',
           enabled
-            ? `Service "${service.name}" disabled. All deployments stopped.`
-            : `Service "${service.name}" enabled. Deployed to ${result.deployments?.length || 0} worker(s).`,
+            ? `Service "${service.name}" detached from this project. The shared instance is still running.`
+            : (result.skipped_deploy || result.attached
+              ? `Service "${service.name}" attached to the shared instance.`
+              : `Service "${service.name}" enabled.`),
           [{ text: 'OK' }]
         );
         onRefresh();
@@ -78,7 +92,11 @@ const ServiceItem = ({ service, projectId, onRefresh, navigation }) => {
                 <Text style={ProjectDetailsStyles.listItemTitle}>{service.name}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </View>
-              <Text style={ProjectDetailsStyles.listItemSubtitle}>{service.docker_image}</Text>
+              <Text style={ProjectDetailsStyles.listItemSubtitle}>
+                {placement?.device
+                  ? `${service.name} · shared · ${placement.device}`
+                  : service.docker_image}
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 8 }}>
                 <View style={[
                   ProjectDetailsStyles.statusBadge,
@@ -155,6 +173,8 @@ export const ProjectDetails = ({ navigation, route }) => {
   const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
   const [iacStatus, setIacStatus] = useState(null);
   const [iacSheet, setIacSheet] = useState(false);
+  const [tab, setTab] = useState('info');
+  const [placements, setPlacements] = useState({});
 
   useEffect(() => {
     loadProject();
@@ -168,6 +188,14 @@ export const ProjectDetails = ({ navigation, route }) => {
         setProject(result.project);
       }
       try { setIacStatus(await projectService.getIacStatus(projectId)); } catch { setIacStatus(null); }
+      try {
+        const rows = await managerService.listServices();
+        const map = {};
+        (rows || []).forEach((s) => { if (s?.name) map[s.name] = s; });
+        setPlacements(map);
+      } catch {
+        setPlacements({});
+      }
     } catch (error) {
       console.error('Error loading project:', error);
     } finally {
@@ -277,8 +305,17 @@ export const ProjectDetails = ({ navigation, route }) => {
         onDone={async () => { setIacSheet(false); await loadProject(); }}
       />
 
-      {/* Project Info */}
-      <Box title="Project Information">
+      <ScreenTabs
+        tabs={[
+          { id: 'info', label: 'Info' },
+          { id: 'services', label: 'Services' },
+          { id: 'workers', label: 'Workers' },
+          { id: 'deployments', label: 'Deployments' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === 'info' ? <Box title="Project Information">
         <View style={ProjectDetailsStyles.infoRow}>
           <Text style={ProjectDetailsStyles.infoLabel}>Name:</Text>
           <Text style={ProjectDetailsStyles.infoValue}>{project.name}</Text>
@@ -306,10 +343,9 @@ export const ProjectDetails = ({ navigation, route }) => {
             {new Date(project.created_at).toLocaleDateString()}
           </Text>
         </View>
-      </Box>
+      </Box> : null}
 
-      {/* Actions - Hidden when used as dashboard */}
-      {!isDashboard && (
+      {tab === 'info' && !isDashboard && (
         <Box title="Actions">
           {!isCurrentProject && (
             <Button
@@ -334,8 +370,7 @@ export const ProjectDetails = ({ navigation, route }) => {
         </Box>
       )}
 
-      {/* Workers */}
-      <Box title={`Workers (${project.workers?.length || 0})`}>
+      {tab === 'workers' ? <Box title={`Workers (${project.workers?.length || 0})`}>
         <Button
           title="Add Workers"
           onPress={() => setShowAddWorkerModal(true)}
@@ -350,7 +385,7 @@ export const ProjectDetails = ({ navigation, route }) => {
               onPress={() => navigation.navigate('deviceDetails', { deviceId: worker.id })}
             >
               <View style={ProjectDetailsStyles.listItemContent}>
-                <Text style={ProjectDetailsStyles.listItemTitle}>{worker.hostname}</Text>
+                <Text style={ProjectDetailsStyles.listItemTitle}>{worker.display_name || worker.hostname}</Text>
                 <Text style={ProjectDetailsStyles.listItemSubtitle}>{worker.ip_address}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -359,10 +394,9 @@ export const ProjectDetails = ({ navigation, route }) => {
         ) : (
           <Text style={ProjectDetailsStyles.emptyText}>No workers assigned</Text>
         )}
-      </Box>
+      </Box> : null}
 
-      {/* Services */}
-      <Box title={`Services (${project.services?.length || 0})`}>
+      {tab === 'services' ? <Box title={`Services (${project.services?.length || 0})`}>
         <Button
           title="Add Services"
           onPress={() => setShowAddServiceModal(true)}
@@ -377,12 +411,13 @@ export const ProjectDetails = ({ navigation, route }) => {
               projectId={project.id}
               onRefresh={loadProject}
               navigation={navigation}
+              placement={placements[service.name]}
             />
           ))
         ) : (
           <Text style={ProjectDetailsStyles.emptyText}>No services assigned</Text>
         )}
-      </Box>
+      </Box> : null}
 
       {/* Modals */}
       <AddServiceModal
@@ -401,8 +436,7 @@ export const ProjectDetails = ({ navigation, route }) => {
 
       <StackJsonPanel />
 
-      {/* Deployments */}
-      <Box title={`Deployments (${project.deployments?.length || 0})`}>
+      {tab === 'deployments' ? <Box title={`Deployments (${project.deployments?.length || 0})`}>
         {project.deployments && project.deployments.length > 0 ? (
           project.deployments.map((deployment) => (
             <View key={deployment.id} style={ProjectDetailsStyles.listItem}>
@@ -422,7 +456,7 @@ export const ProjectDetails = ({ navigation, route }) => {
         ) : (
           <Text style={ProjectDetailsStyles.emptyText}>No deployments</Text>
         )}
-      </Box>
+      </Box> : null}
     </ScrollView>
   );
 };

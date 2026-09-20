@@ -2,7 +2,7 @@
 
 > **Integrations** · Implemented · needs provider keys for live calls
 
-Slack posts (channel/text). Queued; outbound send disabled.
+Slack posts (channel/text). Send when Slack secrets exist; otherwise queue-only.
 
 - **Port:** `3115`
 - **AWS analog:** Chatbot

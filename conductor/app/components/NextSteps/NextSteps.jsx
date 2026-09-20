@@ -15,23 +15,25 @@ const ACTION_ROUTE = {
   open_pr: 'gitManager',
 };
 
-export const NextSteps = ({ navigation, filter } = {}) => {
+export const NextSteps = ({ navigation, filter, steps: stepsProp } = {}) => {
   const { currentProject } = useProject();
-  const [steps, setSteps] = useState([]);
+  const [fetched, setFetched] = useState([]);
 
   const load = useCallback(async () => {
+    if (stepsProp) return;
     if (!currentProject?.id) return;
     try {
       const sum = await setupService.getProjectSummary(currentProject.id);
       const list = sum?.next_steps || [];
-      setSteps(filter ? list.filter((s) => filter.includes(s.action)) : list);
+      setFetched(filter ? list.filter((s) => filter.includes(s.action)) : list);
     } catch {
-      setSteps([]);
+      setFetched([]);
     }
-  }, [currentProject?.id, filter]);
+  }, [currentProject?.id, filter, stepsProp]);
 
   useEffect(() => { load(); }, [load]);
 
+  const steps = stepsProp || fetched;
   const pending = steps.filter((s) => s.status !== 'done');
   if (!pending.length) return null;
 

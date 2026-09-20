@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { PullRequest } = require('../models');
+const { PullRequest, PullComment, PullReview, CheckRun, Repository } = require('../models');
 const { RepoService } = require('../services/RepoService');
 const { GitService } = require('../services/GitService');
 
@@ -49,20 +49,102 @@ r.get('/:id', async (req, res, next) => {
       const dir = repos.repoDir(raw.project_id, raw.name);
       diff = await git.diff(dir, { source: pull.source_branch, target: pull.target_branch });
     } catch (_) { /* repo may be empty */ }
-    res.json({ pull, diff });
+    const comments = await PullComment.findAll({ where: { pull_id: pull.id, project_id: q(req) } }).catch(() => []);
+    const reviews = await PullReview.findAll({ where: { pull_id: pull.id, project_id: q(req) } }).catch(() => []);
+    const checks = await CheckRun.findAll({ where: { repo_id: pull.repo_id, project_id: q(req) } }).catch(() => []);
+    res.json({ pull, diff, comments, reviews, checks });
   } catch (e) { next(e); }
 });
 
-r.post('/:id/merge', async (req, res, next) => {
+r.post('/:id/comments', async (req, res, next) => {
   try {
-    const rows = await PullRequest.findAll({ where: { id: req.params.id, project_id: q(req) } });
+    const project_id = q(req);
+    const rows = await PullRequest.findAll({ where: { id: req.params.id, project_id } });
     if (!rows.length) return res.status(404).json({ error: { message: 'not found' } });
+    if (!req.body.body) return res.status(400).json({ error: { message: 'body required' } });
+    const row = await PullComment.create({
+      project_id,
+      pull_id: req.params.id,
+      author: req.body.author || req.user?.username || 'console',
+      body: req.body.body,
+      path: req.body.path || '',
+      line: req.body.line == null ? 0 : Number(req.body.line),
+    });
+    res.status(201).json({ comment: row });
+  } catch (e) { next(e); }
+});
+
+r.post('/:id/reviews', async (req, res, next) => {
+  try {
+    const project_id = q(req);
+    const rows = await PullRequest.findAll({ where: { id: req.params.id, project_id } });
+    if (!rows.length) return res.status(404).json({ error: { message: 'not found' } });
+    const state = String(req.body.state || '').toLowerCase();
+    if (!['approved', 'changes_requested', 'commented'].includes(state)) {
+      return res.status(400).json({ error: { message: 'state must be approved, changes_requested, or commented' } });
+    }
+    const row = await PullReview.create({
+      project_id,
+      pull_id: req.params.id,
+      author: req.body.author || req.user?.username || 'console',
+      state,
+      body: req.body.body || '',
+    });
+    res.status(201).json({ review: row });
+  } catch (e) { next(e); }
+});
+
+let mergeLock = Promise.resolve();
+
+r.post('/:id/merge', async (req, res, next) => {
+  const run = async () => {
+    const rows = await PullRequest.findAll({ where: { id: req.params.id, project_id: q(req) } });
+    if (!rows.length) {
+      const e = new Error('not found');
+      e.status = 404;
+      throw e;
+    }
     const pull = rows[0];
     const raw = await repos.getRaw(pull.repo_id, q(req));
     const dir = repos.repoDir(raw.project_id, raw.name);
     if (pull.status === 'merged') {
-      return res.status(409).json({ error: { message: 'already merged' } });
+      const e = new Error('already merged');
+      e.status = 409;
+      throw e;
     }
+    const reviews = await PullReview.findAll({ where: { pull_id: pull.id, project_id: q(req) } }).catch(() => []);
+    if (reviews.some((rv) => rv.state === 'changes_requested')) {
+      const e = new Error('changes requested — cannot merge');
+      e.status = 409;
+      throw e;
+    }
+    const repoRows = await Repository.findAll({ where: { id: pull.repo_id } }).catch(() => []);
+    const requireApproval = Number(repoRows[0]?.require_approval || 0) === 1;
+    if (requireApproval && !reviews.some((rv) => rv.state === 'approved')) {
+      const e = new Error('approval required');
+      e.status = 409;
+      throw e;
+    }
+    const checks = await CheckRun.findAll({ where: { repo_id: pull.repo_id, project_id: q(req) } }).catch(() => []);
+    const recent = {};
+    for (const c of checks) recent[c.name] = c;
+    const failed = Object.values(recent).filter((c) => c.status === 'failed');
+    if (failed.length) {
+      const e = new Error(`checks failed: ${failed.map((c) => c.name).join(', ')}`);
+      e.status = 409;
+      throw e;
+    }
+    try {
+      const { proxy } = require('../../../shared/conductorProxy');
+      await proxy({
+        service: 'queue_manager',
+        method: 'POST',
+        path: '/api/v1/queues/git-merge/messages',
+        projectId: q(req),
+        body: { project_id: q(req), body: JSON.stringify({ pull_id: pull.id, repo: raw.name }) },
+        timeout: 8000,
+      });
+    } catch (_) { /* queue is observational */ }
     const target = pull.target_branch || 'main';
     const result = await git.mergeFastForward(dir, { source: pull.source_branch, target });
     await PullRequest.update(req.params.id, { status: 'merged' });
@@ -76,11 +158,18 @@ r.post('/:id/merge', async (req, res, next) => {
         old_sha: '',
         new_sha: sha,
         pusher: 'merge',
+        from_merge: true,
+        merged: true,
       });
     } catch (hookErr) {
       console.warn('[git_manager] merge cicd trigger skipped:', hookErr.message);
     }
-    res.json({ pull: { ...pull, status: 'merged' }, merged: true, sha: result?.sha || '' });
+    return { pull: { ...pull, status: 'merged' }, merged: true, sha: result?.sha || '' };
+  };
+  try {
+    const done = mergeLock.then(run, run);
+    mergeLock = done.catch(() => {});
+    res.json(await done);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: { message: e.message } });
     next(e);

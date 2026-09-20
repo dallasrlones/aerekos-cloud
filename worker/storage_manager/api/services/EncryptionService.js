@@ -16,10 +16,7 @@ class EncryptionService {
    * @returns {Promise<object>} Key object with decrypted key material
    */
   async getEncryptionKey(keyName, projectId) {
-    if (!projectId) {
-      throw new Error('projectId is required to fetch encryption key');
-    }
-
+    // projectId may be null for system-scoped buckets (global keys, no ?project_id= param)
     if (process.env.MOCK_KEY_MANAGER === 'true') {
       const material =
         process.env.MOCK_KEY_MATERIAL ||
@@ -41,8 +38,11 @@ class EncryptionService {
     }
 
     try {
+      const keyUrl = projectId
+        ? `${this.conductorUrl}/api/services/key_manager/api/keys/${keyName}?project_id=${encodeURIComponent(projectId)}`
+        : `${this.conductorUrl}/api/services/key_manager/api/keys/${keyName}`;
       const response = await axios.get(
-        `${this.conductorUrl}/api/services/key_manager/api/keys/${keyName}?project_id=${encodeURIComponent(projectId)}`,
+        keyUrl,
         {
           headers: {
             'Authorization': `Bearer ${this.serviceToken}`,

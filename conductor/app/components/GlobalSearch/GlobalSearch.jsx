@@ -13,6 +13,7 @@ const STATIC_ACTIONS = [
   { id: 'projects', label: 'Projects', sub: 'All projects', icon: 'folder-outline', screen: 'projects' },
   { id: 'settings', label: 'Settings', sub: 'Account & tokens', icon: 'settings-outline', screen: 'settings' },
   { id: 'menu', label: 'Navigation menu', sub: 'Full app menu', icon: 'menu-outline', screen: 'menu' },
+  { id: 'ai-agents', label: 'Icarus Agents', sub: 'AI Manager → Agents', icon: 'people-outline', screen: 'aiAgents' },
 ];
 
 function scoreMatch(query, text) {

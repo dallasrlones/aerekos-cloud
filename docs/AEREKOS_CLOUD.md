@@ -36,11 +36,17 @@ SSH aliases used in docs: `prod.aerekos.com`, `dev.aerekos.com`, `orin.aerekos.c
 ## 3. Where the code lives (source of truth)
 
 - **Canonical SoT tree (this machine):** `/home/aerekos/work/aerekos/aerekos-cloud`
-  - Top dir is `root:root` — needs `sudo chown aerekos:aerekos <topdir>` before `git init` / adding top-level files.
+  - Top dir is `aerekos:aerekos` (chowned 2026-09-20) — git works normally.
   - **Running containers bind-mount this live** (conductor, worker, frontend), so edits here are seen by the stack (code only takes effect on service restart/redeploy).
 - **Laptop copy:** `/home/aerekos/work/laptop-aerekos-cloud/aerekos-cloud` — newer on ~2200 files (the "intended" SoT per the owner).
 - **Pre-merge backup:** `/home/aerekos/work/aerekos/aerekos-cloud.bak-20260919-034054.tar` — **plain tar, NOT gzip** (use `tar -tf`, not `-tzf`).
-- **git origin (`git.aerekos.com`):** the git_manager repos volume is currently **EMPTY** — the first push makes this machine the origin.
+- **git origin (`git.aerekos.com`) — LIVE since 2026-09-20:** repo `aerekos-cloud` under project
+  `9d8bde11-6933-4732-b746-602dcf72eaa5` in git_manager. History = Aug-30 fleet seed
+  (24604bb, 29a7610) + 3149da8 (live prod-mini tree promoted as SoT). Push auth: the
+  `GIT_AUTH_TOKEN` secret in the repo `.env` (also in the git_manager container env) —
+  `git push http://git:$GIT_AUTH_TOKEN@192.168.0.141:3130/git/9d8bde11-.../aerekos-cloud.git main`.
+- **Sudo:** `SUDO_PASSWORD` is set in `~/work/hermes/.env`; a narrow NOPASSWD allowlist lives
+  at `/etc/sudoers.d/aerekos-nopasswd` (chown/chmod/systemctl/mount/docker/ufw/tar/rsync/…).
 - **Reconciliation done 2026-09-19:** laptop's newer files + this machine's complete impls merged into the canonical tree. ~910 zero-byte files (a copy artifact that had emptied both copies) were **recovered from the pre-merge backup (906 restored)**; the ~4 still-empty are brand-new `ai_manager` stubs.
 
 **Lesson:** the on-disk tree can be a *skeleton* (filenames with no content). If a file
@@ -178,21 +184,33 @@ vector_manager, vpn_manager, waf_manager, websocket_manager, workflow_manager`
 
 - Models (`api/models/index.js`): **Project → Bucket → File (→ FileChunk)**, plus
   `SignedUrl` and `FileAccess` (audit).
-- **Bucket `belongsTo` Project** (`project_id` FK) — *this is what Task 2 changes* to
-  allow buckets to belong to a **System** (not just a Project) and to pin a bucket to a
-  **physical path** (e.g. `/mnt/usb24tb/media`).
+- **Bucket belongsTo Project OR System** (done 2026-09-20): `system_id` + `base_path`
+  columns (migration runs at startup, `api/utils/migrations.js`). System buckets are
+  addressed by **`/api/systems/<systemId>/buckets/...` and `/api/systems/<systemId>/buckets/<name>/files/...`**
+  (direct + multipart upload, list, HEAD, delete) in `api/routes/systemBuckets.js` /
+  `systemFiles.js`. `base_path` pins a bucket's physical home (e.g. `/mnt/usb24tb/aerekos-media`)
+  instead of the default `STORAGE_PATH` volume. System buckets use **global** key_manager keys
+  (no `project_id`) — `EncryptionService.getEncryptionKey` accepts a null projectId.
 - Files are **encrypted** (key name from key_manager), support **chunked upload**, and
-  **signed URLs**. Physical location = `storage_path` (currently under the service data
-  volume — a 24 TB media bucket needs to live on the USB HDD instead).
+  **signed URLs**. Physical location = `base_path/<bucketId>/<fileId>_<key>` (or the service
+  data volume when no base_path).
 - Sub-containers: `storage_admin` (3002), `storage_hosting` (3001), `storage_management` (3010).
+- Tests: 53/53 unit green (node:20 container), incl. `tests/unit/services/SystemBuckets.test.js`.
 
 ---
 
 ## 8. Git (git.aerekos.com)
 
 - `git_manager` service, host port **3130**. Routes: `repos, gitHttp, issues, pulls, checks`
-  (it already has GitHub-style **issues/PRs** routes).
-- Bare repos in volume `aerekos-cloud_git_manager-data/_data/repos/` — **currently EMPTY**.
+  (it already has GitHub-style **issues/PRs** routes). API under `/api/v1/...`, git transport
+  under `/git/<project>/<repo>.git` (and `/<project>/<repo>/...`).
+- **Auth (fixed 2026-09-20):** the git transport requires the shared secret
+  `GIT_AUTH_TOKEN` (Bearer or Basic `git:<token>`) or a JWT it can verify. `GIT_AUTH_TOKEN`
+  is in the repo `.env` and the git_manager container env — push with
+  `git push http://git:$GIT_AUTH_TOKEN@192.168.0.141:3130/git/<project>/<repo>.git main`.
+- Bare repos in volume `aerekos-cloud_git_manager-data/_data/repos/<project>/<name>.git`.
+  Repo `aerekos-cloud` (project `9d8bde11-...`) holds the monorepo SoT; other repos are
+  per-project (icarus, icarus-assistant, forged-lumen).
 - **Task 4:** make it look/feel like GitHub **plus** a full **Adonis** IDE (terminal,
   docker, container-manager integration) — "aerekos git manager with our IDE Adonis."
 
@@ -221,9 +239,9 @@ vector_manager, vpn_manager, waf_manager, websocket_manager, workflow_manager`
 
 - **23 managers not deployed** (incl. `download_manager`, `ai_manager`).
 - **download_manager:** HTTP download works; **real torrent (qBittorrent/aria2) and YouTube
-  (yt-dlp) are stubbed** — `completeLive()` throws "requires a host downloader". Not deployed.
-- **git origin not pushed** (repos volume empty).
-- **Top-level dir is `root:root`** — `git init` blocked until chown.
+  (yt-dlp) are stubbed** — `completeLive()` throws "requires a host downloader". Not deployed
+  yet. (storage side of Task 2 — system buckets — is DONE; the DM needs system-bucket
+  targeting + a host downloader + deployment to prod-mini.)
 - **aerekos-record** is a custom SQLite adapter, not Postgres — mind its uniqueness quirks.
 
 ---
@@ -249,3 +267,8 @@ Parked (`//`): **3** (container manager/images), **6** (better service enabling)
 - **Find a service's data on disk:** `/var/lib/docker/volumes/aerekos-cloud_<name>-data/_data/`.
 - **Deploy a change:** edit the canonical tree, then rebuild/redeploy that one service
   (don't churn the whole running stack).
+- **Push to git origin:** `cd /home/aerekos/work/aerekos/aerekos-cloud && git push origin main`
+  (remote already configured with the token; LAN URL 192.168.0.141:3130).
+- **System bucket on the USB HDD:** `POST /api/services/storage_manager/api/systems/<sid>/buckets`
+  with `{"name":"media","base_path":"/mnt/usb24tb/aerekos-media"}` (host must see the path —
+  mount it into the container or use the host path the storage_manager container sees).

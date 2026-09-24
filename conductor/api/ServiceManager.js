@@ -706,12 +706,27 @@ class ServiceManager {
       // Require projectId for all services (including key_manager - all services are project-scoped)
       // EXCEPTION: Signed URLs can work without projectId as they validate via HMAC signature
       // and can look up projectId from bucketId internally
+      // EXCEPTION: System buckets (/api/systems/<id>/...) are project-independent — they are
+      // addressed by system_id, not project_id — so a null projectId is valid there. They are
+      // routed straight to the service (system buckets are single-host, not load-balanced).
       const isSignedUrl = path && path.includes('/signed/');
-      if (!projectId && !isSignedUrl) {
+      const isSystemScoped = path && path.includes('/systems/');
+      if (!projectId && !isSignedUrl && !isSystemScoped) {
         throw {
           status: 400,
           message: 'projectId is required for service proxying. All services are project-scoped.',
           code: 'PROJECT_ID_REQUIRED'
+        };
+      }
+
+      if (isSystemScoped && !projectId) {
+        // System buckets: route directly (no project-scoped instance selection).
+        const directHit = await this._directServiceRequest(serviceName, method, path, data, query, options);
+        if (directHit) return directHit;
+        throw {
+          status: 502,
+          message: `Direct routing to ${serviceName} failed for system-scoped request`,
+          code: 'SYSTEM_PROXY_FAILED'
         };
       }
       

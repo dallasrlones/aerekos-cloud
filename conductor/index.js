@@ -329,6 +329,18 @@ async function startServer() {
       console.log(`WebSocket server initialized`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Database: ${process.env.DATABASE_PATH || './data/conductor.db'}`);
+
+      // Adopt the JWT signing secret from the key manager (single source of
+      // truth shared with auth_manager). The read path runs through this
+      // service's own proxy, so it can only succeed once we are listening;
+      // retry for a while in case secrets/key managers are still starting.
+      const JWTService = require('./api/services/JWTService');
+      (async () => {
+        for (let attempt = 1; attempt <= 20; attempt++) {
+          if (await JWTService.loadKmsSecret()) break;
+          if (attempt < 20) await new Promise((r) => setTimeout(r, 5000));
+        }
+      })();
     });
   } catch (error) {
     console.error('Failed to start server:', error);

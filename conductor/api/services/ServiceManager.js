@@ -832,8 +832,13 @@ class ServiceManager {
       // Require projectId for all services (including key_manager - all services are project-scoped)
       // EXCEPTION: Signed URLs can work without projectId as they validate via HMAC signature
       // and can look up projectId from bucketId internally
+      // EXCEPTION: /systems/ paths (system buckets) are project-less by design
+      // EXCEPTION: key_manager /api/keys* is a GLOBAL key store (bucket encryption keys) —
+      // projectless by design; storage_manager calls it for system buckets
       const isSignedUrl = path && path.includes('/signed/');
-      if (!projectId && !isSignedUrl) {
+      const isSystemPath = path && path.includes('/systems/');
+      const isGlobalKeyStore = serviceName === 'key_manager' && path && path.startsWith('/api/keys');
+      if (!projectId && !isSignedUrl && !isSystemPath && !isGlobalKeyStore) {
         throw {
           status: 400,
           message: 'projectId is required for service proxying. All services are project-scoped.',
@@ -841,9 +846,10 @@ class ServiceManager {
         };
       }
       
-      // For signed URLs without projectId, try to find any deployment
-      // The storage_manager will validate the signature and look up projectId from bucketId
-      if (!projectId && isSignedUrl) {
+      // For signed URLs, system-bucket paths, and global key-store paths without projectId,
+      // try to find any deployment
+      // The storage_manager validates via signature (signed) or system scope (system buckets)
+      if (!projectId && (isSignedUrl || isSystemPath || isGlobalKeyStore)) {
         // Find any deployment for this service (signed URLs are validated by signature)
         const anyDeployment = await ServiceDeployment.findAll({
           where: {

@@ -29,6 +29,9 @@ router.post('/quick-add', async (req, res, next) => {
       window: req.body?.window || 'overnight',
       urls,
       format: req.body?.format,
+      system_id: req.body?.system_id,
+      bucket: req.body?.bucket,
+      prefix: req.body?.prefix,
     });
     res.status(201).json(result);
   } catch (e) {
@@ -53,9 +56,50 @@ router.post('/lists/:id/items', async (req, res, next) => {
   try {
     const pid = projectId(req);
     const urls = req.body?.urls || (req.body?.url ? [req.body.url] : []);
-    const result = await downloads.addItems(pid, { list: req.params.id, urls, format: req.body?.format, window: req.body?.window });
+    const result = await downloads.addItems(pid, {
+      list: req.params.id,
+      urls,
+      format: req.body?.format,
+      window: req.body?.window,
+      system_id: req.body?.system_id,
+      bucket: req.body?.bucket,
+      prefix: req.body?.prefix,
+    });
     res.status(201).json(result);
   } catch (e) { next(e); }
+});
+
+router.get('/items', async (req, res, next) => {
+  try {
+    res.json({ items: await downloads.listAllItems(projectId(req), req.query || {}) });
+  } catch (e) { next(e); }
+});
+
+router.get('/items/:id', async (req, res, next) => {
+  try {
+    res.json({ item: await downloads.getItem(req.params.id, projectId(req)) });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
+});
+
+router.patch('/items/:id', async (req, res, next) => {
+  try {
+    res.json({ item: await downloads.updateItem(req.params.id, projectId(req), req.body || {}) });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
+});
+
+router.delete('/items/:id', async (req, res, next) => {
+  try {
+    res.json(await downloads.deleteItem(req.params.id, projectId(req)));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: { message: e.message } });
+    next(e);
+  }
 });
 
 for (const action of ['pause', 'resume', 'retry']) {

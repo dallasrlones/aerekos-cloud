@@ -6,7 +6,8 @@ const DownloadList = db.model('DownloadList', {
   bucket: 'string',
   prefix: 'string',
   window_id: 'string',
-}, { required: ['project_id', 'name'], indexes: ['project_id', 'name'], timestamps: true });
+  system_id: 'string', // when set, items upload to a SYSTEM bucket (api/systems/<id>/buckets/<bucket>) instead of a project bucket
+}, { required: ['project_id', 'name'], indexes: ['project_id', 'name', 'system_id'], timestamps: true });
 
 const DownloadItem = db.model('DownloadItem', {
   project_id: 'string',
@@ -14,10 +15,12 @@ const DownloadItem = db.model('DownloadItem', {
   kind: 'string',
   url: 'string',
   format: 'string',
-  status: 'string',
+  status: 'string', // pending|running|complete|failed
   progress: 'string',
   storage_key: 'string',
+  qbt_hash: 'string', // qBittorrent infohash (magnet/torrent_url items)
   error: 'string',
+  system_id: 'string', // copied from the list so completion knows the target bucket type
 }, { required: ['project_id', 'list_id', 'url'], indexes: ['project_id', 'list_id', 'status'], timestamps: true });
 
 const DownloadWindow = db.model('DownloadWindow', {

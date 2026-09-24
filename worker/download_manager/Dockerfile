@@ -3,8 +3,10 @@
 #   docker build -f download_manager/Dockerfile -t aerekos-download_manager worker/
 FROM node:20-bookworm-slim
 WORKDIR /app/download_manager
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp
 COPY download_manager/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY download_manager/ ./

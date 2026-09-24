@@ -40,23 +40,38 @@ router.post('/validate-token', async (req, res, next) => {
       where: { service_token: token } 
     });
     
-    if (services.length === 0) {
-      return res.status(401).json({
-        error: {
-          message: 'Invalid service token',
-          status: 401
-        }
+    if (services.length > 0) {
+      const service = services[0];
+      return res.json({
+        service: {
+          id: service.id,
+          name: service.name
+        },
+        valid: true
       });
     }
-    
-    const service = services[0];
-    
-    res.json({
-      service: {
-        id: service.id,
-        name: service.name
-      },
-      valid: true
+
+    // Internal platform/worker tokens are not stored in the service registry
+    // but are trusted by the conductor proxy (appProxyAuth). Accept them here
+    // too so services can validate them (key_manager, storage_manager, ...).
+    const internalTokens = [
+      process.env.WORKER_REGISTRATION_TOKEN,
+      process.env.WORKER_TOKEN,
+      process.env.CONDUCTOR_TOKEN
+    ].filter(Boolean);
+    if (internalTokens.includes(token)) {
+      return res.json({
+        service: { id: 'worker', name: 'worker' },
+        valid: true,
+        internal: true
+      });
+    }
+
+    return res.status(401).json({
+      error: {
+        message: 'Invalid service token',
+        status: 401
+      }
     });
   } catch (error) {
     next(error);

@@ -1,0 +1,10 @@
+const ds = require('/home/aerekos/work/aerekos/aerekos-cloud/worker/download_manager/api/services/DownloadService.js');
+console.log('DownloadService OK:', Object.keys(ds).join(','));
+const q = require('/home/aerekos/work/aerekos/aerekos-cloud/worker/download_manager/api/utils/qbit.js');
+console.log('qbit OK:', Object.keys(q).join(','));
+const y = require('/home/aerekos/work/aerekos/aerekos-cloud/worker/download_manager/api/utils/ytdlp.js');
+console.log('ytdlp OK:', Object.keys(y).join(','));
+const m = require('/home/aerekos/work/aerekos/aerekos-cloud/worker/download_manager/api/utils/migrations.js');
+console.log('migrations OK:', Object.keys(m).join(','));
+const models = require('/home/aerekos/work/aerekos/aerekos-cloud/worker/download_manager/api/models/index.js');
+console.log('models OK:', Object.keys(models).join(','));

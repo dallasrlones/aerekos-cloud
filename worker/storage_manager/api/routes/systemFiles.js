@@ -29,17 +29,13 @@ router.post('/:systemId/buckets/:bucketName/files/:key(*)', validateServiceToken
 
     const contentType = req.headers['content-type'] || '';
 
-    if (!contentType.includes('multipart/form-data') && !contentType.includes('application/octet-stream')) {
-      return res.status(400).json({
-        error: { message: 'Content-Type must be multipart/form-data or application/octet-stream', status: 400 }
-      });
+    // multipart/form-data -> busboy; anything else (application/octet-stream or a
+    // concrete type like audio/mpeg, video/mp4) is a raw-body upload.
+    if (contentType.includes('multipart/form-data')) {
+      return handleMultipartUpload(req, res, next, null, bucketName, key, systemId);
     }
 
-    if (contentType.includes('application/octet-stream')) {
-      return handleDirectUpload(req, res, next, null, bucketName, key, systemId);
-    }
-
-    return handleMultipartUpload(req, res, next, null, bucketName, key, systemId);
+    return handleDirectUpload(req, res, next, null, bucketName, key, systemId);
   } catch (error) {
     next(error);
   }

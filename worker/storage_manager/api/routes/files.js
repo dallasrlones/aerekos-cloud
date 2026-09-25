@@ -39,19 +39,15 @@ router.post('/:projectId/buckets/:bucketName/files/:key(*)', validateServiceToke
     // Check content type
     const contentType = req.headers['content-type'] || '';
     
-    if (!contentType.includes('multipart/form-data') && !contentType.includes('application/octet-stream')) {
-      return res.status(400).json({
-        error: { message: 'Content-Type must be multipart/form-data or application/octet-stream', status: 400 }
-      });
+    // multipart/form-data -> busboy; anything else (application/octet-stream or a
+    // concrete type like audio/mpeg, video/mp4) is a raw-body upload.
+    if (contentType.includes('multipart/form-data')) {
+      // Handle multipart/form-data with busboy - stream directly to disk
+      return handleMultipartUpload(req, res, next, projectId, bucketName, key);
     }
-    
-    // Handle direct binary upload (application/octet-stream)
-    if (contentType.includes('application/octet-stream')) {
-      return handleDirectUpload(req, res, next, projectId, bucketName, key);
-    }
-    
-    // Handle multipart/form-data with busboy - stream directly to disk
-    return handleMultipartUpload(req, res, next, projectId, bucketName, key);
+
+    // Handle direct binary upload (streams to disk; request content-type is recorded)
+    return handleDirectUpload(req, res, next, projectId, bucketName, key);
     
   } catch (error) {
     // Clean up temp file if it exists

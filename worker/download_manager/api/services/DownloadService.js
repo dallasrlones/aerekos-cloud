@@ -111,7 +111,10 @@ async function uploadLocalFile({ projectId, systemId, bucket, key, localPath, co
   const stream = fs.createReadStream(localPath);
   const res = await axios.post(`${base}${urlPath}`, stream, {
     headers: {
-      ...authHeaders(projectId || null, {}),
+      // System buckets are project-agnostic: route to the shared storage
+      // deployment without an x-project-id, otherwise the conductor looks for
+      // a per-project storage deployment and 503s "not enabled for this project".
+      ...authHeaders(systemId ? null : projectId, {}),
       'Content-Type': contentType || contentTypeFor(localPath),
       'Content-Length': st.size,
     },

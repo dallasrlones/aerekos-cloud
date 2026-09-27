@@ -34,6 +34,20 @@ class BucketRepository {
       ...filter
     });
   }
+
+  async listSystemIds() {
+    const { Bucket } = await getModels();
+    const rows = await Bucket.findAll();
+    const seen = new Set();
+    const out = [];
+    for (const r of rows) {
+      if (r.system_id && !seen.has(r.system_id)) {
+        seen.add(r.system_id);
+        out.push(r.system_id);
+      }
+    }
+    return out;
+  }
   
   async findByProject(projectId, filter = {}) {
     const { Bucket } = await getModels();

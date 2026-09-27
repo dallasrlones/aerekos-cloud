@@ -8,6 +8,21 @@ const MANAGER_SERVICE_PORTS = require('../config/managerServicePorts');
 const { mergeProjectSecretsIntoConfig } = require('./projectSecretEnv');
 
 /**
+ * Map a worker (device) to its friendly display name.
+ * Single source of truth for device naming — used by ServiceManager status
+ * endpoints and by InfraService (IaC export/apply) so files and UI agree.
+ */
+function friendlyDevice(worker) {
+  if (!worker) return null;
+  if (worker.display_name) return worker.display_name;
+  const host = String(worker.hostname || '');
+  if (host === 'aerekos-server' || host === 'prod') return 'Prod-Mini';
+  if (host === 'aerekos-M5-PLUS') return 'Dev-Mini';
+  if (host === 'ubuntu' || /orin/i.test(host)) return 'Orin';
+  return host || null;
+}
+
+/**
  * Service Manager - Manages service deployments and proxying
  */
 class ServiceManager {
@@ -19,13 +34,7 @@ class ServiceManager {
   }
 
   _friendlyDevice(worker) {
-    if (!worker) return null;
-    if (worker.display_name) return worker.display_name;
-    const host = String(worker.hostname || '');
-    if (host === 'aerekos-server' || host === 'prod') return 'Prod-Mini';
-    if (host === 'aerekos-M5-PLUS') return 'Dev-Mini';
-    if (host === 'ubuntu' || /orin/i.test(host)) return 'Orin';
-    return host || null;
+    return friendlyDevice(worker);
   }
 
   /**
@@ -1279,3 +1288,4 @@ ServiceManager.getInstance = function(workerRepository) {
 };
 
 module.exports = ServiceManager;
+module.exports.friendlyDevice = friendlyDevice;

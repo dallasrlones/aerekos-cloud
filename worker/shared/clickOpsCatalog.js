@@ -294,6 +294,9 @@ function emptyStack(projectId) {
   const stack = {
     kind: 'project-stack',
     project_id: projectId || '',
+    // services: [{ name, device, worker_id, config }] — IaC placement records.
+    // device: explicit device name pins it; "auto" is resolved at apply time.
+    services: [],
     hostnames: [],
     attachments: [],
     load_balancers: [],

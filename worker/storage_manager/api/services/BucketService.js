@@ -401,6 +401,14 @@ class BucketService {
   }
 
   /**
+   * List the distinct systems that own one or more buckets.
+   */
+  async listSystems() {
+    const ids = await this.bucketRepo.listSystemIds();
+    return ids.map((id) => ({ id, name: id }));
+  }
+
+  /**
    * Update system bucket settings
    */
   async updateSystemBucket(systemId, bucketName, updates) {

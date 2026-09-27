@@ -62,7 +62,19 @@ router.post('/:systemId/buckets', validateServiceToken, async (req, res, next) =
   }
 });
 
-// GET /api/systems/:systemId/buckets - List system buckets
+// GET /api/systems - List systems that own one or more buckets
+router.get('/', validateServiceToken, async (req, res, next) => {
+  try {
+    const systems = await bucketService.listSystems();
+    res.json({
+      systems
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/systems/:systemId/buckets - List buckets in a system
 router.get('/:systemId/buckets', validateServiceToken, async (req, res, next) => {
   try {
     const { systemId } = req.params;

@@ -708,6 +708,21 @@ router.post('/:id/iac/hookup', authenticate, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/projects/:id/infra/export — task 5: infra-as-code file.
+// Reads live state (services + their devices, resources), records it as a
+// stack revision, and commits infra.json to the project's `infra` git repo.
+// ?commit=0 skips the git commit (file only, for inspection).
+router.get('/:id/infra/export', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    const commit = req.query.commit !== '0';
+    res.json(await InfraService.exportProject(req.params.id, { commit }));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
 router.get('/:id/edge/status', authenticate, async (req, res, next) => {
   try {
     const EdgeService = require('../services/EdgeService');

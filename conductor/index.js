@@ -183,6 +183,8 @@ app.use('/api/fleet', fleetRoutes);
 app.use('/api/jobs', jobsRoutes);
 const liveRoutes = require('./api/routes/live');
 app.use('/api/live', liveRoutes);
+const systemRoutes = require('./api/routes/system');
+app.use('/api/system', systemRoutes);
 app.use('/api', serviceOrchestrationRoutes);
 
 const gatewayRoutes = require('./api/routes/gateway');

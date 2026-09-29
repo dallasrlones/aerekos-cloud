@@ -27,6 +27,7 @@ const {
   Service,
   ProjectService: ProjectServiceModel,
   ServiceDeployment,
+  ProjectStack,
 } = require('../models');
 const ProjectRepository = require('../repos/ProjectRepository');
 const WorkerRepository = require('../repos/WorkerRepository');
@@ -35,7 +36,7 @@ const ServiceManager = ServiceManagerModule;
 const { friendlyDevice } = ServiceManagerModule;
 const StackService = require('./StackService');
 const { requireShared } = require('../utils/loadWorkerShared');
-const { emptyStack, listClickOps, sanitizeResource } = requireShared('clickOpsCatalog');
+const { emptyStack, listClickOps, sanitizeResource, collectionPath, itemPath } = requireShared('clickOpsCatalog');
 
 function sm() {
   return ServiceManager.getInstance(WorkerRepository);
@@ -67,6 +68,9 @@ class InfraService {
   async listDevices() {
     const workers = await Worker.findAll();
     return workers.map((w) => ({
+      // Worker UUID — the pin apply passes to ServiceManager so a
+      // deployment lands on exactly this device.
+      id: w.id,
       name: friendlyDevice(w) || w.hostname || w.id,
       hostname: w.hostname || null,
       ip_address: w.ip_address || null,
@@ -432,6 +436,257 @@ class InfraService {
       repoInfo = { committed: false, reason: found.reason || 'no infra repo', repo: null };
     }
     return { file, repo: repoInfo };
+  }
+
+  // ---------- apply / down / import (device-aware up + down) ----------
+
+  /**
+   * Pick a worker for a service: a pinned device name wins; "auto" resolves
+   * to the online worker with the most free disk (fallback: any online,
+   * then any worker).
+   */
+  _pickDevice(devices, pinned, anyDevice) {
+    const norm = (v) => String(v || '').toLowerCase();
+    const online = devices.filter((d) => d.status === 'online');
+    if (pinned && pinned !== 'auto') {
+      const found =
+        online.find((d) => norm(d.name) === norm(pinned) || norm(d.hostname) === norm(pinned)) ||
+        devices.find((d) => norm(d.name) === norm(pinned) || norm(d.hostname) === norm(pinned));
+      if (found) return found;
+      if (!anyDevice) {
+        const e = new Error(`pinned device "${pinned}" not found (online: ${online.map((d) => d.name).join(', ') || 'none'})`);
+        e.status = 409;
+        throw e;
+      }
+    }
+    const pool = online.length ? online : devices;
+    if (!pool.length) {
+      const e = new Error('no workers in the fleet');
+      e.status = 409;
+      throw e;
+    }
+    const avail = (d) => (d.resources && d.resources.disk && d.resources.disk.available_gb != null)
+      ? d.resources.disk.available_gb : -1;
+    const withDisk = pool.filter((d) => avail(d) >= 0);
+    return (withDisk.length ? withDisk : pool).slice().sort((a, b) => avail(b) - avail(a))[0];
+  }
+
+  /**
+   * Single writer (git): write the stack as infra.json into the project's
+   * `infra` git repo. No-op when the project isn't hooked up.
+   */
+  async commitInfraFile(projectId, { stack, revision, status } = {}) {
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) return { committed: false, reason: 'project not found', repo: null };
+    const found = await this._ensureRepo(projectId, 'infra');
+    if (!found.ok || !found.repo || !found.repo.id) {
+      return { committed: false, reason: found.reason || 'no infra repo', repo: null };
+    }
+    const file = this.toInfraFile(project, { stack, revision: revision || 0, status: status || 'draft' });
+    const c = await this._commitFile(projectId, found.repo, 'infra.json', JSON.stringify(file, null, 2),
+      `infra: sync ${project.name} (rev ${revision || 0})`);
+    return { repo: { id: found.repo.id, name: found.repo.name }, ...c };
+  }
+
+  /**
+   * Device-aware apply: bring the project's live infra in line with an infra
+   * file (or its current stack when no file is given):
+   *   - enable each wanted service on its pinned device
+   *     ("auto" → online worker with the most free disk)
+   *   - bake the resolved devices back into a new stack revision
+   *   - provision the file's resources (idempotent POSTs to the P4 managers)
+   *   - commit infra.json to the project's infra repo
+   */
+  async applyProject(projectId, { file = null, anyDevice = false } = {}) {
+    const PROD = 'ea370977-3aff-4c76-95a6-a0c50fd2bce7';
+    if (projectId === PROD) {
+      const e = new Error('never apply to the production project');
+      e.status = 403;
+      throw e;
+    }
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) {
+      const e = new Error('Project not found');
+      e.status = 404;
+      throw e;
+    }
+
+    const cur = await StackService.current(projectId);
+    const base = emptyStack(projectId);
+    const src = file && typeof file === 'object' ? file : cur.stack;
+    if (src.kind === 'system-infra') {
+      const e = new Error('cannot apply a system-tier file to a project');
+      e.status = 400;
+      throw e;
+    }
+    const content = { ...base, ...src, kind: 'project-stack', project_id: projectId };
+    if (!Array.isArray(content.services)) content.services = [];
+
+    const devices = await this.listDevices();
+    const SetupService = require('./SetupService');
+    const names = new Set([
+      ...(Array.isArray(content.wanted) ? content.wanted : []),
+      ...content.services.map((s) => s && s.name).filter(Boolean),
+    ]);
+    const plan = [...names].filter((n) => n && n !== 'auth_manager' && n !== 'vllm')
+      .map((name) => ({
+        name,
+        device: ((content.services.find((s) => s && s.name === name) || {}).device) || 'auto',
+      }));
+
+    const results = [];
+    for (const p of plan) {
+      let device = null;
+      let error = null;
+      try {
+        const pick = this._pickDevice(devices, p.device, anyDevice);
+        device = pick.name;
+        const row = await SetupService.enableWithDependencies(
+          projectId, p.name, { with_dependencies: true, defaults: true, workerId: pick.id });
+        const bad = (row.results || []).filter((r) => !r.enabled);
+        if (bad.length) error = bad.map((b) => `${b.service}: ${b.error || 'failed'}`).join('; ');
+      } catch (e) {
+        error = e.message || String(e);
+      }
+      results.push({ name: p.name, requested: p.device, device, status: error ? 'error' : 'ok', error });
+    }
+
+    // Bake the live placements back into the file (it stays the truth).
+    const live = await this.projectServices(projectId);
+    const liveByName = new Map(live.map((s) => [s.name, s.device]));
+    content.services = plan.map((p) => {
+      const prev = content.services.find((s) => s && s.name === p.name) || {};
+      return { ...prev, name: p.name, device: liveByName.get(p.name) || p.device || 'auto' };
+    });
+    content.wanted = plan.map((p) => p.name);
+    for (const ops of listClickOps()) {
+      if (!Array.isArray(content[ops.stackKey]) || !content[ops.stackKey].length) continue;
+      const dev = liveByName.get(ops.name);
+      if (!dev) continue;
+      content[ops.stackKey] = content[ops.stackKey].map((r) => (r && r.system) ? r : { ...r, device: dev });
+    }
+
+    await StackService.put(projectId, content, { commit: false });
+    const rows = await ProjectStack.findAll({ where: { project_id: projectId } });
+    rows.sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0));
+    if (rows[0]) {
+      await ProjectStack.update(rows[0].id, { status: 'applied', applied: rows[0].content, lock_holder: '' });
+    }
+
+    const provisioned = await StackService.provision(projectId, content);
+    const final = await StackService.current(projectId);
+    const repo = await this.commitInfraFile(projectId, { stack: final.stack, revision: final.revision, status: final.status });
+    return { project: project.name, services: results, provisioned, repo, revision: final.revision };
+  }
+
+  /**
+   * Bring the project's infra down.
+   *   soft: detach the services from the project (shared instances keep
+   *         running); resources stay. The stack keeps wanted/services so a
+   *         later apply re-enables everything.
+   *   hard: same, plus DELETE every resource the stack knows about.
+   */
+  async downProject(projectId, { hard = false } = {}) {
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) {
+      const e = new Error('Project not found');
+      e.status = 404;
+      throw e;
+    }
+    const cur = await StackService.current(projectId);
+    const names = [...new Set([
+      ...(Array.isArray(cur.stack.services) ? cur.stack.services.map((s) => s && s.name) : []),
+      ...(Array.isArray(cur.stack.wanted) ? cur.stack.wanted : []),
+    ])].filter((n) => n && n !== 'auth_manager' && n !== 'vllm');
+
+    const disabled = [];
+    for (const name of names) {
+      try {
+        const r = await sm().disableService(name, projectId);
+        disabled.push({ name, status: r && r.disabled === false && r.platform ? 'platform' : 'detached' });
+      } catch (e) {
+        disabled.push({ name, status: 'error', error: e.message || String(e) });
+      }
+    }
+
+    let deleted = {};
+    if (hard) {
+      for (const ops of listClickOps()) {
+        if (!ops.allowDelete) continue;
+        const items = Array.isArray(cur.stack[ops.stackKey]) ? cur.stack[ops.stackKey] : [];
+        const rows = [];
+        for (const item of items) {
+          const id = item && item[ops.idField || 'id'];
+          if (!id) continue;
+          try {
+            const res = await sm().proxyServiceRequest(
+              ops.name, 'DELETE', `${itemPath(ops, projectId, id)}`, null, {}, projectId, authHeader());
+            rows.push({ name: item.name || String(id), status: res.status, ok: res.status < 400 });
+          } catch (e) {
+            rows.push({ name: item.name || String(id), error: e.message || String(e), ok: false });
+          }
+        }
+        if (rows.length) deleted[ops.stackKey] = rows;
+      }
+    }
+
+    const next = hard
+      ? { ...emptyStack(projectId), kind: 'project-stack', project_id: projectId }
+      : { ...cur.stack, kind: 'project-stack', project_id: projectId };
+    await StackService.put(projectId, next, { commit: false });
+    const rows = await ProjectStack.findAll({ where: { project_id: projectId } });
+    rows.sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0));
+    if (rows[0]) {
+      await ProjectStack.update(rows[0].id, { status: 'downed', applied: rows[0].content, lock_holder: '' });
+    }
+
+    const final = await StackService.current(projectId);
+    const repo = await this.commitInfraFile(projectId, { stack: final.stack, revision: final.revision, status: final.status });
+    return { hard, disabled, deleted, repo, revision: final.revision };
+  }
+
+  /**
+   * Import an infra file as a brand-new project: create the project, hook up
+   * its infra repo (git mode), then apply the file to it.
+   */
+  async importProject({ name, description = '', file = null, anyDevice = false } = {}, bearerToken = null) {
+    if (!name || typeof name !== 'string') {
+      const e = new Error('name is required');
+      e.status = 400;
+      throw e;
+    }
+    if (!file || typeof file !== 'object' || Array.isArray(file)) {
+      const e = new Error('file is required (an infra file object)');
+      e.status = 400;
+      throw e;
+    }
+    const existing = await ProjectRepository.findAll();
+    if (existing.some((pr) => pr.name === name)) {
+      const e = new Error(`project "${name}" already exists`);
+      e.status = 409;
+      throw e;
+    }
+
+    const project = await ProjectRepository.create({ name, description: description || '', config: '{}' });
+    const IacHookupService = require('./IacHookupService');
+    const hookup = await IacHookupService.hookup(project.id, { mode: 'git' }, bearerToken);
+    if (!hookup.hooked_up) {
+      const e = new Error(`IAC hookup failed: ${hookup.error || JSON.stringify(hookup.missing || {})}`);
+      e.status = 503;
+      e.project = { id: project.id, name: project.name };
+      throw e;
+    }
+    const result = await this.applyProject(project.id, { file, anyDevice });
+    // applyProject reports project as a bare name string; return the full
+    // object so callers can use project.id / project.name.
+    return {
+      project: { id: project.id, name: project.name },
+      hookup,
+      services: result.services,
+      provisioned: result.provisioned,
+      repo: result.repo,
+      revision: result.revision,
+    };
   }
 }
 

@@ -450,14 +450,16 @@ class SetupService {
     return { ok: false, skipped: true, error: 'unreachable' };
   }
 
-  async enableService(projectId, serviceName, { defaults = true } = {}) {
+  async enableService(projectId, serviceName, { defaults = true, workerId = null } = {}) {
     const ServiceManager = require('./ServiceManager');
     const WorkerRepository = require('../repos/WorkerRepository');
     const sm = ServiceManager.getInstance(WorkerRepository);
     let enabledOk = false;
     let error = null;
     try {
-      await sm.enableService(serviceName, null, projectId);
+      // workerId: pin the deployment to a specific device (infra apply);
+      // null lets the orchestrator pick (existing behavior).
+      await sm.enableService(serviceName, workerId, projectId);
       enabledOk = true;
     } catch (err) {
       error = err.message || String(err);
@@ -478,12 +480,14 @@ class SetupService {
     return { service: serviceName, enabled: enabledOk, error, defaults: def };
   }
 
-  async enableWithDependencies(projectId, serviceName, { with_dependencies = true, defaults = true } = {}) {
+  async enableWithDependencies(projectId, serviceName, { with_dependencies = true, defaults = true, workerId = null } = {}) {
     const names = with_dependencies ? requiredDepsInOrder(serviceName) : [serviceName];
     const enabled = [];
     const defaultsOut = {};
     for (const name of names) {
-      const row = await this.enableService(projectId, name, { defaults });
+      // Only the primary service honors the device pin; dependencies resolve
+      // on their own (shared instances keep running where they already run).
+      const row = await this.enableService(projectId, name, { defaults, workerId: name === serviceName ? workerId : null });
       enabled.push(row);
       if (row.defaults) defaultsOut[name] = row.defaults;
     }

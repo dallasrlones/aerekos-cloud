@@ -1,7 +1,7 @@
 /**
  * Database helper utilities for tests
  */
-const { User, Worker, Service, Project, ProjectWorker, ProjectService, Token, Resource, ServiceDeployment } = require('../../api/models');
+const { User, Worker, Service, Project, ProjectWorker, ProjectService, Token, Resource, ServiceDeployment, ProjectMember, ProjectStack, ProjectEnvironment, PlatformJob } = require('../../api/models');
 const { initializeDatabase } = require('../../api/utils/dbInit');
 
 /**
@@ -47,6 +47,38 @@ async function cleanupTestData() {
     for (const projectService of projectServices) {
       try {
         await ProjectService.delete(projectService.id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    for (const member of await ProjectMember.findAll()) {
+      try {
+        await ProjectMember.delete(member.id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    for (const stackRow of await ProjectStack.findAll()) {
+      try {
+        await ProjectStack.delete(stackRow.id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    for (const env of await ProjectEnvironment.findAll()) {
+      try {
+        await ProjectEnvironment.delete(env.id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    for (const job of await PlatformJob.findAll()) {
+      try {
+        await PlatformJob.delete(job.id);
       } catch (e) {
         // Ignore errors
       }
@@ -128,14 +160,15 @@ async function createTestUser(overrides = {}) {
  */
 async function createTestWorker(overrides = {}) {
   const timestamp = Date.now();
-  
+  const { resources, ...rest } = overrides;
   return await Worker.create({
-    hostname: overrides.hostname || `worker-${timestamp}`,
-    ip_address: overrides.ip_address || '192.168.1.100',
-    status: overrides.status || 'online',
-    last_seen: overrides.last_seen || new Date().toISOString(),
-    resources: overrides.resources || JSON.stringify({ cpu: 4, ram: 8, disk: 100 }),
-    ...overrides
+    hostname: rest.hostname || `worker-${timestamp}`,
+    ip_address: rest.ip_address || '192.168.1.100',
+    status: rest.status || 'online',
+    last_seen: rest.last_seen || new Date().toISOString(),
+    // resources is a JSON-string column: accept either an object or a string
+    resources: typeof resources === 'string' ? resources : JSON.stringify(resources || { cpu: 4, ram: 8, disk: 100 }),
+    ...rest,
   });
 }
 
@@ -183,6 +216,82 @@ async function createTestProject(overrides = {}) {
   });
 }
 
+/**
+ * Create a service deployment row (service running on a worker, optionally
+ * scoped to a project).
+ */
+async function createTestDeployment(overrides = {}) {
+  return await ServiceDeployment.create({
+    service_id: overrides.service_id,
+    worker_id: overrides.worker_id,
+    project_id: overrides.project_id !== undefined ? overrides.project_id : null,
+    status: overrides.status || 'deployed',
+    deployed_at: overrides.deployed_at || new Date().toISOString(),
+    ...overrides
+  });
+}
+
+/**
+ * Seed a complete project fixture in ONE call — the standard "arrange" for
+ * integration tests. Project + workers + services + project-service links +
+ * deployment rows. Teardown is cleanupTestData() (delete everything, in
+ * dependency order).
+ *
+ *   const fx = await seedProjectFixture({
+ *     project:  { name: 'my-proj' },
+ *     workers:  [{ hostname: 'w1' }, { hostname: 'w2', status: 'offline',
+ *                  resources: { disk: { available_gb: 500 } } }],
+ *     services: [{ name: 'storage_manager' }, { name: 'git_manager' }],
+ *     enable:   ['storage_manager'],           // link to the project
+ *     deploy:   { storage_manager: 'w1' },     // pin by worker HOSTNAME
+ *   });
+ *   // fx = { project, workers: {w1, w2}, services: {storage_manager, git_manager}, deployments: [...] }
+ */
+async function seedProjectFixture({
+  project: projectOverrides = {},
+  workers: workerSpecs = [],
+  services: serviceSpecs = [],
+  enable = [],
+  deploy = {},
+} = {}) {
+  const project = await createTestProject(projectOverrides);
+
+  const workers = {};
+  for (const spec of workerSpecs) {
+    const w = await createTestWorker(spec);
+    workers[spec.hostname || w.hostname] = w;
+  }
+
+  const services = {};
+  for (const spec of serviceSpecs) {
+    const s = await createTestService(spec);
+    services[spec.name || s.name] = s;
+  }
+
+  for (const name of enable) {
+    const svc = services[name];
+    if (!svc) throw new Error(`seedProjectFixture: enable "${name}" but no such service seeded`);
+    const existing = await ProjectService.findAll({ where: { project_id: project.id, service_id: svc.id } });
+    if (!existing.length) {
+      await ProjectService.create({ project_id: project.id, service_id: svc.id, enabled: 1 });
+    }
+  }
+
+  const deployments = [];
+  for (const [name, workerHost] of Object.entries(deploy)) {
+    const svc = services[name];
+    const worker = workers[workerHost];
+    if (!svc || !worker) throw new Error(`seedProjectFixture: deploy "${name}" -> "${workerHost}" references unknown fixture`);
+    deployments.push(await createTestDeployment({
+      service_id: svc.id,
+      worker_id: worker.id,
+      project_id: project.id,
+    }));
+  }
+
+  return { project, workers, services, deployments };
+}
+
 module.exports = {
   setupTestDatabase,
   cleanupTestData,
@@ -190,5 +299,7 @@ module.exports = {
   createTestWorker,
   createTestService,
   createTestToken,
-  createTestProject
+  createTestProject,
+  createTestDeployment,
+  seedProjectFixture
 };

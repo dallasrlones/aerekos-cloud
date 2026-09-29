@@ -723,6 +723,35 @@ router.get('/:id/infra/export', authenticate, async (req, res, next) => {
   }
 });
 
+// POST /api/projects/:id/infra/apply — device-aware apply of an infra file
+// (or the current stack when no file is given). Body: { file?, any_device? }.
+// Enables every wanted service on its pinned device, bakes the resolved
+// devices back into the stack, provisions resources, commits infra.json.
+router.post('/:id/infra/apply', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    res.json(await InfraService.applyProject(req.params.id, {
+      file: req.body && req.body.file,
+      anyDevice: !!(req.body && req.body.any_device),
+    }));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
+// POST /api/projects/:id/infra/down — soft (detach services, keep
+// resources) or hard (also delete resources). Body: { hard? }.
+router.post('/:id/infra/down', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    res.json(await InfraService.downProject(req.params.id, { hard: !!(req.body && req.body.hard) }));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
 router.get('/:id/edge/status', authenticate, async (req, res, next) => {
   try {
     const EdgeService = require('../services/EdgeService');

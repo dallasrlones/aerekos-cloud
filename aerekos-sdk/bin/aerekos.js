@@ -106,7 +106,8 @@ ${C.bold}Discover${C.reset}
 
 ${C.bold}Operate${C.reset}
   backup run|jobs|get|restore [--project P] [--data JSON]
-  iac status|hookup|apply|put [--project P] [--data JSON]
+  iac status|hookup|export|apply|down [--project P] [--data JSON] [--hard] [--any-device] [--no-commit]
+  iac system | iac import --name N --data '<infra file JSON>' [--any-device]
   edge status|hookup [--project P]
   setup <service>|graph|status [--project P]
   vpc status|move --worker <id> --vpc <id>
@@ -221,13 +222,26 @@ async function main() {
     die('usage: aerekos backup run|jobs|get|restore');
   }
   if (cmd === 'iac') {
-    const project = projectOf(flags); if (!project) die('needs --project');
     const act = positionals[1];
+    if (act === 'system') return out(await client.iac.system(), asJson);
+    if (act === 'import') {
+      const name = flags.name;
+      if (!name) die('import needs --name <project name> and --data <infra file JSON>');
+      return out(await client.iac.import({
+        name,
+        description: flags.description || '',
+        file: dataOf(flags) || {},
+        any_device: !!flags['any-device'],
+      }), asJson);
+    }
+    const project = projectOf(flags); if (!project) die('needs --project');
     if (act === 'status') return out(await client.iac.status(project), asJson);
     if (act === 'hookup') return out(await client.iac.hookup(project, dataOf(flags) || { mode: 'conductor' }), asJson);
-    if (act === 'apply') return out(await client.iac.apply(project), asJson);
+    if (act === 'export') return out(await client.iac.export(project, { commit: !flags['no-commit'] }), asJson);
+    if (act === 'apply') return out(await client.iac.applyFile(project, { file: dataOf(flags) || undefined, any_device: !!flags['any-device'] }), asJson);
+    if (act === 'down') return out(await client.iac.down(project, { hard: !!flags.hard }), asJson);
     if (act === 'put') return out(await client.iac.put(project, dataOf(flags) || {}), asJson);
-    die('usage: aerekos iac status|hookup|apply|put');
+    die('usage: aerekos iac status|hookup|export|apply|down|system|import [--project P] [--data JSON] [--hard] [--any-device] [--no-commit] [--name N]');
   }
   if (cmd === 'setup') {
     const act = positionals[1];

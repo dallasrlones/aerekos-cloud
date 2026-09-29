@@ -22,4 +22,26 @@ router.get('/infra/export', authenticate, async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/system/infra/import
+ * Create a brand-new project from an infra file: the project is created,
+ * its infra repo hooked up (git mode), and the file applied to it — the
+ * new project comes up with the same infra as the file.
+ * Body: { name, description?, file, any_device? }.
+ */
+router.post('/infra/import', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    res.json(await InfraService.importProject({
+      name: req.body && req.body.name,
+      description: req.body && req.body.description,
+      file: req.body && req.body.file,
+      anyDevice: !!(req.body && req.body.any_device),
+    }, req.headers.authorization));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
 module.exports = router;

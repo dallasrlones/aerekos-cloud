@@ -1232,6 +1232,19 @@ class IacApi {
   constructor(client) { this.c = client; }
   status(projectId) { return this.c.request('GET', `/api/projects/${projectId}/iac/status`); }
   hookup(projectId, body) { return this.c.request('POST', `/api/projects/${projectId}/iac/hookup`, { body }); }
+  // Per-project infra-as-code file (devices, services, resources).
+  export(projectId, { commit } = {}) {
+    return this.c.request('GET', `/api/projects/${projectId}/infra/export${commit === false ? '?commit=0' : ''}`);
+  }
+  // System-tier infra-as-code file (system/infra.json).
+  system() { return this.c.request('GET', '/api/system/infra/export'); }
+  // Device-aware apply: enable the file's services on their pinned devices,
+  // bake the resolved devices back into the stack, provision resources.
+  applyFile(projectId, body = {}) { return this.c.request('POST', `/api/projects/${projectId}/infra/apply`, { body }); }
+  // Down: detach services (soft) or also delete resources (hard).
+  down(projectId, body = {}) { return this.c.request('POST', `/api/projects/${projectId}/infra/down`, { body }); }
+  // Import an infra file as a brand-new project (hooked up + applied).
+  import(body) { return this.c.request('POST', '/api/system/infra/import', { body }); }
   apply(projectId) { return this.c.request('POST', `/api/projects/${projectId}/stack/apply`); }
   put(projectId, body) { return this.c.request('PUT', `/api/projects/${projectId}/stack`, { body }); }
 }

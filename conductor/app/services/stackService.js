@@ -53,6 +53,36 @@ export const stackService = {
     const res = await api.post(`/api/projects/${projectId}/stack/rollback`, {});
     return res.data;
   },
+
+  // ---- infra-as-code (task 5): the infra file + device-aware up/down ----
+
+  /** Export the project's infra-as-code file (committed to its infra repo). */
+  async exportInfra(projectId, { commit } = {}) {
+    const res = await api.get(`/api/projects/${projectId}/infra/export${commit === false ? '?commit=0' : ''}`);
+    return res.data;
+  },
+
+  /** System-tier infra file (system/infra.json). */
+  async systemInfra() {
+    const res = await api.get('/api/system/infra/export');
+    return res.data;
+  },
+
+  /**
+   * Device-aware apply: enable the services on their pinned devices
+   * ("auto" → most free disk), bake devices back into the stack, provision
+   * resources, commit infra.json. Body: { file?, any_device? }.
+   */
+  async applyInfra(projectId, body = {}) {
+    const res = await api.post(`/api/projects/${projectId}/infra/apply`, body);
+    return res.data;
+  },
+
+  /** Down: soft (detach services) or { hard: true } (also delete resources). */
+  async downInfra(projectId, body = {}) {
+    const res = await api.post(`/api/projects/${projectId}/infra/down`, body);
+    return res.data;
+  },
 };
 
 export default stackService;

@@ -784,6 +784,14 @@ router.use(
         timeout: isSlowAi ? slowAiTimeout : undefined,
       });
 
+      // Single writer (infra-as-code): mirror successful mutating calls to a
+      // P4 manager into the project stack, so the project's infra file always
+      // matches live state (covers CLI/SDK direct writes, not just click-ops).
+      if (projectId && result.status >= 200 && result.status < 400 &&
+          ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase())) {
+        require('../services/StackService').recordProxyWrite(projectId, serviceName, method, req.path, data, result.data);
+      }
+
       const ct = (result.headers && (result.headers['content-type'] || result.headers['Content-Type'])) || '';
       const isBinary =
         isTtsAudio

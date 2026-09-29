@@ -59,7 +59,7 @@ class StackService {
     };
   }
 
-  async put(projectId, body) {
+  async put(projectId, body, { commit = true } = {}) {
     const cur = await this.current(projectId);
     if (cur.status === 'applying') {
       const e = new Error('apply in progress');
@@ -67,17 +67,45 @@ class StackService {
       throw e;
     }
     const content = { ...emptyStack(projectId), ...body, kind: 'project-stack', project_id: projectId };
-    const revision = cur.revision + 1;
-    await ProjectStack.create({
-      project_id: projectId,
-      revision,
-      content: JSON.stringify(content),
-      applied: cur.applied ? JSON.stringify(cur.applied) : '',
-      status: 'draft',
-      lock_holder: '',
-    });
+    // No-op guard: identical content → no new revision. Double-recording
+    // (UI record + proxy record) and repeated exports become harmless.
+    if (cur.revision > 0 && JSON.stringify(cur.stack) === JSON.stringify(content)) {
+      return cur;
+    }
+    let revision = cur.revision + 1;
+    try {
+      await ProjectStack.create({
+        project_id: projectId,
+        revision,
+        content: JSON.stringify(content),
+        applied: cur.applied ? JSON.stringify(cur.applied) : '',
+        status: 'draft',
+        lock_holder: '',
+      });
+    } catch (err) {
+      // A concurrent put raced us. Return if our content already landed,
+      // otherwise retry once with a fresh revision.
+      const again = await this.current(projectId);
+      if (again.revision >= revision && JSON.stringify(again.stack) === JSON.stringify(content)) {
+        return again;
+      }
+      await ProjectStack.create({
+        project_id: projectId,
+        revision: again.revision + 1,
+        content: JSON.stringify(content),
+        applied: again.applied ? JSON.stringify(again.applied) : '',
+        status: 'draft',
+        lock_holder: '',
+      });
+    }
     await this.upsertIacModule(projectId, content);
-    return this.current(projectId);
+    const out = await this.current(projectId);
+    // Single writer: mirror the new revision into the project's infra repo.
+    if (commit) {
+      this.commitInfraFile(projectId, out.stack, out.revision)
+        .catch((e) => console.warn('[stack] infra commit:', e.message));
+    }
+    return out;
   }
 
   async record(projectId, body) {
@@ -96,6 +124,73 @@ class StackService {
     const cur = await this.current(projectId);
     const next = removeRecords(cur.stack, entries);
     return this.put(projectId, next);
+  }
+
+  /** Extract the written resource from a manager response (best effort). */
+  extractResource(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    const sub = ['resource', 'bucket', 'database', 'module', 'key', 'secret', 'container', 'function', 'schedule', 'item'];
+    for (const k of sub) {
+      const v = payload[k];
+      if (v && typeof v === 'object' && (v.name || v.key || v.id)) return v;
+    }
+    if (Array.isArray(payload.items) && payload.items[0] && typeof payload.items[0] === 'object') return payload.items[0];
+    if (payload.name || payload.key || payload.id) return payload;
+    return null;
+  }
+
+  /**
+   * Single-writer hook for the conductor's service proxy: after a successful
+   * mutating call to a P4 manager, mirror it into the project stack so the
+   * infra file always matches live state (covers CLI/SDK direct writes).
+   */
+  async recordProxyWrite(projectId, serviceName, method, reqPath, data, resultData) {
+    try {
+      if (!projectId || !serviceName) return null;
+      const ops = getClickOps(serviceName);
+      if (!ops) return null;
+      const m = String(method || '').toUpperCase();
+      if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(m)) return null;
+      // req.path here is '/<serviceName>/api/<segment>/…'
+      const parts = String(reqPath || '').split('/').filter(Boolean);
+      if (parts.length < 3 || parts[0] !== serviceName || parts[1] !== 'api') return null;
+      const seg = parts[2];
+      if (seg !== ops.segment) return null;
+      const idField = ops.idField || 'id';
+      if (m === 'DELETE') {
+        const id = parts[parts.length - 1];
+        if (!id || id === 'replace-key') return null;
+        const cur = await this.current(projectId);
+        const list = Array.isArray(cur.stack[ops.stackKey]) ? cur.stack[ops.stackKey] : [];
+        const entry = list.find((r) => r && (String(r[idField]) === String(id) || r.name === id));
+        if (!entry) return null;
+        return await this.unrecord(projectId, { service: serviceName, key: ops.stackKey, name: entry.name });
+      }
+      const resource = this.extractResource(resultData);
+      if (!resource || (!resource.name && !resource.key)) return null;
+      return await this.record(projectId, { service: serviceName, key: ops.stackKey, resource });
+    } catch (err) {
+      console.warn('[stack] proxy record failed:', err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Single writer (git): write the stack as infra.json into the project's
+   * `infra` git repo. Only for projects with a git IAC hookup.
+   */
+  async commitInfraFile(projectId, stack, revision) {
+    const ProjectRepository = require('../repos/ProjectRepository');
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) return { committed: false, reason: 'project not found', repo: null };
+    const cfg = typeof project.config === 'string'
+      ? JSON.parse(project.config || '{}')
+      : (project.config || {});
+    if (!cfg.iac_hookup || cfg.iac_hookup.mode !== 'git' || !cfg.iac_hookup.repo) {
+      return { committed: false, reason: 'no git iac hookup', repo: null };
+    }
+    const InfraService = require('./InfraService');
+    return InfraService.commitInfraFile(projectId, { stack, revision, status: 'draft' });
   }
 
   async recordWanted(projectId, serviceName) {

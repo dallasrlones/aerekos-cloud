@@ -43,9 +43,10 @@ describe('Service Orchestration API', () => {
 
     // Create test service
     testService = await Service.create({
-      name: 'key_manager',
+      name: 'ai_manager',
+      description: 'Test AI manager service',
       enabled: 1,
-      docker_image: 'aerekos-key_manager:latest',
+      docker_image: 'aerekos-ai_manager:latest',
       config: '{}'
     });
 

@@ -1,20 +1,95 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { HeaderStyles } from '../Header/Header.styles';
-import { colors, spacing, borderRadius, typography } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useFleetAlerts } from '../FleetAlert/FleetAlertListener';
 import { useJobs } from '../JobStatus/JobStatus';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 export const NotificationBell = ({ navigation }) => {
+  const { colors, spacing, borderRadius, typography, mode } = useTheme();
   const { downs, unread, markRead } = useFleetAlerts();
   const { jobs } = useJobs();
   const { compact } = useBreakpoint();
   const [open, setOpen] = useState(false);
-  const running = (jobs || []).filter((j) => j.status === 'running' || j.status === 'queued');
   const fleetCount = downs.length || unread;
   const showDot = fleetCount === 0 && (jobs || []).length > 0;
+
+  const styles = useMemo(() => StyleSheet.create({
+    iconButton: {
+      padding: spacing.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minWidth: 44,
+      minHeight: 44,
+    },
+    badge: {
+      position: 'absolute',
+      top: 6,
+      right: 6,
+      backgroundColor: colors.error,
+      borderRadius: 8,
+      minWidth: 16,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 3,
+    },
+    badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    dot: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.primary,
+    },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    panel: {
+      position: 'absolute',
+      right: 8,
+      top: 48,
+      width: 320,
+      backgroundColor: colors.cardBackground,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      zIndex: 3000,
+      ...(Platform.OS === 'web' ? {
+        boxShadow: mode === 'dark'
+          ? '0 8px 24px rgba(0,0,0,0.55)'
+          : '0 8px 24px rgba(0,0,0,0.12)',
+      } : {}),
+    },
+    panelFull: {
+      position: 'relative',
+      right: 0,
+      top: 0,
+      width: '100%',
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      maxHeight: '80%',
+    },
+    panelTitle: { ...typography.h3, marginBottom: spacing.sm, color: colors.textPrimary },
+    section: {
+      fontSize: 11,
+      fontWeight: '600',
+      letterSpacing: 1,
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    },
+    empty: { color: colors.textMuted, fontSize: 13, marginBottom: 8 },
+    row: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
+    rowText: { fontSize: 13, color: colors.textPrimary },
+    kind: { fontSize: 11, color: colors.accent, textTransform: 'uppercase', marginBottom: 2 },
+    closeBtn: { minHeight: 44, justifyContent: 'center', marginTop: spacing.sm },
+    close: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  }), [colors, spacing, borderRadius, typography, mode]);
 
   const close = () => setOpen(false);
   const toggle = () => {
@@ -64,7 +139,7 @@ export const NotificationBell = ({ navigation }) => {
 
   return (
     <View>
-      <TouchableOpacity style={HeaderStyles.iconButton} onPress={toggle} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.iconButton} onPress={toggle} activeOpacity={0.7}>
         <Ionicons name="notifications-sharp" size={24} color={colors.textPrimary} />
         {fleetCount > 0 ? (
           <View style={styles.badge}>
@@ -85,61 +160,3 @@ export const NotificationBell = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  badge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: colors.error,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  dot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  panel: {
-    position: Platform.OS === 'web' ? 'absolute' : 'absolute',
-    right: 8,
-    top: 48,
-    width: 320,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    zIndex: 3000,
-    ...(Platform.OS === 'web' ? { boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } : {}),
-  },
-  panelFull: {
-    position: 'relative',
-    right: 0,
-    top: 0,
-    width: '100%',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '80%',
-  },
-  panelTitle: { ...typography.h3, marginBottom: spacing.sm },
-  section: { fontSize: 11, fontWeight: '600', letterSpacing: 1, color: colors.textMuted, textTransform: 'uppercase', marginBottom: 6 },
-  empty: { color: colors.textMuted, fontSize: 13, marginBottom: 8 },
-  row: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  rowText: { fontSize: 13, color: colors.textPrimary },
-  kind: { fontSize: 11, color: colors.primary, textTransform: 'uppercase', marginBottom: 2 },
-  closeBtn: { minHeight: 44, justifyContent: 'center', marginTop: spacing.sm },
-  close: { color: colors.primary, fontSize: 14, fontWeight: '600' },
-});

@@ -7,15 +7,17 @@ class OpsTimelineService {
       const FleetHealthService = require('./FleetHealthService');
       const snap = await FleetHealthService.snapshot(projectId || null);
       for (const w of snap.workers || []) {
-        if (w.status !== 'online') {
-          events.push({
-            at: w.last_seen || new Date().toISOString(),
-            kind: 'worker',
-            severity: 'error',
-            title: `${w.hostname || w.id} is ${w.status || 'offline'}`,
-            ref: { worker_id: w.id },
-          });
-        }
+        if (w.status === 'online') continue;
+        const status = w.status || 'offline';
+        // Offline is expected fleet state — warn only. Degraded counts as broken.
+        const severity = status === 'offline' ? 'warning' : 'error';
+        events.push({
+          at: w.last_seen || new Date().toISOString(),
+          kind: 'worker',
+          severity,
+          title: `${w.hostname || w.id} is ${status}`,
+          ref: { worker_id: w.id },
+        });
       }
     } catch (_) { /* best effort */ }
     try {

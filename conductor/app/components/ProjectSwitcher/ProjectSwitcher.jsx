@@ -2,12 +2,95 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useProject } from '../../contexts/ProjectContext';
-import { ProjectSwitcherStyles } from './ProjectSwitcher.styles';
-import { colors } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export const ProjectSwitcher = ({ navigation }) => {
-  const { currentProject, projects, isLoading, setCurrentProject, createProject } = useProject();
+  const { currentProject, projects, isLoading, setCurrentProject } = useProject();
+  const { colors, spacing, shadows, borderRadius } = useTheme();
   const [dropdownVisible, setDropdownVisible] = useState(false);
+
+  const styles = {
+    container: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      minWidth: 80,
+      maxWidth: '100%',
+      flex: 1,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    projectName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginRight: spacing.xs,
+      flex: 1,
+    },
+    chevron: { marginLeft: spacing.xs },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-start',
+      paddingTop: Platform.select({ ios: 100, android: 80, web: 60 }),
+      paddingHorizontal: spacing.md,
+    },
+    dropdown: {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      maxHeight: 400,
+      ...shadows.large,
+    },
+    scrollView: { maxHeight: 400 },
+    emptyState: {
+      padding: spacing.lg,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 14,
+      color: colors.textMuted,
+    },
+    projectItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    projectItemActive: {
+      backgroundColor: colors.surfaceHover,
+    },
+    projectItemText: {
+      fontSize: 14,
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    projectItemTextActive: {
+      color: colors.accent,
+      fontWeight: '600',
+    },
+    createButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      marginTop: spacing.xs,
+    },
+    createIcon: { marginRight: spacing.sm },
+    createText: {
+      fontSize: 14,
+      color: colors.accent,
+      fontWeight: '600',
+    },
+  };
 
   const handleProjectSelect = async (projectId) => {
     setDropdownVisible(false);
@@ -24,28 +107,27 @@ export const ProjectSwitcher = ({ navigation }) => {
   };
 
   const displayName = currentProject?.name || 'No Project';
-  const hasProjects = projects.length > 0;
 
   return (
     <>
       <TouchableOpacity
-        style={ProjectSwitcherStyles.container}
+        style={styles.container}
         onPress={() => setDropdownVisible(true)}
         activeOpacity={0.7}
       >
-        <View style={ProjectSwitcherStyles.content}>
+        <View style={styles.content}>
           {isLoading ? (
             <ActivityIndicator size="small" color={colors.accent} />
           ) : (
             <>
-              <Text style={ProjectSwitcherStyles.projectName} numberOfLines={1}>
+              <Text style={styles.projectName} numberOfLines={1}>
                 {displayName}
               </Text>
               <Ionicons
                 name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
                 size={16}
                 color={colors.textSecondary}
-                style={ProjectSwitcherStyles.chevron}
+                style={styles.chevron}
               />
             </>
           )}
@@ -54,66 +136,54 @@ export const ProjectSwitcher = ({ navigation }) => {
 
       <Modal
         visible={dropdownVisible}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setDropdownVisible(false)}
       >
         <TouchableOpacity
-          style={ProjectSwitcherStyles.modalOverlay}
+          style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setDropdownVisible(false)}
         >
-          <View style={ProjectSwitcherStyles.dropdown}>
-            <ScrollView style={ProjectSwitcherStyles.scrollView}>
+          <View style={styles.dropdown}>
+            <ScrollView style={styles.scrollView}>
               {projects.length === 0 ? (
-                <View style={ProjectSwitcherStyles.emptyState}>
-                  <Text style={ProjectSwitcherStyles.emptyText}>
-                    No projects yet
-                  </Text>
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>No projects yet</Text>
                 </View>
               ) : (
                 projects.map((project) => (
                   <TouchableOpacity
                     key={project.id}
                     style={[
-                      ProjectSwitcherStyles.projectItem,
-                      currentProject?.id === project.id && ProjectSwitcherStyles.projectItemActive
+                      styles.projectItem,
+                      currentProject?.id === project.id && styles.projectItemActive,
                     ]}
                     onPress={() => handleProjectSelect(project.id)}
                   >
                     <Text
                       style={[
-                        ProjectSwitcherStyles.projectItemText,
-                        currentProject?.id === project.id && ProjectSwitcherStyles.projectItemTextActive
+                        styles.projectItemText,
+                        currentProject?.id === project.id && styles.projectItemTextActive,
                       ]}
                     >
                       {project.name}
                     </Text>
-                    {currentProject?.id === project.id && (
-                      <Ionicons
-                        name="checkmark"
-                        size={20}
-                        color={colors.accent}
-                      />
-                    )}
+                    {currentProject?.id === project.id ? (
+                      <Ionicons name="checkmark" size={20} color={colors.accent} />
+                    ) : null}
                   </TouchableOpacity>
                 ))
               )}
-              
-              {/* Create Project Option */}
-              <TouchableOpacity
-                style={ProjectSwitcherStyles.createButton}
-                onPress={handleCreateProject}
-              >
+
+              <TouchableOpacity style={styles.createButton} onPress={handleCreateProject}>
                 <Ionicons
                   name="add-circle-outline"
                   size={20}
                   color={colors.accent}
-                  style={ProjectSwitcherStyles.createIcon}
+                  style={styles.createIcon}
                 />
-                <Text style={ProjectSwitcherStyles.createText}>
-                  Create Project
-                </Text>
+                <Text style={styles.createText}>Create Project</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>

@@ -12,7 +12,7 @@ export const AnimusStat = ({ label, value, unit, sub, size = 'md', align = 'left
         fontWeight: '700',
         letterSpacing: 2,
         textTransform: 'uppercase',
-        color: colors.textMuted,
+        color: colors.textSecondary,
         fontFamily: animus.mono,
       }}
       >

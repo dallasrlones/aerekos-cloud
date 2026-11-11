@@ -4,13 +4,20 @@ import { useProject } from '../../contexts/ProjectContext';
 import { recordServiceVisit } from '../../services/recentServices';
 import { loadProjectInventory, serviceScreen, itemScreen } from '../../services/projectInventory';
 import { Page, ListRow } from '../../components/ui';
-import { DashboardStyles as S } from '../Dashboard/Dashboard.styles';
-import { colors, spacing } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export const ProjectEnvHome = ({ navigation }) => {
   const { currentProject, currentEnvironment } = useProject();
+  const { colors, spacing, typography } = useTheme();
   const projectId = currentProject?.id;
   const env = currentEnvironment || 'dev';
+  const groupTitleStyle = {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  };
+  const groupStyle = { marginBottom: spacing.xl };
 
   const [groups, setGroups] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,8 +72,8 @@ export const ProjectEnvHome = ({ navigation }) => {
       ) : null}
 
       {groups.map((group) => (
-        <View key={group.id} style={S.group}>
-          <Text style={S.groupTitle}>{group.label}</Text>
+        <View key={group.id} style={groupStyle}>
+          <Text style={groupTitleStyle}>{group.label}</Text>
           {group.services.map((svc) => (
             <View key={svc.name}>
               <ListRow

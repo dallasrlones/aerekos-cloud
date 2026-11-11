@@ -22,7 +22,7 @@ export const AnimusMeter = ({
               fontSize: 11,
               letterSpacing: 1.2,
               textTransform: 'uppercase',
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: animus.mono,
             }}
             >

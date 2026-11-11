@@ -46,7 +46,7 @@ export const AnimusListRow = ({
         {meta ? (
           <Text style={{
             fontSize: 12,
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: animus.mono,
             marginTop: 2,
           }}

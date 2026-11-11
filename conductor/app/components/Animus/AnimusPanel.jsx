@@ -50,7 +50,7 @@ export const AnimusPanel = ({ title, right, children, strong = false, brackets =
               fontWeight: '700',
               letterSpacing: 2,
               textTransform: 'uppercase',
-              color: animus.inkSoft,
+              color: animus.ink,
               fontFamily: animus.mono,
             }}
             >

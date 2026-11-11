@@ -6,12 +6,21 @@ import { GPU_FLEET_SERVICES, PLATFORM_DEVICE_SERVICES } from '../../config/platf
 import { getServiceMeta } from '../../services/serviceCatalog';
 import { recordServiceVisit } from '../../services/recentServices';
 import { Page, ListRow, HookupBanner } from '../../components/ui';
-import { DashboardStyles as S } from '../Dashboard/Dashboard.styles';
+import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../utils/api';
 import { managerService } from '../../services/managerService';
 
 export const SystemHome = ({ navigation }) => {
   const { currentProject } = useProject();
+  const { colors, spacing, typography } = useTheme();
+  const groupTitle = {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  };
+  const group = { marginBottom: spacing.xl };
+  const emptyText = { ...typography.bodySecondary, marginTop: spacing.md };
   const [fleet, setFleet] = useState(null);
   const [ops, setOps] = useState(null);
   const [placements, setPlacements] = useState({});
@@ -118,12 +127,12 @@ export const SystemHome = ({ navigation }) => {
         />
       ) : null}
 
-      <View style={S.group}>
-        <Text style={S.groupTitle}>
+      <View style={group}>
+        <Text style={groupTitle}>
           Devices · {online}/{total} online
         </Text>
         {loading && !fleet ? (
-          <ActivityIndicator size="small" />
+          <ActivityIndicator size="small" color={colors.accent} />
         ) : (fleet?.workers || []).length ? (
           (fleet.workers || []).map((w) => (
             <ListRow
@@ -145,12 +154,12 @@ export const SystemHome = ({ navigation }) => {
             />
           ))
         ) : (
-          <Text style={S.emptyText}>No devices registered yet.</Text>
+          <Text style={emptyText}>No devices registered yet.</Text>
         )}
       </View>
 
-      <View style={S.group}>
-        <Text style={S.groupTitle}>GPU & AI</Text>
+      <View style={group}>
+        <Text style={groupTitle}>GPU & AI</Text>
         {gpuServices.map((svc) => {
           const place = placements[svc.name];
           const device = place?.device || place?.worker_hostname;
@@ -169,8 +178,8 @@ export const SystemHome = ({ navigation }) => {
         })}
       </View>
 
-      <View style={S.group}>
-        <Text style={S.groupTitle}>Device services</Text>
+      <View style={group}>
+        <Text style={groupTitle}>Device services</Text>
         {deviceServices.map((svc) => {
           const place = placements[svc.name];
           const device = place?.device || place?.worker_hostname;
@@ -189,8 +198,8 @@ export const SystemHome = ({ navigation }) => {
         })}
       </View>
 
-      <View style={S.group}>
-        <Text style={S.groupTitle}>Fleet glance</Text>
+      <View style={group}>
+        <Text style={groupTitle}>Fleet glance</Text>
         <ListRow
           icon="pulse-outline"
           title={`${online} of ${total} devices online`}

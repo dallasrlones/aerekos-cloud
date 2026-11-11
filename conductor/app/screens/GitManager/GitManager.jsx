@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Text, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
 import { Page } from '../../components/ui';
 import { Box } from '../../components/Box/Box';
@@ -22,7 +22,7 @@ const TABS = [
   { id: 'commits', label: 'Commits' },
   { id: 'pulls', label: 'Pull requests' },
   { id: 'issues', label: 'Issues' },
-  { id: 'clone', label: 'Clone' },
+  { id: 'more', label: 'Clone & settings' },
 ];
 
 function copyText(text) {
@@ -62,6 +62,17 @@ function branchName(b) {
   return typeof b === 'string' ? b : (b?.name || '');
 }
 
+function branchSha(b) {
+  return typeof b === 'object' && b ? (b.sha || '') : '';
+}
+
+function failedChecks(checks) {
+  return (checks || []).filter((c) => {
+    const s = String(c.status || c.conclusion || '').toLowerCase();
+    return s === 'failure' || s === 'failed' || s === 'error' || s === 'cancelled';
+  });
+}
+
 export const GitManager = ({ navigation, route }) => {
   const { currentProject, projects, isSystemProject } = useProject();
   const { getToken } = useAuth();
@@ -69,6 +80,7 @@ export const GitManager = ({ navigation, route }) => {
   const [repos, setRepos] = useState([]);
   const [pulls, setPulls] = useState([]);
   const [error, setError] = useState(null);
+  const [statusMsg, setStatusMsg] = useState(null);
   const [name, setName] = useState('');
   const [projectId, setProjectId] = useState(currentProject?.id || '');
   const [repo, setRepo] = useState(null);
@@ -97,9 +109,22 @@ export const GitManager = ({ navigation, route }) => {
   const [gitRef, setGitRef] = useState('main');
   const [branches, setBranches] = useState([]);
   const [readme, setReadme] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [commitMessage, setCommitMessage] = useState('');
+  const [newBranchName, setNewBranchName] = useState('');
+  const [showNewBranch, setShowNewBranch] = useState(false);
+  const [showAddFile, setShowAddFile] = useState(false);
+  const [newFilePath, setNewFilePath] = useState('');
+  const [newFileContent, setNewFileContent] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const projectName = (id) => (projects || []).find((p) => p.id === id)?.name || id;
   const originPid = SYSTEM_PROJECT_ID || currentProject?.id;
+  const tipSha = useMemo(() => {
+    const b = (branches || []).find((x) => branchName(x) === gitRef);
+    return branchSha(b);
+  }, [branches, gitRef]);
 
   const loadOrigin = useCallback(async () => {
     if (!originPid) return;
@@ -152,6 +177,15 @@ export const GitManager = ({ navigation, route }) => {
     if (row && repo?.id !== want) openRepo(row);
   }, [route?.params?.repoId, repos]);
 
+  const refreshBranches = async (row, preferRef) => {
+    const br = await api.get(`/api/services/git_manager/api/v1/repos/${row.id}/branches`, {
+      params: { project_id: row.project_id },
+    }).catch(() => ({ data: {} }));
+    const branchList = br.data?.branches || br.data?.items || [];
+    setBranches(branchList);
+    return preferRef || gitRef;
+  };
+
   const loadTree = async (row, path, ref) => {
     const t = await api.get(`/api/services/git_manager/api/v1/repos/${row.id}/tree`, {
       params: { project_id: row.project_id, path: path || '', ref: ref || gitRef },
@@ -180,6 +214,8 @@ export const GitManager = ({ navigation, route }) => {
     setTab('files');
     setTreePath('');
     setBlob(null);
+    setEditing(false);
+    setStatusMsg(null);
     try {
       const [c, prs, br] = await Promise.all([
         api.get(`/api/services/git_manager/api/v1/repos/${row.id}/commits`, { params: { project_id: row.project_id } }),
@@ -190,9 +226,11 @@ export const GitManager = ({ navigation, route }) => {
       setPulls(prs.data?.pulls || []);
       const branchList = br.data?.branches || br.data?.items || [];
       setBranches(branchList);
-      const def = branchList.find((b) => b.default || branchName(b) === 'main') || branchList[0];
-      const nextRef = branchName(def) || 'main';
+      const def = branchList.find((b) => b.default || branchName(b) === (row.default_branch || 'main')) || branchList[0];
+      const nextRef = branchName(def) || row.default_branch || 'main';
       setGitRef(nextRef);
+      setPrSource(nextRef !== (row.default_branch || 'main') ? nextRef : '');
+      setPrTarget(row.default_branch || 'main');
       await loadTree(row, '', nextRef);
       try {
         const iss = await api.get('/api/services/git_manager/api/v1/issues', {
@@ -217,11 +255,20 @@ export const GitManager = ({ navigation, route }) => {
     }
   };
 
+  const switchRef = async (next) => {
+    setGitRef(next);
+    setBlob(null);
+    setEditing(false);
+    setPrSource(next !== (repo?.default_branch || 'main') ? next : '');
+    await loadTree(repo, treePath, next);
+  };
+
   const openBlob = async (entry) => {
     if (entry.type === 'tree') {
       const next = treePath ? `${treePath}/${entry.name}` : entry.name;
       setTreePath(next);
       setBlob(null);
+      setEditing(false);
       await loadTree(repo, next, gitRef);
       return;
     }
@@ -229,12 +276,16 @@ export const GitManager = ({ navigation, route }) => {
     const b = await api.get(`/api/services/git_manager/api/v1/repos/${repo.id}/blob`, {
       params: { project_id: repo.project_id, path, ref: gitRef },
     });
-    setBlob({ path, ...b.data });
+    setBlob({ path, tip: tipSha, ...b.data });
+    setEditContent(b.data?.binary ? '' : (b.data?.content || ''));
+    setEditing(false);
+    setCommitMessage(`Update ${path}`);
     setReadme(null);
   };
 
   const createRepo = async () => {
     try {
+      setBusy(true);
       const pid = projectId || currentProject?.id;
       const res = await api.post('/api/services/git_manager/api/v1/repos', {
         project_id: pid,
@@ -246,6 +297,94 @@ export const GitManager = ({ navigation, route }) => {
       if (created) openRepo(created);
     } catch (e) {
       setError(e.response?.data?.error?.message || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createBranch = async () => {
+    if (!repo || !newBranchName.trim()) return;
+    try {
+      setBusy(true);
+      setError(null);
+      const res = await api.post(`/api/services/git_manager/api/v1/repos/${repo.id}/branches`, {
+        project_id: repo.project_id,
+        name: newBranchName.trim(),
+        from: gitRef,
+      });
+      setShowNewBranch(false);
+      setNewBranchName('');
+      await refreshBranches(repo, newBranchName.trim());
+      await switchRef(res.data?.name || newBranchName.trim());
+      setStatusMsg(`Created branch ${res.data?.name || newBranchName.trim()}`);
+    } catch (e) {
+      setError(e.response?.data?.error?.message || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveFile = async ({ path, content, message }) => {
+    try {
+      setBusy(true);
+      setError(null);
+      const res = await api.post(`/api/services/git_manager/api/v1/repos/${repo.id}/commit-file`, {
+        project_id: repo.project_id,
+        branch: gitRef,
+        path,
+        content,
+        message: message || `Update ${path}`,
+        base_sha: tipSha || undefined,
+      });
+      setStatusMsg(`Committed to ${gitRef}`);
+      setEditing(false);
+      setShowAddFile(false);
+      setNewFilePath('');
+      setNewFileContent('');
+      await refreshBranches(repo, gitRef);
+      await loadTree(repo, treePath, gitRef);
+      const b = await api.get(`/api/services/git_manager/api/v1/repos/${repo.id}/blob`, {
+        params: { project_id: repo.project_id, path, ref: gitRef },
+      });
+      setBlob({ path, tip: res.data?.sha, ...b.data });
+      setEditContent(b.data?.content || '');
+      const c = await api.get(`/api/services/git_manager/api/v1/repos/${repo.id}/commits`, {
+        params: { project_id: repo.project_id, branch: gitRef },
+      });
+      setCommits(c.data?.commits || []);
+    } catch (e) {
+      const code = e.response?.data?.error?.code;
+      if (e.response?.status === 409 || code === 'BASE_SHA_MISMATCH') {
+        setError('Branch moved — reload and try again.');
+        await refreshBranches(repo, gitRef);
+      } else {
+        setError(e.response?.data?.error?.message || e.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteCurrentFile = async () => {
+    if (!blob?.path || !repo) return;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Delete ${blob.path} on ${gitRef}?`)) return;
+    try {
+      setBusy(true);
+      await api.post(`/api/services/git_manager/api/v1/repos/${repo.id}/delete-file`, {
+        project_id: repo.project_id,
+        branch: gitRef,
+        path: blob.path,
+        message: `Delete ${blob.path}`,
+        base_sha: tipSha || undefined,
+      });
+      setBlob(null);
+      setStatusMsg(`Deleted ${blob.path} on ${gitRef}`);
+      await refreshBranches(repo, gitRef);
+      await loadTree(repo, treePath, gitRef);
+    } catch (e) {
+      setError(e.response?.data?.error?.message || e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -255,14 +394,15 @@ export const GitManager = ({ navigation, route }) => {
         project_id: repo.project_id,
         repo_id: repo.id,
         title: prTitle || `${prSource} → ${prTarget}`,
-        source_branch: prSource,
-        target_branch: prTarget || 'main',
+        source_branch: prSource || gitRef,
+        target_branch: prTarget || repo.default_branch || 'main',
       });
       setPrTitle('');
       const prs = await api.get('/api/services/git_manager/api/v1/pulls', {
         params: { repo_id: repo.id, project_id: repo.project_id },
       });
       setPulls(prs.data?.pulls || []);
+      setStatusMsg('Pull request created');
     } catch (e) {
       setError(e.response?.data?.error?.message || e.message);
     }
@@ -282,6 +422,11 @@ export const GitManager = ({ navigation, route }) => {
 
   const mergePr = async () => {
     const target = pr?.pull?.target_branch || 'main';
+    const failed = failedChecks(pr?.checks);
+    if (failed.length) {
+      setError(`Cannot merge — checks failed: ${failed.map((c) => c.name).join(', ')}`);
+      return;
+    }
     if (typeof window !== 'undefined' && window.confirm) {
       const fleet = repo?.name === 'aerekos-cloud';
       const msg = fleet
@@ -300,6 +445,16 @@ export const GitManager = ({ navigation, route }) => {
     } catch (e) {
       setError(e.response?.data?.error?.message || e.message);
     }
+  };
+
+  const openAdonis = () => {
+    if (!repo) return;
+    navigation?.navigate?.('adonis', {
+      projectId: repo.project_id,
+      repoId: repo.id,
+      ref: gitRef,
+      repoName: repo.name,
+    });
   };
 
   const handleSaveOrigin = async ({ subdomain, domain, port, hostname }) => {
@@ -358,26 +513,17 @@ export const GitManager = ({ navigation, route }) => {
     const url = cloneUrlFor(r, gitHosts, r?.name || displayName);
     if (!url) {
       return (
-        <Box title="Add an origin hostname">
-          <Text>Bind a hostname on port 3130 (existing tunnel) before cloning. Repos stay private — clone still needs a console JWT or GIT_AUTH_TOKEN.</Text>
+        <Box title="Clone URL">
+          <Text style={S.muted}>Bind an origin hostname under Clone & settings (port 3130), then copy the URL. Auth: console JWT or GIT_AUTH_TOKEN.</Text>
         </Box>
       );
     }
-    const newCmd = `echo "# ${displayName}" >> README.md\ngit init\ngit add README.md\ngit commit -m "first commit"\ngit branch -M main\ngit remote add aerekos-git ${url}\ngit push -u aerekos-git main`;
-    const existCmd = `git remote add aerekos-git ${url}\ngit push -u aerekos-git main`;
-    const switchCmd = `git remote add aerekos-git ${url}\n# or replace origin:\ngit remote set-url origin ${url}\ngit remote -v`;
     return (
       <>
-        {snippetBlock('Create a new repository on the command line', newCmd)}
-        {snippetBlock('…or push an existing repository', existCmd)}
-        {snippetBlock('…or switch the remote', switchCmd)}
-        {snippetBlock('Auth (password = console JWT or GIT_AUTH_TOKEN)', '# username: anything; password: console JWT or GIT_AUTH_TOKEN\n# do not put the token in the clone URL\ngit config credential.helper osxkeychain')}
-        {r?.lan_clone_url ? snippetBlock('LAN fallback (if TLS is intercepted)', r.lan_clone_url) : null}
-        {token ? (
-          <Text style={S.muted}>
-            Signed in — use the console JWT as the HTTPS password via a credential helper. Do not commit it.
-          </Text>
-        ) : null}
+        {snippetBlock('HTTPS clone', `git clone ${url}`)}
+        {snippetBlock('Auth', '# username: anything; password: console JWT or GIT_AUTH_TOKEN\ngit config credential.helper osxkeychain')}
+        {r?.lan_clone_url ? snippetBlock('LAN fallback', r.lan_clone_url) : null}
+        {token ? <Text style={S.muted}>Signed in — use the console JWT as the HTTPS password.</Text> : null}
       </>
     );
   };
@@ -417,6 +563,42 @@ export const GitManager = ({ navigation, route }) => {
     </Box>
   );
 
+  const branchControls = (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+      {branches.length ? (
+        Platform.OS === 'web' ? (
+          <select
+            value={gitRef}
+            onChange={async (e) => { await switchRef(e.target.value); }}
+            style={S.branchSelect}
+          >
+            {branches.map((b) => {
+              const n = branchName(b);
+              return <option key={n} value={n}>{n}</option>;
+            })}
+          </select>
+        ) : (
+          branches.map((b) => {
+            const n = branchName(b);
+            return (
+              <Button
+                key={n}
+                title={n}
+                variant={n === gitRef ? 'primary' : 'secondary'}
+                onPress={() => switchRef(n)}
+              />
+            );
+          })
+        )
+      ) : <Text style={S.muted}>No branches yet</Text>}
+      <Button title="New branch" variant="secondary" onPress={() => setShowNewBranch((v) => !v)} />
+      <Button title="Add file" variant="secondary" onPress={() => setShowAddFile((v) => !v)} />
+      {gitRef && gitRef !== (repo?.default_branch || 'main') ? (
+        <Button title="Compare & pull request" variant="secondary" onPress={() => { setPrSource(gitRef); setTab('pulls'); }} />
+      ) : null}
+    </View>
+  );
+
   const fileTable = () => {
     const folders = tree.filter((e) => e.type === 'tree').sort((a, b) => a.name.localeCompare(b.name));
     const files = tree.filter((e) => e.type !== 'tree').sort((a, b) => a.name.localeCompare(b.name));
@@ -424,8 +606,50 @@ export const GitManager = ({ navigation, route }) => {
     const crumbs = treePath.split('/').filter(Boolean);
     return (
       <>
+        {branchControls}
+        {showNewBranch ? (
+          <Box title="Create branch">
+            <TextInput
+              value={newBranchName}
+              onChangeText={setNewBranchName}
+              placeholder={`from ${gitRef}`}
+              autoCapitalize="none"
+              placeholderTextColor={colors.textMuted}
+              style={S.input}
+            />
+            <Button title={busy ? 'Creating…' : 'Create branch'} onPress={createBranch} />
+          </Box>
+        ) : null}
+        {showAddFile ? (
+          <Box title="Add file">
+            <TextInput
+              value={newFilePath}
+              onChangeText={setNewFilePath}
+              placeholder={treePath ? `${treePath}/path.txt` : 'path/to/file.txt'}
+              autoCapitalize="none"
+              placeholderTextColor={colors.textMuted}
+              style={S.input}
+            />
+            <TextInput
+              value={newFileContent}
+              onChangeText={setNewFileContent}
+              placeholder="file contents"
+              multiline
+              placeholderTextColor={colors.textMuted}
+              style={[S.input, { minHeight: 120 }]}
+            />
+            <Button
+              title={busy ? 'Saving…' : 'Commit new file'}
+              onPress={() => saveFile({
+                path: newFilePath.trim(),
+                content: newFileContent,
+                message: `Add ${newFilePath.trim()}`,
+              })}
+            />
+          </Box>
+        ) : null}
         <View style={S.crumbRow}>
-          <TouchableOpacity onPress={async () => { setTreePath(''); setBlob(null); await loadTree(repo, '', gitRef); }}>
+          <TouchableOpacity onPress={async () => { setTreePath(''); setBlob(null); setEditing(false); await loadTree(repo, '', gitRef); }}>
             <Text style={crumbs.length ? S.crumb : S.crumbCurrent}>{repo.name}</Text>
           </TouchableOpacity>
           {crumbs.map((seg, i) => {
@@ -434,46 +658,13 @@ export const GitManager = ({ navigation, route }) => {
             return (
               <View key={next} style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={S.crumbSep}>/</Text>
-                <TouchableOpacity onPress={async () => { setTreePath(next); setBlob(null); await loadTree(repo, next, gitRef); }}>
+                <TouchableOpacity onPress={async () => { setTreePath(next); setBlob(null); setEditing(false); await loadTree(repo, next, gitRef); }}>
                   <Text style={last ? S.crumbCurrent : S.crumb}>{seg}</Text>
                 </TouchableOpacity>
               </View>
             );
           })}
         </View>
-        {branches.length ? (
-          Platform.OS === 'web' ? (
-            <select
-              value={gitRef}
-              onChange={async (e) => {
-                const next = e.target.value;
-                setGitRef(next);
-                setBlob(null);
-                await loadTree(repo, treePath, next);
-              }}
-              style={S.branchSelect}
-            >
-              {branches.map((b) => {
-                const n = branchName(b);
-                return <option key={n} value={n}>{n}</option>;
-              })}
-            </select>
-          ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-              {branches.map((b) => {
-                const n = branchName(b);
-                return (
-                  <Button
-                    key={n}
-                    title={n}
-                    variant={n === gitRef ? 'primary' : 'secondary'}
-                    onPress={async () => { setGitRef(n); setBlob(null); await loadTree(repo, treePath, n); }}
-                  />
-                );
-              })}
-            </View>
-          )
-        ) : null}
         {!blob ? (
           <View style={S.table}>
             <View style={S.tableHead}>
@@ -487,28 +678,76 @@ export const GitManager = ({ navigation, route }) => {
             ))}
             {!rows.length ? (
               <View style={S.tableRow}>
-                <Text style={S.muted}>Empty repository. Push a branch, then open a PR here.</Text>
+                <Text style={S.muted}>Empty tree — use Add file to commit the first path on this branch.</Text>
               </View>
             ) : null}
           </View>
         ) : (
           <>
-            {blob.binary
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              {!blob.binary ? (
+                editing ? (
+                  <>
+                    <TextInput
+                      value={commitMessage}
+                      onChangeText={setCommitMessage}
+                      placeholder="Commit message"
+                      placeholderTextColor={colors.textMuted}
+                      style={[S.input, { flex: 1, minWidth: 180 }]}
+                    />
+                    <Button title={busy ? 'Saving…' : 'Save'} onPress={() => saveFile({ path: blob.path, content: editContent, message: commitMessage })} />
+                    <Button title="Cancel" variant="secondary" onPress={() => { setEditing(false); setEditContent(blob.content || ''); }} />
+                  </>
+                ) : (
+                  <Button title="Edit" variant="secondary" onPress={() => setEditing(true)} />
+                )
+              ) : null}
+              <Button title="Delete" variant="secondary" onPress={deleteCurrentFile} />
+              <Button title="Back to files" variant="secondary" onPress={async () => { setBlob(null); setEditing(false); await loadTree(repo, treePath, gitRef); }} />
+            </View>
+            {editing && !blob.binary ? (
+              <TextInput
+                value={editContent}
+                onChangeText={setEditContent}
+                multiline
+                style={[S.input, { minHeight: 320, fontFamily: 'monospace', fontSize: 12 }]}
+              />
+            ) : blob.binary
               ? <Text>(binary file · {blob.size || 0} bytes)</Text>
               : <GitCodeView path={blob.path} content={blob.content} />}
-            <Button title="Back to files" variant="secondary" onPress={async () => { setBlob(null); await loadTree(repo, treePath, gitRef); }} />
           </>
         )}
       </>
     );
   };
 
+  const hostnameSheet = (
+    <HostnameSheet
+      visible={formOpen}
+      title={formRow?.hostname ? `Edit ${formRow.hostname}` : 'Add origin hostname'}
+      initial={formRow || { port: 3130 }}
+      zones={zones}
+      busy={formBusy}
+      error={formError}
+      onClose={() => { setFormOpen(false); setFormRow(null); }}
+      onSave={handleSaveOrigin}
+    />
+  );
+
   if (view === 'pr' && pr?.pull) {
+    const failed = failedChecks(pr.checks);
+    const canMerge = pr.pull.status === 'open' && !failed.length;
     return (
       <Page title={pr.pull.title || 'Pull request'} subtitle={`${pr.pull.source_branch} → ${pr.pull.target_branch}`}>
         <ScrollView>
           {error ? <Text style={S.error}>{error}</Text> : null}
           <Button title="Back" variant="secondary" onPress={() => setView('repo')} />
+          <Box title="Checks">
+            {(pr.checks || []).length ? pr.checks.map((c) => (
+              <Text key={c.id || c.name}>{c.name}: {c.status || c.conclusion}{c.note ? ` · ${c.note}` : ''}</Text>
+            )) : <Text style={S.muted}>No checks reported yet.</Text>}
+            {failed.length ? <Text style={S.error}>Merge blocked until checks pass.</Text> : null}
+          </Box>
           <Box title="Files changed">
             {parseUnifiedDiff(pr.diff).length ? parseUnifiedDiff(pr.diff).map((f) => (
               <View key={f.path} style={{ marginBottom: 16 }}>
@@ -519,13 +758,6 @@ export const GitManager = ({ navigation, route }) => {
               <Text selectable style={{ fontFamily: 'monospace', fontSize: 12 }}>{pr.diff || '(empty or already merged)'}</Text>
             )}
           </Box>
-          {(pr.checks || []).length ? (
-            <Box title="Checks">
-              {pr.checks.map((c) => (
-                <Text key={c.id}>{c.name}: {c.status}{c.note ? ` · ${c.note}` : ''}</Text>
-              ))}
-            </Box>
-          ) : null}
           {(pr.reviews || []).length ? (
             <Box title="Reviews">
               {pr.reviews.map((c) => (
@@ -569,7 +801,7 @@ export const GitManager = ({ navigation, route }) => {
             }} />
           </Box>
           {pr.pull.status === 'open' ? (
-            <Button title="Merge" onPress={mergePr} />
+            <Button title={canMerge ? 'Merge' : 'Merge blocked'} onPress={mergePr} />
           ) : (
             <Text>Status: {pr.pull.status}</Text>
           )}
@@ -583,11 +815,14 @@ export const GitManager = ({ navigation, route }) => {
       <Page title={repo.name} subtitle={cloneUrl || 'Private repository'}>
         <ScrollView>
           {error ? <Text style={S.error}>{error}</Text> : null}
+          {statusMsg ? <Text style={S.muted}>{statusMsg}</Text> : null}
           <View style={S.titleRow}>
             <Button title="All repositories" variant="secondary" onPress={() => { setView('list'); load(); }} />
             <View style={S.privateBadge}><Text style={S.privateBadgeText}>Private</Text></View>
+            <Button title="Open in Adonis" onPress={openAdonis} />
+            {cloneUrl ? <Button title="Copy clone URL" variant="secondary" onPress={() => copyText(cloneUrl)} /> : null}
           </View>
-          {cloneUrl ? <Text selectable style={S.muted}>{cloneUrl}</Text> : <Text style={S.muted}>Add an origin hostname to get a clone URL.</Text>}
+          {cloneUrl ? <Text selectable style={S.muted}>{cloneUrl}</Text> : <Text style={S.muted}>Add an origin hostname under Clone & settings to get a clone URL.</Text>}
           {pipelineNote ? <Text style={S.muted}>{pipelineNote}</Text> : null}
           <View style={S.tabRow}>
             {TABS.map((t) => (
@@ -622,10 +857,10 @@ export const GitManager = ({ navigation, route }) => {
           {tab === 'pulls' ? (
             <>
               <Box title="Open a pull request">
-                <Text>Push a branch, then open a PR here.</Text>
+                <Text style={S.muted}>Compare a feature branch into {repo.default_branch || 'main'}.</Text>
                 <TextInput value={prTitle} onChangeText={setPrTitle} placeholder="Title" placeholderTextColor={colors.textMuted} style={S.input} />
                 <TextInput value={prSource} onChangeText={setPrSource} placeholder="source branch" autoCapitalize="none" placeholderTextColor={colors.textMuted} style={S.input} />
-                <TextInput value={prTarget} onChangeText={setPrTarget} placeholder="target (main → prod)" autoCapitalize="none" placeholderTextColor={colors.textMuted} style={S.input} />
+                <TextInput value={prTarget} onChangeText={setPrTarget} placeholder="target (main)" autoCapitalize="none" placeholderTextColor={colors.textMuted} style={S.input} />
                 <Button title="Create PR" onPress={createPr} />
               </Box>
               <Box title="Pull requests">
@@ -664,54 +899,44 @@ export const GitManager = ({ navigation, route }) => {
               </Box>
             </>
           ) : null}
-          {tab === 'clone' ? (
+          {tab === 'more' ? (
             <>
-              {originSection}
               {copyBlocks(repo)}
+              {originSection}
             </>
           ) : null}
         </ScrollView>
-        <HostnameSheet
-          visible={formOpen}
-          title={formRow?.hostname ? `Edit ${formRow.hostname}` : 'Add origin hostname'}
-          initial={formRow || { port: 3130 }}
-          zones={zones}
-          busy={formBusy}
-          error={formError}
-          onClose={() => { setFormOpen(false); setFormRow(null); }}
-          onSave={handleSaveOrigin}
-        />
+        {hostnameSheet}
       </Page>
     );
   }
 
   const subtitle = originBase(gitHosts)
     ? `Private origin ${originBase(gitHosts)}/<repo>.git — login required.`
-    : 'Private Git origin. Add a hostname on port 3130, then clone with a credential helper.';
+    : 'Private Git origin. Create a repository to get started.';
 
   return (
     <Page title="Git" subtitle={subtitle}>
       <ScrollView>
         {error ? <Text style={S.error}>{error}</Text> : null}
         <NextSteps navigation={navigation} filter={['add_remote', 'open_pr', 'bind']} />
-        {originSection}
         {view === 'create' ? (
           <Box title="Create a repository">
             <TextInput value={name} onChangeText={setName} placeholder="repo name" autoCapitalize="none" placeholderTextColor={colors.textMuted} style={S.input} />
-            <Text style={S.muted}>Project (quota / ACL) · always private</Text>
+            <Text style={S.muted}>Project · always private · seeds README.md</Text>
             {(projects || []).map((p) => (
               <Button key={p.id} title={p.name || p.id} variant={projectId === p.id ? 'primary' : 'secondary'} onPress={() => setProjectId(p.id)} />
             ))}
-            <Button title="Create" onPress={createRepo} />
+            <Button title={busy ? 'Creating…' : 'Create'} onPress={createRepo} />
             <Button title="Cancel" variant="secondary" onPress={() => setView('list')} />
-            {name.trim() ? copyBlocks({ name: name.trim() }) : null}
           </Box>
         ) : (
           <>
-            <Button title="Create a repository" onPress={() => setView('create')} />
+            <Button title="New repository" onPress={() => setView('create')} />
             {!repos.length ? (
-              <Box title="Create a repository">
-                <Text>Name it, pick a project, then copy the remotes. Every repo is private.</Text>
+              <Box title="No repositories yet">
+                <Text>Create a repository to browse code, open pull requests, and launch Adonis.</Text>
+                <Button title="Create repository" onPress={() => setView('create')} />
               </Box>
             ) : repos.map((r) => (
               <Box key={r.id} title={r.name}>
@@ -719,8 +944,20 @@ export const GitManager = ({ navigation, route }) => {
                   <Text>{projectName(r.project_id)}</Text>
                   <View style={S.privateBadge}><Text style={S.privateBadgeText}>Private</Text></View>
                 </View>
-                <Text selectable>{cloneUrlFor(r, gitHosts) || 'Add an origin hostname to clone'}</Text>
-                <Button title="Open" variant="secondary" onPress={() => openRepo(r)} />
+                <Text selectable style={S.muted}>{cloneUrlFor(r, gitHosts) || 'Open to browse · add origin later to clone'}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <Button title="Open" variant="secondary" onPress={() => openRepo(r)} />
+                  <Button
+                    title="Open in Adonis"
+                    variant="secondary"
+                    onPress={() => navigation?.navigate?.('adonis', {
+                      projectId: r.project_id,
+                      repoId: r.id,
+                      ref: r.default_branch || 'main',
+                      repoName: r.name,
+                    })}
+                  />
+                </View>
               </Box>
             ))}
             <Box title="Pull requests">
@@ -730,22 +967,13 @@ export const GitManager = ({ navigation, route }) => {
                   <Button title="Open" variant="secondary" onPress={() => { const r = repos.find((x) => x.id === p.repo_id); if (r) setRepo(r); openPr(p); }} />
                 </Box>
               ))}
-              {!pulls.length ? <Text>Push a branch, then open a PR here.</Text> : null}
+              {!pulls.length ? <Text style={S.muted}>Push a branch, then open a PR from a repository.</Text> : null}
             </Box>
           </>
         )}
         {isSystemProject ? <Text style={S.muted}>aerekos-cloud merge updates every device.</Text> : null}
       </ScrollView>
-      <HostnameSheet
-        visible={formOpen}
-        title={formRow?.hostname ? `Edit ${formRow.hostname}` : 'Add origin hostname'}
-        initial={formRow || { port: 3130 }}
-        zones={zones}
-        busy={formBusy}
-        error={formError}
-        onClose={() => { setFormOpen(false); setFormRow(null); }}
-        onSave={handleSaveOrigin}
-      />
+      {hostnameSheet}
     </Page>
   );
 };

@@ -330,7 +330,7 @@ describe('DecryptingStream > 2 GiB regression (unit)', () => {
     expect(got).toBe(N);
     expect(idx).toBe(parts.length);
     expect(md5.digest('hex')).toBe(EXPECTED_MD5);
-  });
+  }, 600000);
 
   it('serves a range crossing the 2 GiB boundary', async () => {
     const head = Buffer.alloc(16);

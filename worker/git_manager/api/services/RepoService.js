@@ -122,9 +122,22 @@ class RepoService {
         repoId: created.id,
         repoName: name
       });
+      const seed = body.seed_readme === false ? false : true;
+      if (seed) {
+        const readme = body.readme_content != null
+          ? String(body.readme_content)
+          : `# ${name}\n\nCreated on aerekos-cloud.\n`;
+        await this.git.commitFile(dir, {
+          branch: defaultBranch,
+          filePath: 'README.md',
+          content: readme,
+          message: 'chore: seed README.md',
+        });
+      }
     } catch (e) {
       // Roll back the metadata row if the on-disk repo could not be created.
       await this.Repository.delete(created.id).catch(() => {});
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
       throw err(`failed to initialize repository: ${e.message}`, 500, 'GIT_INIT_FAILED');
     }
     return repoOut(created);
@@ -272,17 +285,60 @@ class RepoService {
     return ev;
   }
 
-  async commitFile(id, projectId, { filePath = 'stack.json', content = '', message = 'chore: update stack.json' } = {}) {
+  async createBranch(id, projectId, { name, from } = {}) {
     const r = await this.getRaw(id, projectId);
     const dir = this.repoDir(r.project_id, r.name);
-    const branch = r.default_branch || 'main';
-    await this.git.commitFile(dir, {
-      branch,
+    const source = from || r.default_branch || 'main';
+    const result = await this.git.createBranch(dir, { name, from: source });
+    return { ...result, repository: await this.get(id, projectId) };
+  }
+
+  async compare(id, projectId, { base, head } = {}) {
+    const r = await this.getRaw(id, projectId);
+    const dir = this.repoDir(r.project_id, r.name);
+    const target = base || r.default_branch || 'main';
+    const source = head;
+    if (!source) throw err('head is required', 400);
+    const diff = await this.git.diff(dir, { source, target });
+    return { base: target, head: source, diff: diff || '' };
+  }
+
+  async commitFile(id, projectId, {
+    filePath = 'stack.json',
+    content = '',
+    message = 'chore: update stack.json',
+    branch,
+    baseSha,
+  } = {}) {
+    const r = await this.getRaw(id, projectId);
+    const dir = this.repoDir(r.project_id, r.name);
+    const ref = branch || r.default_branch || 'main';
+    const result = await this.git.commitFile(dir, {
+      branch: ref,
       filePath,
       content: typeof content === 'string' ? content : JSON.stringify(content, null, 2),
-      message,
+      message: message || 'chore: update file',
+      baseSha,
     });
-    return this.get(id, projectId);
+    return { repository: await this.get(id, projectId), ...result };
+  }
+
+  async deleteFile(id, projectId, {
+    filePath,
+    message = 'chore: delete file',
+    branch,
+    baseSha,
+  } = {}) {
+    const r = await this.getRaw(id, projectId);
+    const dir = this.repoDir(r.project_id, r.name);
+    const ref = branch || r.default_branch || 'main';
+    const result = await this.git.deleteFile(dir, {
+      branch: ref,
+      filePath,
+      message: message || 'chore: delete file',
+      baseSha,
+    });
+    return { repository: await this.get(id, projectId), ...result };
   }
 
   async listPushEvents(projectId, repoId) {

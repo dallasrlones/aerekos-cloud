@@ -197,11 +197,69 @@ exec node "${home}/scripts/notifyPush.js" '${esc(projectId)}' '${esc(repoId)}' '
     fs.chmodSync(hookPath, 0o755);
   }
 
-  async commitFile(bareDir, { branch = 'main', filePath = 'stack.json', content = '', message = 'update' } = {}) {
+  async revParse(bareDir, ref) {
+    if (!this.enabled()) return '';
+    try {
+      return String(await this.run(['--git-dir', bareDir, 'rev-parse', ref])).trim();
+    } catch {
+      return '';
+    }
+  }
+
+  async assertBaseSha(bareDir, branch, baseSha) {
+    if (!baseSha) return;
+    const tip = await this.revParse(bareDir, `refs/heads/${branch}`);
+    if (!tip) {
+      const e = new Error(`branch "${branch}" has no tip yet; cannot verify base_sha`);
+      e.status = 409;
+      e.code = 'BASE_SHA_MISMATCH';
+      throw e;
+    }
+    if (String(baseSha).trim() !== tip) {
+      const e = new Error(`branch moved — expected ${baseSha}, tip is ${tip}`);
+      e.status = 409;
+      e.code = 'BASE_SHA_MISMATCH';
+      throw e;
+    }
+  }
+
+  async createBranch(bareDir, { name, from = 'main' } = {}) {
+    if (!this.enabled()) return { skipped: true, name, from };
+    const branch = String(name || '').trim();
+    if (!/^[a-zA-Z0-9._\/-]{1,100}$/.test(branch)) {
+      const e = new Error('branch name contains invalid characters');
+      e.status = 400;
+      throw e;
+    }
+    const existing = await this.revParse(bareDir, `refs/heads/${branch}`);
+    if (existing) {
+      const e = new Error(`branch "${branch}" already exists`);
+      e.status = 409;
+      e.code = 'BRANCH_EXISTS';
+      throw e;
+    }
+    let fromSha = await this.revParse(bareDir, `refs/heads/${from}`);
+    if (!fromSha) fromSha = await this.revParse(bareDir, from);
+    if (!fromSha) {
+      const e = new Error(`source ref "${from}" not found`);
+      e.status = 404;
+      throw e;
+    }
+    await this.run(['--git-dir', bareDir, 'update-ref', `refs/heads/${branch}`, fromSha]);
+    return { created: true, name: branch, from, sha: fromSha };
+  }
+
+  async commitFile(bareDir, {
+    branch = 'main',
+    filePath = 'stack.json',
+    content = '',
+    message = 'update',
+    baseSha,
+  } = {}) {
     if (!this.enabled()) return { skipped: true };
+    await this.assertBaseSha(bareDir, branch, baseSha);
     const os = require('os');
     const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'aerekos-wt-'));
-    const env = { ...process.env };
     try {
       try {
         await this.run(['--git-dir', bareDir, '--work-tree', checkout, 'checkout', '-f', branch]);
@@ -220,7 +278,46 @@ exec node "${home}/scripts/notifyPush.js" '${esc(projectId)}' '${esc(repoId)}' '
         '-c', 'user.name=aerekos-iac',
         'commit', '-m', message, '--allow-empty',
       ]);
-      return { committed: true, path: filePath };
+      const sha = await this.revParse(bareDir, `refs/heads/${branch}`);
+      return { committed: true, path: filePath, sha, branch };
+    } finally {
+      try { fs.rmSync(checkout, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  }
+
+  async deleteFile(bareDir, {
+    branch = 'main',
+    filePath,
+    message = 'delete file',
+    baseSha,
+  } = {}) {
+    if (!this.enabled()) return { skipped: true };
+    const rel = String(filePath || '').replace(/^\/+/, '');
+    if (!rel) {
+      const e = new Error('path is required');
+      e.status = 400;
+      throw e;
+    }
+    await this.assertBaseSha(bareDir, branch, baseSha);
+    const os = require('os');
+    const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'aerekos-wt-'));
+    try {
+      await this.run(['--git-dir', bareDir, '--work-tree', checkout, 'checkout', '-f', branch]);
+      const dest = path.join(checkout, rel);
+      if (!fs.existsSync(dest)) {
+        const e = new Error('file not found');
+        e.status = 404;
+        throw e;
+      }
+      await this.run(['--git-dir', bareDir, '--work-tree', checkout, 'rm', '-f', '--', rel]);
+      await this.run([
+        '--git-dir', bareDir, '--work-tree', checkout,
+        '-c', 'user.email=iac@aerekos.local',
+        '-c', 'user.name=aerekos-iac',
+        'commit', '-m', message,
+      ]);
+      const sha = await this.revParse(bareDir, `refs/heads/${branch}`);
+      return { deleted: true, path: rel, sha, branch };
     } finally {
       try { fs.rmSync(checkout, { recursive: true, force: true }); } catch { /* ignore */ }
     }

@@ -64,6 +64,7 @@ export const SERVICE_CATALOG = [
   { name: 'cicd_manager', label: 'CI / CD Pipelines', category: 'devtools', icon: 'sync-outline', description: 'Build, test and deploy automatically.', route: 'cicdManager' },
   { name: 'code_as_infra', label: 'Infrastructure as Code', category: 'devtools', icon: 'construct-outline', description: 'Declarative, versioned infrastructure.' },
   { name: 'git_manager', label: 'Source Repositories', category: 'devtools', icon: 'git-branch-outline', description: 'Host and manage Git repositories.', route: 'gitManager' },
+  { name: 'adonis', label: 'Adonis IDE', category: 'devtools', icon: 'code-slash-outline', description: 'Edit, terminal, and deploy against your repos.', route: 'adonis' },
   { name: 'mcp_manager', label: 'MCP Servers', category: 'devtools', icon: 'extension-puzzle-outline', description: 'Model Context Protocol server fleet.' },
 
   // --- Application Integration ---

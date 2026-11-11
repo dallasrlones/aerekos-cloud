@@ -26,6 +26,16 @@ describe('getScreenFromPath', () => {
     expect(getScreenFromPath('/compute-manager')).toBe('computeManager');
   });
 
+  it('maps /adonis and round-trips', () => {
+    expect(getScreenFromPath('/adonis')).toBe('adonis');
+    expect(getScreenFromPath('/adonis/r1/main')).toEqual({
+      screen: 'adonis',
+      params: { repoId: 'r1', ref: 'main' },
+    });
+    expect(getPathFromScreen('adonis')).toBe('/adonis');
+    expect(getPathFromScreen('adonis', { repoId: 'r1', ref: 'main' })).toBe('/adonis/r1/main');
+  });
+
   it('maps /services/iam_manager to managerConsole', () => {
     expect(screenName('/services/iam_manager')).toBe('managerConsole');
     expect(getScreenFromPath('/services/iam_manager')).toEqual({

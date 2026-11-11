@@ -58,6 +58,7 @@ import { DownloadManager } from './screens/DownloadManager/DownloadManager';
 import { FunctionManager } from './screens/FunctionManager/FunctionManager';
 import { WebhookManager } from './screens/WebhookManager/WebhookManager';
 import { GitManager } from './screens/GitManager/GitManager';
+import { Adonis } from './screens/Adonis/Adonis';
 import { RegistryManager } from './screens/RegistryManager/RegistryManager';
 import { Header } from './components/Header/Header';
 import { ToastProvider } from './components/Toast/ToastProvider';
@@ -307,6 +308,8 @@ const AppContent = () => {
         return <WebhookManager navigation={navigation} />;
       case 'gitManager':
         return <GitManager navigation={navigation} route={{ params: screenParams }} />;
+      case 'adonis':
+        return <Adonis navigation={navigation} route={{ params: screenParams }} />;
       case 'cicdManager':
         return <CicdManager navigation={navigation} />;
       case 'opsTimeline':

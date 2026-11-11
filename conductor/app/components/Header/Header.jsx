@@ -104,6 +104,14 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
           </TouchableOpacity>
           <TouchableOpacity
             style={HeaderStyles.iconButton}
+            onPress={() => currentScreen !== 'adonis' && navigation?.navigate('adonis')}
+            activeOpacity={0.7}
+            accessibilityLabel="Adonis IDE"
+          >
+            <Ionicons name="code-slash-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={HeaderStyles.iconButton}
             onPress={() => currentScreen !== 'settings' && navigation?.navigate('settings')}
             activeOpacity={0.7}
           >

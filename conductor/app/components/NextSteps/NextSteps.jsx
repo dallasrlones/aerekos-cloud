@@ -13,6 +13,7 @@ const ACTION_ROUTE = {
   launch: 'launchContainer',
   bind: 'computeManager',
   open_pr: 'gitManager',
+  open_adonis: 'adonis',
 };
 
 export const NextSteps = ({ navigation, filter, steps: stepsProp } = {}) => {

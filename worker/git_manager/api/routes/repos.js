@@ -17,12 +17,52 @@ function handle(res, next, e) {
 
 router.post('/:id/commit-file', async (req, res, next) => {
   try {
-    const repository = await svc.commitFile(req.params.id, qProject(req), {
+    const result = await svc.commitFile(req.params.id, qProject(req), {
       filePath: req.body?.path || req.body?.filePath || 'stack.json',
       content: req.body?.content,
       message: req.body?.message,
+      branch: req.body?.branch,
+      baseSha: req.body?.base_sha || req.body?.baseSha,
     });
-    res.json({ repository, committed: true });
+    res.json({ ...result, committed: true });
+  } catch (e) {
+    handle(res, next, e);
+  }
+});
+
+router.post('/:id/delete-file', async (req, res, next) => {
+  try {
+    const result = await svc.deleteFile(req.params.id, qProject(req), {
+      filePath: req.body?.path || req.body?.filePath,
+      message: req.body?.message,
+      branch: req.body?.branch,
+      baseSha: req.body?.base_sha || req.body?.baseSha,
+    });
+    res.json({ ...result, deleted: true });
+  } catch (e) {
+    handle(res, next, e);
+  }
+});
+
+router.post('/:id/branches', async (req, res, next) => {
+  try {
+    const result = await svc.createBranch(req.params.id, qProject(req), {
+      name: req.body?.name || req.body?.branch,
+      from: req.body?.from || req.body?.source,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    handle(res, next, e);
+  }
+});
+
+router.get('/:id/compare', async (req, res, next) => {
+  try {
+    const result = await svc.compare(req.params.id, qProject(req), {
+      base: req.query.base,
+      head: req.query.head,
+    });
+    res.json(result);
   } catch (e) {
     handle(res, next, e);
   }

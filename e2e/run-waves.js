@@ -13,6 +13,7 @@ const WAVES = [
   'wave-vpc-fleet.js',
   'wave-edge-hookup.js',
   'wave-git-cicd.js',
+  'wave-adonis-git.js',
   'wave-ops.js',
   'wave-data-graphql.js',
   'wave-quota-storage.js',

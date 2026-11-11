@@ -240,6 +240,12 @@ function getScreenFromPath(pathname, options = {}) {
   if (firstPart === 'queue-manager') return 'queueManager';
   if (firstPart === 'webhook-manager') return 'webhookManager';
   if (firstPart === 'git-manager') return 'gitManager';
+  if (firstPart === 'adonis') {
+    const params = {};
+    if (parts[1]) params.repoId = parts[1];
+    if (parts[2]) params.ref = parts[2];
+    return Object.keys(params).length ? { screen: 'adonis', params } : 'adonis';
+  }
   if (firstPart === 'cicd-manager') return 'cicdManager';
   if (firstPart === 'ops' || firstPart === 'whats-broken') return 'opsTimeline';
   if (firstPart === 'registry-manager') return 'registryManager';
@@ -292,6 +298,11 @@ function getPathFromScreen(screen, params = {}) {
   if (screen === 'functionManager') return '/services/function_manager';
   if (screen === 'webhookManager') return '/webhook-manager';
   if (screen === 'gitManager') return '/git-manager';
+  if (screen === 'adonis') {
+    if (params.repoId && params.ref) return `/adonis/${params.repoId}/${encodeURIComponent(params.ref)}`;
+    if (params.repoId) return `/adonis/${params.repoId}`;
+    return '/adonis';
+  }
   if (screen === 'cicdManager') return '/cicd-manager';
   if (screen === 'opsTimeline') return '/ops';
   if (screen === 'registryManager') return '/registry-manager';

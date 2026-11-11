@@ -171,8 +171,11 @@ const fleetRoutes = require('./api/routes/fleet');
 const jobsRoutes = require('./api/routes/jobs');
 const searchRoutes = require('./api/routes/search');
 const opsRoutes = require('./api/routes/ops');
+const adonisRoutes = require('./api/routes/adonis');
 
 // API v1 routes
+app.use('/api/v1/adonis', adonisRoutes);
+app.use('/api/adonis', adonisRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/token', tokenRoutes);
 app.use('/api/v1/workers', workerRoutes);

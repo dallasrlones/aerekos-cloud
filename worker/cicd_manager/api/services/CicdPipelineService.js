@@ -374,19 +374,32 @@ class CicdPipelineService {
     const src = path.join(tmp, 'src');
     const out = path.join(tmp, 'release.tar.gz');
     fs.writeFileSync(bundlePath, Buffer.isBuffer(buf) ? buf : Buffer.from(buf));
-    fs.mkdirSync(src, { recursive: true });
     try {
+      // git clone refuses an existing destination dir — do not mkdir(src) first.
       try {
         await run('git', ['clone', '--depth', '1', bundlePath, src]);
-      } catch {
-        await run('tar', ['-C', src, '-xf', bundlePath]).catch(() => {});
+      } catch (e) {
+        fs.mkdirSync(src, { recursive: true });
+        await run('tar', ['-C', src, '-xf', bundlePath]).catch(() => { throw e; });
+      }
+      const entries = fs.readdirSync(src).filter((n) => n !== '.git');
+      if (!entries.length) {
+        const err = new Error('fleet release source empty after bundle extract');
+        err.status = 500;
+        throw err;
       }
       await run('tar', [
         'czf', out,
         '--exclude=.git', '--exclude=node_modules', '--exclude=.env', '--exclude=data',
         '--exclude=.expo', '--exclude=coverage', '-C', src, '.',
       ]);
-      return fs.readFileSync(out);
+      const tar = fs.readFileSync(out);
+      if (tar.length < 1024) {
+        const err = new Error(`fleet release tarball too small (${tar.length} bytes)`);
+        err.status = 500;
+        throw err;
+      }
+      return tar;
     } finally {
       try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* ignore */ }
     }

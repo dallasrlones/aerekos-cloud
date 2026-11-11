@@ -18,11 +18,13 @@ import { View, Platform } from 'react-native';
  * Fast: one rAF loop, no per-frame React renders, capped DPR, auto-pauses hidden.
  */
 const GOLD = 0xd4af37;
-const STRUCT = 0x2c2c2c;
+const STRUCT_LIGHT = 0x2c2c2c;
+const STRUCT_DARK = 0x8a93a0;
 const ICE_LOW = 0x7fc4d8;
 const ICE_HOT = 0xeafcff;
 
-export const AnimusVisual = ({ data, cores = 8, style }) => {
+export const AnimusVisual = ({ data, cores = 8, style, isDark = false }) => {
+  const STRUCT = isDark ? STRUCT_DARK : STRUCT_LIGHT;
   const hostRef = useRef(null);
   const dataRef = useRef(data);
   const coresRef = useRef(cores);

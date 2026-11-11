@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Page } from '../../components/ui';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
 import { ServiceStatus } from '../../components/ServiceStatus/ServiceStatus';
-import { colors } from '../../styles/theme';
+import { AnimusPage, AnimusState, AnimusNextSteps } from '../../components/Animus';
+import { useTheme } from '../../contexts/ThemeContext';
 import { ServiceSetupWizard } from '../../components/ServiceSetupWizard';
 import { ManagerAppAccessSection } from '../../components/ManagerAppAccessSection';
 import { ResourceCrud } from '../../components/ResourceCrud';
@@ -25,8 +25,10 @@ export const ManagerConsole = ({ navigation, route }) => {
   const serviceName = route?.params?.serviceName;
   const meta = getServiceMeta(serviceName);
   const label = meta?.label || getServiceLabel(serviceName);
+  const metaphor = meta?.metaphor || 'station';
   const { currentProject } = useProject();
   const { showToast } = useToast();
+  const { colors, animus } = useTheme();
 
   const [status, setStatus] = useState(null);
   const [health, setHealth] = useState(null);
@@ -110,22 +112,35 @@ export const ManagerConsole = ({ navigation, route }) => {
 
   const alwaysOn = ALWAYS_ON.has(serviceName);
 
+  const serviceDisabled = status && !(status.enabled || alwaysOn);
+
   return (
-    <Page
+    <AnimusPage
       title={label}
-      subtitle={meta?.description}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
+      job={meta?.description || 'Mission station for this service.'}
+      metaphor={metaphor}
       right={meta?.icon ? (
         <View style={S.iconWrap}>
-          <Ionicons name={meta.icon} size={24} color={colors.textPrimary} />
+          <Ionicons name={meta.icon} size={24} color={animus.gold} />
         </View>
       ) : null}
+      primaryAction={serviceDisabled ? (
+        <Button title="Enable / set up" onPress={() => setTab('settings')} />
+      ) : (
+        <Button title="Refresh" variant="secondary" onPress={onRefresh} loading={refreshing} />
+      )}
     >
+      <AnimusNextSteps navigation={navigation} />
+
       {error ? (
-        <Box style={S.errorBox}>
-          <Text style={S.errorText}>{error}</Text>
-        </Box>
+        <AnimusState state="error" error={error} onRetry={loadAll} />
+      ) : null}
+
+      {serviceDisabled ? (
+        <AnimusState
+          state="disabled"
+          onEnable={() => setTab('settings')}
+        />
       ) : null}
 
       <ScreenTabs
@@ -209,6 +224,6 @@ export const ManagerConsole = ({ navigation, route }) => {
       ) : null}
 
       {tab === 'monitoring' ? <ObservabilityPanel serviceName={serviceName} /> : null}
-    </Page>
+    </AnimusPage>
   );
 };

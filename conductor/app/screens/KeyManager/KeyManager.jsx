@@ -7,6 +7,8 @@ import { keyManagerService } from '../../services/keyManagerService';
 import { secretsManagerService } from '../../services/secretsManagerService';
 import { KeyManagerStyles } from './KeyManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
+import { Button } from '../../components/Button/Button';
+import { AnimusPage } from '../../components/Animus';
 
 export const KeyManager = ({ navigation }) => {
   const [status, setStatus] = useState(null);
@@ -99,6 +101,13 @@ export const KeyManager = ({ navigation }) => {
   };
 
   return (
+    <AnimusPage
+      title="Key Management"
+      job="Cipher vault — create and rotate encryption seals for your project."
+      metaphor="cipher"
+      scroll={false}
+      primaryAction={<Button title="Keys" onPress={() => navigation.navigate('keysList')} />}
+    >
     <ScrollView
       style={KeyManagerStyles.container}
       contentContainerStyle={KeyManagerStyles.content}
@@ -106,7 +115,6 @@ export const KeyManager = ({ navigation }) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={KeyManagerStyles.title}>Key Manager Service</Text>
 
       {error && (
         <Box style={KeyManagerStyles.errorBox}>
@@ -221,5 +229,6 @@ export const KeyManager = ({ navigation }) => {
       </Box>
       {status?.enabled ? <ResourceCrud serviceName="key_manager" enabled /> : null}
     </ScrollView>
+    </AnimusPage>
   );
 };

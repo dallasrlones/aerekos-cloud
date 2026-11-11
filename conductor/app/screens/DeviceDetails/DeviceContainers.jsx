@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { containerService } from '../../services/containerService';
-import { colors } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export function DeviceContainers({ deviceId }) {
+  const { colors, animus } = useTheme();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,38 +78,49 @@ export function DeviceContainers({ deviceId }) {
 
   if (loading) {
     return (
-      <View style={S.center}>
-        <ActivityIndicator color={colors.accent} />
+      <View style={{ padding: 24, alignItems: 'center' }}>
+        <ActivityIndicator color={animus.gold} />
       </View>
     );
   }
 
   return (
-    <View style={S.wrap}>
-      {error ? <Text style={S.error}>{error}</Text> : null}
-      <ScrollView style={S.list}>
+    <View style={{ flex: 1, gap: 12 }}>
+      {error ? <Text style={{ color: colors.error, marginBottom: 8 }}>{error}</Text> : null}
+      <ScrollView style={{ maxHeight: 320 }}>
         {containers.map((c) => (
-          <View key={c.id} style={S.row}>
-            <Pressable style={S.nameCol} onPress={() => void showLogs(c)}>
-              <Text style={S.name}>{c.name || c.id.slice(0, 12)}</Text>
-              <Text style={S.meta}>
+          <View
+            key={c.id}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 10,
+              borderBottomWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Pressable style={{ flex: 1 }} onPress={() => void showLogs(c)}>
+              <Text style={{ color: colors.textPrimary, fontWeight: '600', fontSize: 13 }}>
+                {c.name || c.id.slice(0, 12)}
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
                 {c.image} · {c.state}
                 {c.cpu_percent != null ? ` · ${c.cpu_percent}% CPU` : ''}
                 {c.mem_mb != null ? ` · ${c.mem_mb} MB` : ''}
               </Text>
             </Pressable>
-            <View style={S.actions}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
               {c.state !== 'running' ? (
                 <Pressable disabled={busy} onPress={() => void act(() => containerService.start(deviceId, c.id))}>
-                  <Text style={S.btn}>Start</Text>
+                  <Text style={{ color: animus.gold, fontSize: 12, fontWeight: '600' }}>Start</Text>
                 </Pressable>
               ) : (
                 <Pressable disabled={busy} onPress={() => void act(() => containerService.stop(deviceId, c.id))}>
-                  <Text style={S.btnDanger}>Stop</Text>
+                  <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>Stop</Text>
                 </Pressable>
               )}
               <Pressable disabled={busy} onPress={() => void showLogs(c)}>
-                <Text style={S.btn}>Logs</Text>
+                <Text style={{ color: animus.gold, fontSize: 12, fontWeight: '600' }}>Logs</Text>
               </Pressable>
             </View>
           </View>
@@ -116,26 +128,36 @@ export function DeviceContainers({ deviceId }) {
       </ScrollView>
 
       {selected ? (
-        <View style={S.panel}>
-          <Text style={S.panelTitle}>{selected.name}</Text>
-          <Text style={S.panelLabel}>Logs (tail)</Text>
-          <ScrollView style={S.logBox}>
-            <Text style={S.logText}>{logs || '(empty)'}</Text>
+        <View style={{ marginTop: 8, gap: 8 }}>
+          <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{selected.name}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 11 }}>Logs (tail)</Text>
+          <ScrollView style={{ maxHeight: 160, backgroundColor: colors.surface, padding: 8, borderRadius: 4 }}>
+            <Text style={{ color: colors.textPrimary, fontFamily: animus.mono, fontSize: 11 }}>{logs || '(empty)'}</Text>
           </ScrollView>
-          <Text style={S.panelLabel}>Exec</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 11 }}>Exec</Text>
           <TextInput
-            style={S.input}
+            style={{ borderWidth: 1, borderColor: colors.border, color: colors.textPrimary, padding: 8, borderRadius: 4 }}
             value={execCmd}
             onChangeText={setExecCmd}
             placeholder='sh -c "whoami"'
             placeholderTextColor={colors.textMuted}
           />
-          <Pressable style={S.execBtn} disabled={busy} onPress={() => void runExec()}>
-            <Text style={S.execBtnText}>Run</Text>
+          <Pressable
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: animus.gold,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 4,
+            }}
+            disabled={busy}
+            onPress={() => void runExec()}
+          >
+            <Text style={{ color: colors.onAccent || '#10131A', fontWeight: '600' }}>Run</Text>
           </Pressable>
           {execOut ? (
-            <ScrollView style={S.logBox}>
-              <Text style={S.logText}>{execOut}</Text>
+            <ScrollView style={{ maxHeight: 160, backgroundColor: colors.surface, padding: 8, borderRadius: 4 }}>
+              <Text style={{ color: colors.textPrimary, fontFamily: animus.mono, fontSize: 11 }}>{execOut}</Text>
             </ScrollView>
           ) : null}
         </View>
@@ -144,24 +166,4 @@ export function DeviceContainers({ deviceId }) {
   );
 }
 
-const S = StyleSheet.create({
-  wrap: { flex: 1, gap: 12 },
-  center: { padding: 24, alignItems: 'center' },
-  error: { color: colors.danger, marginBottom: 8 },
-  list: { maxHeight: 320 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border },
-  nameCol: { flex: 1 },
-  name: { color: colors.text, fontWeight: '600', fontSize: 13 },
-  meta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 12 },
-  btn: { color: colors.accent, fontSize: 12, fontWeight: '600' },
-  btnDanger: { color: colors.danger, fontSize: 12, fontWeight: '600' },
-  panel: { marginTop: 8, gap: 8 },
-  panelTitle: { color: colors.text, fontWeight: '700' },
-  panelLabel: { color: colors.textMuted, fontSize: 11 },
-  logBox: { maxHeight: 160, backgroundColor: colors.panel, padding: 8, borderRadius: 4 },
-  logText: { color: colors.text, fontFamily: 'monospace', fontSize: 11 },
-  input: { borderWidth: 1, borderColor: colors.border, color: colors.text, padding: 8, borderRadius: 4 },
-  execBtn: { alignSelf: 'flex-start', backgroundColor: colors.accent, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 4 },
-  execBtnText: { color: colors.onAccent, fontWeight: '600' },
-});
+export default DeviceContainers;

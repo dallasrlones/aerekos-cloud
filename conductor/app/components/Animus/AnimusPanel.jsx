@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { animus } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
-const Corner = ({ pos }) => {
+const Corner = ({ pos, color }) => {
   const base = {
     position: 'absolute',
     width: 12,
     height: 12,
-    borderColor: animus.gold,
+    borderColor: color,
   };
   const map = {
     tl: { top: -1, left: -1, borderTopWidth: 2, borderLeftWidth: 2 },
@@ -18,29 +18,45 @@ const Corner = ({ pos }) => {
   return <View pointerEvents="none" style={[base, map[pos]]} />;
 };
 
-/**
- * Glass HUD panel with gold corner brackets — the canonical Animus container.
- *
- * Props:
- *   - title: optional uppercase mono header
- *   - right: optional node rendered at the right of the header row
- *   - strong: more opaque glass (use over the 3D scene)
- *   - brackets: show corner reticles (default true)
- */
 export const AnimusPanel = ({ title, right, children, strong = false, brackets = true, style, contentStyle }) => {
+  const { animus } = useTheme();
   return (
-    <View style={[styles.panel, strong && styles.panelStrong, style]}>
+    <View
+      style={[
+        {
+          backgroundColor: strong ? animus.glassStrong : animus.glass,
+          borderWidth: 1,
+          borderColor: animus.glassBorder,
+          borderRadius: animus.radius,
+          padding: 14,
+          ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)' } : {}),
+        },
+        style,
+      ]}
+    >
       {brackets ? (
         <>
-          <Corner pos="tl" />
-          <Corner pos="tr" />
-          <Corner pos="bl" />
-          <Corner pos="br" />
+          <Corner pos="tl" color={animus.gold} />
+          <Corner pos="tr" color={animus.gold} />
+          <Corner pos="bl" color={animus.gold} />
+          <Corner pos="br" color={animus.gold} />
         </>
       ) : null}
       {(title || right) ? (
         <View style={styles.header}>
-          {title ? <Text style={styles.title}>{title}</Text> : <View />}
+          {title ? (
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '700',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              color: animus.inkSoft,
+              fontFamily: animus.mono,
+            }}
+            >
+              {title}
+            </Text>
+          ) : <View />}
           {right || null}
         </View>
       ) : null}
@@ -50,30 +66,11 @@ export const AnimusPanel = ({ title, right, children, strong = false, brackets =
 };
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: animus.glass,
-    borderWidth: 1,
-    borderColor: animus.glassBorder,
-    borderRadius: animus.radius,
-    padding: 14,
-    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(6px)' } : {}),
-  },
-  panelStrong: {
-    backgroundColor: animus.glassStrong,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
-  },
-  title: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: animus.inkSoft,
-    fontFamily: animus.mono,
   },
 });
 

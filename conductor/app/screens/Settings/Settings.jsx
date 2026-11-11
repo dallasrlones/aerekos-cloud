@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
+import { AnimusToggle } from '../../components/Animus';
 import { authService } from '../../services/authService';
 import { deviceService } from '../../services/deviceService';
 import { SettingsStyles } from './Settings.styles';
@@ -11,6 +13,7 @@ import { colors } from '../../styles/theme';
 
 export const Settings = ({ navigation }) => {
   const { user, checkAuth } = useAuth();
+  const { mode, setMode } = useTheme();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -188,6 +191,21 @@ export const Settings = ({ navigation }) => {
         {/* Title Section */}
         <View style={SettingsStyles.titleSection}>
           <Text style={SettingsStyles.titleText}>Settings</Text>
+        </View>
+
+        <View style={SettingsStyles.card}>
+          <Text style={SettingsStyles.cardTitle}>Appearance</Text>
+          <Text style={[SettingsStyles.tokenHint, { marginBottom: 12 }]}>
+            Jarvis void (dark) or Animus daylight (light). Your choice sticks on this device.
+          </Text>
+          <AnimusToggle
+            options={[
+              { key: 'dark', label: 'Dark' },
+              { key: 'light', label: 'Light' },
+            ]}
+            value={mode}
+            onChange={(key) => setMode(key)}
+          />
         </View>
 
         {/* Registration Token Card */}

@@ -3,11 +3,13 @@ import { View, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-na
 import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
-import { AnimatedBackground } from '../../components/AnimatedBackground/AnimatedBackground';
+import { AnimusBackground } from '../../components/Animus';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LoginStyles } from './Login.styles';
 
 export const Login = ({ navigation }) => {
   const { login, loading, error: authError } = useAuth();
+  const { colors, animus } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
@@ -39,10 +41,10 @@ export const Login = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      style={LoginStyles.container}
+      style={[LoginStyles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <AnimatedBackground />
+      <AnimusBackground scanlines />
       <ScrollView
         contentContainerStyle={LoginStyles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -50,10 +52,10 @@ export const Login = ({ navigation }) => {
         <View style={LoginStyles.content}>
           {/* Logo/Title */}
           <View style={LoginStyles.header}>
-            <Text style={LoginStyles.title}>
+            <Text style={[LoginStyles.title, { color: animus.gold }]}>
               AEREKOS CLOUD
             </Text>
-            <Text style={LoginStyles.subtitle}>
+            <Text style={[LoginStyles.subtitle, { color: colors.textSecondary }]}>
               Conductor
             </Text>
           </View>

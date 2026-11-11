@@ -3,7 +3,7 @@ import { Platform, Text, ScrollView, TextInput, TouchableOpacity, View } from 'r
 import { Page } from '../../components/ui';
 import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
-import { NextSteps } from '../../components/NextSteps/NextSteps';
+import { AnimusPage, AnimusNextSteps, AnimusEmpty } from '../../components/Animus';
 import { HostnameSheet } from '../../components/HostnameSheet/HostnameSheet';
 import { useProject } from '../../contexts/ProjectContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -916,10 +916,15 @@ export const GitManager = ({ navigation, route }) => {
     : 'Private Git origin. Create a repository to get started.';
 
   return (
-    <Page title="Git" subtitle={subtitle}>
+    <AnimusPage
+      title="Source Repositories"
+      job={subtitle}
+      metaphor="archive"
+      primaryAction={view === 'list' ? <Button title="New repository" onPress={() => setView('create')} /> : null}
+    >
       <ScrollView>
         {error ? <Text style={S.error}>{error}</Text> : null}
-        <NextSteps navigation={navigation} filter={['add_remote', 'open_pr', 'bind']} />
+        <AnimusNextSteps navigation={navigation} filter={['add_remote', 'open_pr', 'bind']} />
         {view === 'create' ? (
           <Box title="Create a repository">
             <TextInput value={name} onChangeText={setName} placeholder="repo name" autoCapitalize="none" placeholderTextColor={colors.textMuted} style={S.input} />
@@ -932,12 +937,11 @@ export const GitManager = ({ navigation, route }) => {
           </Box>
         ) : (
           <>
-            <Button title="New repository" onPress={() => setView('create')} />
             {!repos.length ? (
-              <Box title="No repositories yet">
-                <Text>Create a repository to browse code, open pull requests, and launch Adonis.</Text>
-                <Button title="Create repository" onPress={() => setView('create')} />
-              </Box>
+              <AnimusEmpty
+                metaphor="archive"
+                onPress={() => setView('create')}
+              />
             ) : repos.map((r) => (
               <Box key={r.id} title={r.name}>
                 <View style={S.titleRow}>
@@ -974,6 +978,6 @@ export const GitManager = ({ navigation, route }) => {
         {isSystemProject ? <Text style={S.muted}>aerekos-cloud merge updates every device.</Text> : null}
       </ScrollView>
       {hostnameSheet}
-    </Page>
+    </AnimusPage>
   );
 };

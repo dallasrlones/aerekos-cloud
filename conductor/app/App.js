@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProjectProvider } from './contexts/ProjectContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { Login } from './screens/Login/Login';
 import { Dashboard } from './screens/Dashboard/Dashboard';
 import { Settings } from './screens/Settings/Settings';
@@ -66,7 +67,6 @@ import { JobProvider, JobStatus } from './components/JobStatus/JobStatus';
 import { FleetAlertProvider } from './components/FleetAlert/FleetAlertListener';
 import { BottomTabs } from './components/BottomTabs/BottomTabs';
 import { useBreakpoint } from './hooks/useBreakpoint';
-import { colors } from './styles/theme';
 
 const { getScreenFromPath, getPathFromScreen } = require('./utils/screenPath');
 
@@ -104,6 +104,7 @@ const applyPathname = (pathname, search = '') => {
 
 const AppContent = () => {
   const { isAuthenticated, loading } = useAuth();
+  const { colors, isDark } = useTheme();
   const { compact } = useBreakpoint();
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [previousScreen, setPreviousScreen] = useState('dashboard');
@@ -338,9 +339,9 @@ const AppContent = () => {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {isAuthenticated ? (
-        <View style={styles.appContainer}>
+        <View style={[styles.appContainer, { backgroundColor: colors.background }]}>
           {currentScreen !== 'deviceDetails' ? (
             <Header
               navigation={navigation}
@@ -370,30 +371,30 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <ToastProvider>
-          <JobProvider>
-            <FleetAlertProvider>
-              <AppContent />
-            </FleetAlertProvider>
-          </JobProvider>
-        </ToastProvider>
-      </ProjectProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ProjectProvider>
+          <ToastProvider>
+            <JobProvider>
+              <FleetAlertProvider>
+                <AppContent />
+              </FleetAlertProvider>
+            </JobProvider>
+          </ToastProvider>
+        </ProjectProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   appContainer: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   contentContainer: {
     flex: 1,

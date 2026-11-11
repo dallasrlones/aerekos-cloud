@@ -11,10 +11,11 @@ import { NetworkChart } from '../../components/Chart/NetworkChart';
 import { ServerVisual } from '../../components/ServerVisual/ServerVisual';
 import { AnimusVisual } from '../../components/AnimusVisual/AnimusVisual';
 import { AnimusBackground, AnimusPanel, AnimusStat, AnimusToggle } from '../../components/Animus';
-import { DeviceDetailsStyles as S } from './DeviceDetails.styles';
+import { createDeviceDetailsStyles } from './DeviceDetails.styles';
 import { DeviceContainers } from './DeviceContainers';
 import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
-import { colors, animus } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 const MAX_HISTORY = 60;
 const VIEWS = [{ key: 'animus', label: 'Preview' }, { key: 'data', label: 'Data' }];
@@ -53,6 +54,8 @@ export const DeviceDetails = ({ route, navigation }) => {
   const { deviceId } = route?.params || {};
   const { isAuthenticated, getToken } = useAuth();
   const { currentProject } = useProject();
+  const { colors, animus, isDark, status: statusTokens } = useTheme();
+  const S = useThemedStyles(createDeviceDetailsStyles);
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -403,7 +406,7 @@ export const DeviceDetails = ({ route, navigation }) => {
       <View style={S.root}>
         <AnimusBackground />
         <View style={S.fullHero}>
-          <AnimusVisual data={m} cores={cores} style={StyleSheet.absoluteFill} />
+          <AnimusVisual key={isDark ? 'dark' : 'light'} data={m} cores={cores} isDark={isDark} style={StyleSheet.absoluteFill} />
           <View pointerEvents="box-none" style={S.hudLayer}>
             <View pointerEvents="box-none" style={S.hudTopStrip}>
               <View>
@@ -444,7 +447,7 @@ export const DeviceDetails = ({ route, navigation }) => {
             <View pointerEvents="box-none" style={S.hudBottom}>
               <Text style={S.hudCaption}>Node Telemetry · Active</Text>
               <View style={S.liveRow}>
-                <View style={[S.liveDot, { backgroundColor: isOnline ? '#4CAF50' : colors.textMuted }]} />
+                <View style={[S.liveDot, { backgroundColor: isOnline ? statusTokens.running : colors.textMuted }]} />
                 <Text style={S.liveText}>{liveData ? `Live · ${formatTime(lastHeartbeat)}` : 'Awaiting signal'}</Text>
               </View>
             </View>

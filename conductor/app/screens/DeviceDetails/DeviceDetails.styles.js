@@ -1,9 +1,11 @@
 import { StyleSheet, Platform } from 'react-native';
-import { colors, spacing, animus } from '../../styles/theme';
 
-const mono = animus.mono;
+/** @param {ReturnType<typeof import('../../styles/theme').getTheme>} theme */
+export function createDeviceDetailsStyles(theme) {
+  const { colors, spacing, animus } = theme;
+  const mono = animus.mono;
+  return StyleSheet.create({
 
-export const DeviceDetailsStyles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
@@ -151,7 +153,7 @@ export const DeviceDetailsStyles = StyleSheet.create({
   coreBarTrack: {
     width: 14,
     height: 90,
-    backgroundColor: '#E6E2D6',
+    backgroundColor: animus.meterTrack,
     borderRadius: 7,
     overflow: 'hidden',
     justifyContent: 'flex-end',
@@ -193,7 +195,7 @@ export const DeviceDetailsStyles = StyleSheet.create({
   },
   progressBar: {
     height: 12,
-    backgroundColor: '#E6E2D6',
+    backgroundColor: animus.meterTrack,
     borderRadius: 6,
     overflow: 'hidden',
   },
@@ -249,7 +251,7 @@ export const DeviceDetailsStyles = StyleSheet.create({
     paddingBottom: 6,
     marginBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#E6E2D6',
+    borderBottomColor: animus.meterTrack,
   },
   procHead: {
     fontSize: 10,
@@ -316,4 +318,10 @@ export const DeviceDetailsStyles = StyleSheet.create({
     fontFamily: mono,
     color: colors.textMuted,
   },
-});
+
+  });
+}
+
+export const DeviceDetailsStyles = createDeviceDetailsStyles(
+  require('../../styles/theme').getTheme('light')
+);

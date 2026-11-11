@@ -1,45 +1,15 @@
 /**
- * Assassin's Creed-inspired loading screen theme
- * White backgrounds with grey accents - clean and minimal
+ * Jarvis × Animus theme — light (daylight reconstruction) + dark (Jarvis void).
+ * Prefer getTheme(mode) / useTheme(). Named exports stay light defaults for legacy imports.
  */
 
 import { Platform } from 'react-native';
-
-export const colors = {
-  // White/Light grey base colors (AC loading screen style)
-  background: '#FFFFFF',
-  surface: '#F5F5F5',
-  surfaceElevated: '#E8E8E8',
-  surfaceHover: '#EEEEEE',
-  
-  // Grey accents (Assassin's Creed style)
-  primary: '#2C2C2C',
-  primaryLight: '#4A4A4A',
-  primaryDark: '#1A1A1A',
-  
-  // Text colors
-  textPrimary: '#2C2C2C',
-  textSecondary: '#4A4A4A',
-  textMuted: '#6B6B6B',
-  
-  success: '#2E7D32',
-  error: '#C62828',
-  warning: '#E9A825',
-  info: '#4A4A4A',
-  
-  // Border and divider
-  border: '#D0D0D0',
-  divider: '#E0E0E0',
-  
-  // Overlay
-  overlay: 'rgba(255, 255, 255, 0.9)',
-  
-  // Card background
-  cardBackground: '#FAFAFA',
-  
-  // Accent color (gold/yellow for actions)
-  accent: '#D4AF37',
-};
+import {
+  palettes as rawPalettes,
+  createTypography,
+  getThemePure,
+  lightColors,
+} from './themePalettes';
 
 export const spacing = {
   xs: 4,
@@ -50,87 +20,6 @@ export const spacing = {
   xxl: 48,
 };
 
-export const typography = {
-  h1: {
-    fontSize: 36,
-    fontWeight: '300',
-    color: colors.textPrimary,
-    letterSpacing: 2,
-  },
-  h2: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: colors.textPrimary,
-    letterSpacing: 1.5,
-  },
-  h3: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    letterSpacing: 1,
-  },
-  body: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    lineHeight: 24,
-    fontWeight: '300',
-  },
-  bodySecondary: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    lineHeight: 24,
-    fontWeight: '300',
-  },
-  caption: {
-    fontSize: 14,
-    color: colors.textMuted,
-    fontWeight: '300',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-};
-
-export const shadows = {
-  small: {
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-    } : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-    }),
-  },
-  medium: {
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
-    } : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
-    }),
-  },
-  large: {
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-    } : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-    }),
-  },
-};
-
 export const borderRadius = {
   sm: 4,
   md: 8,
@@ -139,36 +28,93 @@ export const borderRadius = {
   full: 9999,
 };
 
-/**
- * Animus design tokens — the shared "we're inside the Animus" look.
- *
- * White reconstruction space, dark-grey wireframe structure, gold = active/data,
- * monospace numerics, glass HUD panels with gold corner brackets. Consume these
- * from the reusable primitives in components/Animus/* so every screen matches.
- */
-export const animus = {
-  gold: '#D4AF37',
-  goldSoft: 'rgba(212, 175, 55, 0.45)',
-  goldFaint: 'rgba(212, 175, 55, 0.12)',
-  ink: '#2C2C2C',
-  inkSoft: 'rgba(44, 44, 44, 0.55)',
-  line: 'rgba(44, 44, 44, 0.18)',
+const monoNative = 'monospace';
 
-  // Glass HUD surfaces
-  glass: 'rgba(255, 255, 255, 0.72)',
-  glassStrong: 'rgba(255, 255, 255, 0.85)',
-  glassBorder: 'rgba(212, 175, 55, 0.4)',
+function withPlatformMono(animus) {
+  return {
+    ...animus,
+    mono: Platform.OS === 'web' ? animus.mono : monoNative,
+  };
+}
 
-  mono: Platform.OS === 'web'
-    ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-    : 'monospace',
-
-  // Web-only decorative layers
-  bgGradient: 'radial-gradient(circle at 50% 30%, #FFFFFF 0%, #F3F1EA 55%, #E7E3D8 100%)',
-  scanlines: 'repeating-linear-gradient(0deg, rgba(44,44,44,0.035) 0px, rgba(44,44,44,0.035) 1px, transparent 1px, transparent 3px)',
-
-  radius: 10,
+export const palettes = {
+  light: {
+    colors: rawPalettes.light.colors,
+    status: rawPalettes.light.status,
+    animus: withPlatformMono(rawPalettes.light.animus),
+  },
+  dark: {
+    colors: rawPalettes.dark.colors,
+    status: rawPalettes.dark.status,
+    animus: withPlatformMono(rawPalettes.dark.animus),
+  },
 };
+
+export { createTypography };
+
+export function createShadows(mode) {
+  const soft = mode === 'dark' ? 0.35 : 0.05;
+  const med = mode === 'dark' ? 0.45 : 0.08;
+  const large = mode === 'dark' ? 0.55 : 0.1;
+  return {
+    small: {
+      ...(Platform.OS === 'web' ? {
+        boxShadow: mode === 'dark'
+          ? '0 1px 3px rgba(0, 0, 0, 0.45)'
+          : '0 1px 2px rgba(0, 0, 0, 0.05)',
+      } : {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: soft,
+        shadowRadius: 2,
+        elevation: 1,
+      }),
+    },
+    medium: {
+      ...(Platform.OS === 'web' ? {
+        boxShadow: mode === 'dark'
+          ? '0 2px 8px rgba(0, 0, 0, 0.5)'
+          : '0 2px 4px rgba(0, 0, 0, 0.08)',
+      } : {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: med,
+        shadowRadius: 4,
+        elevation: 2,
+      }),
+    },
+    large: {
+      ...(Platform.OS === 'web' ? {
+        boxShadow: mode === 'dark'
+          ? '0 8px 24px rgba(0, 0, 0, 0.55)'
+          : '0 4px 8px rgba(0, 0, 0, 0.1)',
+      } : {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: large,
+        shadowRadius: 8,
+        elevation: 4,
+      }),
+    },
+  };
+}
+
+/** @param {'light'|'dark'} mode */
+export function getTheme(mode = 'light') {
+  const base = getThemePure(mode);
+  return {
+    ...base,
+    animus: withPlatformMono(base.animus),
+    shadows: createShadows(base.mode),
+    spacing,
+    borderRadius,
+  };
+}
+
+export const colors = lightColors;
+export const animus = withPlatformMono(rawPalettes.light.animus);
+export const typography = createTypography(lightColors);
+export const shadows = createShadows('light');
 
 export default {
   colors,
@@ -177,4 +123,8 @@ export default {
   shadows,
   borderRadius,
   animus,
+  palettes,
+  getTheme,
+  createTypography,
+  createShadows,
 };

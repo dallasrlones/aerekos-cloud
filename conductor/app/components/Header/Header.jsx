@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { HeaderStyles } from './Header.styles';
-import { colors } from '../../styles/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { ProjectSwitcher } from '../ProjectSwitcher/ProjectSwitcher';
 import { EnvSwitcher } from '../EnvSwitcher/EnvSwitcher';
 import { GlobalSearch } from '../GlobalSearch/GlobalSearch';
@@ -12,6 +11,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen }) => {
   const { compact } = useBreakpoint();
+  const { colors, animus, spacing, borderRadius, shadows, isDark } = useTheme();
   const [localSearch, setLocalSearch] = useState(false);
   const [icarusOpen, setIcarusOpen] = useState(false);
   const open = searchOpen ?? localSearch;
@@ -35,11 +35,51 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
     else navigation?.navigate('dashboard');
   };
 
+  const container = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: isDark ? colors.surface : colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: animus.glassBorder,
+    ...shadows.small,
+    width: '100%',
+    zIndex: 1000,
+    ...Platform.select({
+      ios: { paddingTop: spacing.md + 8 },
+      android: { paddingTop: spacing.md },
+      web: { paddingTop: spacing.md },
+    }),
+  };
+
+  const iconBtn = {
+    padding: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    minHeight: 44,
+  };
+
+  const searchBox = {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    height: 40,
+  };
+
   return (
-    <View style={HeaderStyles.container}>
+    <View style={container}>
       {compact ? (
         <TouchableOpacity
-          style={HeaderStyles.iconButton}
+          style={iconBtn}
           onPress={currentScreen === 'dashboard' ? () => navigation?.navigate('menu') : goBack}
           activeOpacity={0.7}
         >
@@ -51,43 +91,46 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          style={HeaderStyles.iconButton}
+          style={iconBtn}
           onPress={() => currentScreen !== 'dashboard' && navigation?.navigate('dashboard')}
           activeOpacity={0.7}
         >
-          <Ionicons name="home" size={24} color={colors.textPrimary} />
+          <Ionicons name="home" size={24} color={animus.gold} />
         </TouchableOpacity>
       )}
 
-      <View style={HeaderStyles.switcherWrap}>
+      <View style={{
+        flex: 1,
+        minWidth: 0,
+        marginHorizontal: spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+      >
         <ProjectSwitcher navigation={navigation} />
         <EnvSwitcher variant="header" />
       </View>
 
       {!compact ? (
-        <TouchableOpacity
-          style={HeaderStyles.searchContainer}
-          onPress={() => setOpen(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="search" size={20} color={HeaderStyles.searchIcon.color} style={HeaderStyles.searchIcon} />
-          <Text style={[HeaderStyles.searchInput, { color: HeaderStyles.placeholder.color }]}>
+        <TouchableOpacity style={searchBox} onPress={() => setOpen(true)} activeOpacity={0.8}>
+          <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
+          <Text style={{ flex: 1, fontSize: 14, color: colors.textMuted }}>
             Search services… {Platform.OS === 'web' ? '(⌘K)' : ''}
           </Text>
         </TouchableOpacity>
       ) : (
-        <TouchableOpacity style={HeaderStyles.iconButton} onPress={() => setOpen(true)} activeOpacity={0.7}>
+        <TouchableOpacity style={iconBtn} onPress={() => setOpen(true)} activeOpacity={0.7}>
           <Ionicons name="search" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
       )}
 
       <TouchableOpacity
-        style={HeaderStyles.iconButton}
+        style={iconBtn}
         onPress={() => { setIcarusOpen(true); setOpen(false); }}
         activeOpacity={0.7}
         accessibilityLabel="Icarus"
       >
-        <Ionicons name="sparkles-outline" size={24} color={colors.textPrimary} />
+        <Ionicons name="sparkles-outline" size={24} color={animus.gold} />
       </TouchableOpacity>
 
       <NotificationBell navigation={navigation} />
@@ -95,7 +138,7 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
       {!compact ? (
         <>
           <TouchableOpacity
-            style={HeaderStyles.iconButton}
+            style={iconBtn}
             onPress={() => currentScreen !== 'gitManager' && navigation?.navigate('gitManager')}
             activeOpacity={0.7}
             accessibilityLabel="Git"
@@ -103,7 +146,7 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
             <Ionicons name="git-branch-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={HeaderStyles.iconButton}
+            style={iconBtn}
             onPress={() => currentScreen !== 'adonis' && navigation?.navigate('adonis')}
             activeOpacity={0.7}
             accessibilityLabel="Adonis IDE"
@@ -111,14 +154,14 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
             <Ionicons name="code-slash-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={HeaderStyles.iconButton}
+            style={iconBtn}
             onPress={() => currentScreen !== 'settings' && navigation?.navigate('settings')}
             activeOpacity={0.7}
           >
             <Ionicons name="settings" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={HeaderStyles.iconButton}
+            style={iconBtn}
             onPress={() => currentScreen !== 'menu' && navigation?.navigate('menu')}
             activeOpacity={0.7}
           >
@@ -132,3 +175,5 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
     </View>
   );
 };
+
+export default Header;

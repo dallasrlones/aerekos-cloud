@@ -1,14 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Page } from '../../components/ui';
-import { Box } from '../../components/Box/Box';
-import { Button } from '../../components/Button/Button';
 import { useProject } from '../../contexts/ProjectContext';
 import api from '../../utils/api';
-import { colors } from '../../styles/theme';
-import { GitCodeView } from '../GitManager/GitCodeView';
 import { containerService } from '../../services/containerService';
-import { AdonisStyles as S } from './Adonis.styles';
+import { languageFromPath } from '../GitManager/languageFromPath';
+import { AdonisStyles as S, c9 } from './Adonis.styles';
 
 const { canSwitchRef, defaultCommitMessage, isDirty } = require('./dirtyGuard');
 
@@ -27,6 +23,23 @@ function branchName(b) {
 
 function branchSha(b) {
   return typeof b === 'object' && b ? (b.sha || '') : '';
+}
+
+function ToolBtn({ label, onPress, primary, danger, disabled }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        S.toolBtn,
+        primary ? S.toolBtnPrimary : null,
+        danger ? S.toolBtnDanger : null,
+        disabled ? { opacity: 0.45 } : null,
+      ]}
+    >
+      <Text style={S.toolBtnText}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
 
 export const Adonis = ({ navigation, route }) => {
@@ -58,6 +71,9 @@ export const Adonis = ({ navigation, route }) => {
     const b = (branches || []).find((x) => branchName(x) === gitRef);
     return branchSha(b);
   }, [branches, gitRef]);
+  const lang = useMemo(() => languageFromPath(blob?.path), [blob?.path]);
+  const fileBase = blob?.path ? blob.path.split('/').pop() : '';
+  const projectName = currentProject?.name || params.projectName || 'project';
 
   const loadRepos = useCallback(async () => {
     const pid = projectId || currentProject?.id;
@@ -151,7 +167,8 @@ export const Adonis = ({ navigation, route }) => {
     setOriginal(text);
   };
 
-  const save = async (path, text, message) => {
+  const save = useCallback(async (path, text, message) => {
+    if (!path || !repoId || !projectId) return;
     try {
       setBusy(true);
       setError(null);
@@ -173,7 +190,34 @@ export const Adonis = ({ navigation, route }) => {
     } finally {
       setBusy(false);
     }
-  };
+  }, [repoId, projectId, gitRef, tipSha, treePath]);
+
+  const saveCurrent = useCallback(() => {
+    if (busy || !blob?.path || blob.binary) return;
+    if (!isDirty(original, content)) {
+      setStatus(`No changes · ${blob.path}`);
+      return;
+    }
+    return save(blob.path, content);
+  }, [busy, blob, original, content, save]);
+
+  const saveCurrentRef = useRef(saveCurrent);
+  useEffect(() => {
+    saveCurrentRef.current = saveCurrent;
+  }, [saveCurrent]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
+    const onKeyDown = (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== 's' && e.key !== 'S') return;
+      e.preventDefault();
+      e.stopPropagation();
+      saveCurrentRef.current?.();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   const createBranch = async () => {
     if (!newBranch.trim()) return;
@@ -269,143 +313,277 @@ export const Adonis = ({ navigation, route }) => {
     }
   };
 
+  const goRoot = async () => {
+    if (!guardSwitch()) return;
+    setTreePath('');
+    setBlob(null);
+    setContent('');
+    setOriginal('');
+    await loadTree(repoId, projectId, '', gitRef);
+  };
+
   const folders = tree.filter((e) => e.type === 'tree').sort((a, b) => a.name.localeCompare(b.name));
   const files = tree.filter((e) => e.type !== 'tree').sort((a, b) => a.name.localeCompare(b.name));
 
   if (!repoId) {
     return (
-      <Page title="Adonis" subtitle="Cloud IDE — pick a repository">
-        <ScrollView>
-          {error ? <Text style={S.error}>{error}</Text> : null}
-          <Button title="Back to Git" variant="secondary" onPress={() => navigation?.navigate?.('gitManager')} />
-          <Box title="Repositories">
-            {!repos.length ? <Text style={S.muted}>No repositories in this project.</Text> : null}
-            {repos.map((r) => (
-              <View key={r.id} style={{ marginBottom: 8 }}>
-                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{r.name}</Text>
-                <Button title="Open" variant="secondary" onPress={() => openRepo(r)} />
-              </View>
-            ))}
-          </Box>
-        </ScrollView>
-      </Page>
+      <View style={S.pickerShell}>
+        <View style={S.pickerCard}>
+          <Text style={S.pickerTitle}>{projectName}</Text>
+          <Text style={S.pickerSub}>Cloud IDE — pick a repository</Text>
+          {error ? <Text style={S.errorText}>{error}</Text> : null}
+          <ToolBtn label="← Git" onPress={() => navigation?.navigate?.('gitManager')} />
+          <View style={{ height: 12 }} />
+          {!repos.length ? <Text style={S.pickerSub}>No repositories in this project.</Text> : null}
+          {repos.map((r) => (
+            <View key={r.id} style={S.repoRow}>
+              <Text style={S.repoName}>{r.name}</Text>
+              <ToolBtn label="Open" primary onPress={() => openRepo(r)} />
+            </View>
+          ))}
+        </View>
+      </View>
     );
   }
 
   return (
-    <Page title={`Adonis · ${repoName || repoId}`} subtitle={`${gitRef}${dirty ? ' · unsaved' : ''}`}>
-      <ScrollView>
-        {error ? <Text style={S.error}>{error}</Text> : null}
-        {status ? <Text style={S.muted}>{status}</Text> : null}
-        <View style={S.toolbar}>
-          <Button title="Git" variant="secondary" onPress={() => navigation?.navigate?.('gitManager', { repoId })} />
-          {Platform.OS === 'web' && branches.length ? (
-            <select value={gitRef} onChange={(e) => switchRef(e.target.value)} style={S.branchSelect}>
-              {branches.map((b) => {
-                const n = branchName(b);
-                return <option key={n} value={n}>{n}</option>;
-              })}
-            </select>
-          ) : null}
-          <TextInput
-            value={newBranch}
-            onChangeText={setNewBranch}
-            placeholder="new-branch"
-            autoCapitalize="none"
-            placeholderTextColor={colors.textMuted}
-            style={[S.input, { minWidth: 120, marginVertical: 0 }]}
-          />
-          <Button title="New branch" variant="secondary" onPress={createBranch} />
-          <Button title="Add file" variant="secondary" onPress={() => setShowAdd((v) => !v)} />
-          <Button title={busy ? '…' : 'Save'} onPress={() => blob?.path && save(blob.path, content)} />
-          <Button title="Start workspace" variant="secondary" onPress={ensureWorkspace} />
-          {workspace ? <Button title="Stop workspace" variant="secondary" onPress={stopWorkspace} /> : null}
-          <Button title="Deploy" onPress={deploy} />
+    <View style={S.shell}>
+      <View style={S.menubar}>
+        <Text style={S.brand}>{projectName}</Text>
+        <TouchableOpacity onPress={() => navigation?.navigate?.('gitManager', { repoId })}>
+          <Text style={S.menuItem}>Git</Text>
+        </TouchableOpacity>
+        <Text style={[S.menuItem, S.menuItemActive]}>File</Text>
+        <Text style={S.menuItem}>Edit</Text>
+        <Text style={S.menuItem}>View</Text>
+        <Text style={S.menuItem}>Run</Text>
+        <Text style={S.menuItem}>Deploy</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={S.menuItem}>{repoName}</Text>
+      </View>
+
+      <View style={S.toolbar}>
+        {Platform.OS === 'web' && branches.length ? (
+          <select value={gitRef} onChange={(e) => switchRef(e.target.value)} style={S.branchSelect}>
+            {branches.map((b) => {
+              const n = branchName(b);
+              return <option key={n} value={n}>{n}</option>;
+            })}
+          </select>
+        ) : (
+          <Text style={S.statusText}>{gitRef}</Text>
+        )}
+        <TextInput
+          value={newBranch}
+          onChangeText={setNewBranch}
+          placeholder="new-branch"
+          autoCapitalize="none"
+          placeholderTextColor={c9.textMuted}
+          style={S.tinyInput}
+        />
+        <ToolBtn label="New branch" onPress={createBranch} disabled={busy} />
+        <ToolBtn label="Add file" onPress={() => setShowAdd((v) => !v)} />
+        <ToolBtn label={busy ? '…' : 'Save'} primary onPress={saveCurrent} disabled={busy || !blob?.path || !dirty} />
+        <ToolBtn label={workspace ? 'Stop WS' : 'Start WS'} onPress={workspace ? stopWorkspace : ensureWorkspace} disabled={busy} />
+        <ToolBtn label="Deploy" primary onPress={deploy} disabled={busy} />
+      </View>
+
+      {error ? (
+        <View style={S.errorBanner}>
+          <Text style={S.errorText}>{error}</Text>
         </View>
-        {showAdd ? (
-          <Box title="Add file">
-            <TextInput
-              value={addPath}
-              onChangeText={setAddPath}
-              placeholder="path/to/file"
-              autoCapitalize="none"
-              placeholderTextColor={colors.textMuted}
-              style={S.input}
-            />
-            <Button
-              title="Create & commit"
-              onPress={async () => {
-                await save(addPath.trim(), '', `Add ${addPath.trim()}`);
-                setShowAdd(false);
-                setAddPath('');
-              }}
-            />
-          </Box>
-        ) : null}
-        <View style={S.layout}>
-          <View style={S.treePane}>
-            <TouchableOpacity onPress={async () => {
-              if (!guardSwitch()) return;
-              setTreePath('');
-              setBlob(null);
-              await loadTree(repoId, projectId, '', gitRef);
+      ) : null}
+
+      {showAdd ? (
+        <View style={S.addBar}>
+          <TextInput
+            value={addPath}
+            onChangeText={setAddPath}
+            placeholder="path/to/file"
+            autoCapitalize="none"
+            placeholderTextColor={c9.textMuted}
+            style={[S.tinyInput, { flex: 1 }]}
+          />
+          <ToolBtn
+            label="Create & commit"
+            primary
+            onPress={async () => {
+              await save(addPath.trim(), '', `Add ${addPath.trim()}`);
+              setShowAdd(false);
+              setAddPath('');
             }}
-            >
-              <Text style={S.muted}>{repoName}/</Text>
+          />
+          <ToolBtn label="Cancel" onPress={() => setShowAdd(false)} />
+        </View>
+      ) : null}
+
+      <View style={S.body}>
+        <View style={S.sidebar}>
+          <View style={S.sideHeader}>
+            <Text style={S.sideTitle}>Environment</Text>
+            <TouchableOpacity onPress={goRoot}>
+              <Text style={S.menuItem}>↻</Text>
             </TouchableOpacity>
-            {[...folders, ...files].map((e) => (
-              <TouchableOpacity key={e.name} style={S.treeRow} onPress={() => openEntry(e)}>
-                <Text style={S.treeName}>{e.type === 'tree' ? `${e.name}/` : e.name}</Text>
-              </TouchableOpacity>
-            ))}
-            {!tree.length ? <Text style={S.muted}>Empty tree</Text> : null}
           </View>
-          <View style={S.editorPane}>
+          <Text style={S.openFilesLabel}>Workspace</Text>
+          <ScrollView style={S.treeScroll}>
+            <TouchableOpacity style={S.treeRow} onPress={goRoot}>
+              <Text style={S.treeIcon}>▾</Text>
+              <Text style={[S.treeName, S.treeNameDir]}>{repoName || 'repo'}</Text>
+            </TouchableOpacity>
+            {treePath ? (
+              <TouchableOpacity
+                style={S.treeRow}
+                onPress={async () => {
+                  if (!guardSwitch()) return;
+                  const parts = treePath.split('/');
+                  parts.pop();
+                  const next = parts.join('/');
+                  setTreePath(next);
+                  setBlob(null);
+                  setContent('');
+                  setOriginal('');
+                  await loadTree(repoId, projectId, next, gitRef);
+                }}
+              >
+                <Text style={S.treeIcon}>‥</Text>
+                <Text style={S.treeName}>{treePath}/</Text>
+              </TouchableOpacity>
+            ) : null}
+            {[...folders, ...files].map((e) => {
+              const path = treePath ? `${treePath}/${e.name}` : e.name;
+              const active = blob?.path === path;
+              return (
+                <TouchableOpacity
+                  key={e.name}
+                  style={[S.treeRow, active ? S.treeRowActive : null]}
+                  onPress={() => openEntry(e)}
+                >
+                  <Text style={S.treeIcon}>{e.type === 'tree' ? '▸' : '·'}</Text>
+                  <Text style={[S.treeName, e.type === 'tree' ? S.treeNameDir : null]}>
+                    {e.type === 'tree' ? `${e.name}/` : e.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            {!tree.length ? <Text style={[S.statusText, { padding: 10 }]}>Empty tree</Text> : null}
+          </ScrollView>
+        </View>
+
+        <View style={S.mainCol}>
+          <View style={S.tabs}>
+            {blob ? (
+              <View style={[S.tab, S.tabActive]}>
+                <Text style={[S.tabText, S.tabTextActive]}>
+                  {fileBase}{dirty ? ' ●' : ''}
+                </Text>
+              </View>
+            ) : (
+              <View style={S.tab}>
+                <Text style={S.tabText}>Welcome</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={S.editorWrap}>
             {!blob ? (
-              <Text style={S.muted}>Select a file to edit.</Text>
+              <View style={S.emptyEditor}>
+                <Text style={S.emptyTitle}>{projectName}</Text>
+                <Text style={S.emptyHint}>
+                  Open a file from the Environment tree to edit. Save commits to {gitRef}.
+                </Text>
+              </View>
             ) : blob.binary ? (
-              <Text>(binary · {blob.size || 0} bytes)</Text>
+              <View style={S.emptyEditor}>
+                <Text style={S.emptyHint}>(binary · {blob.size || 0} bytes)</Text>
+              </View>
             ) : Monaco ? (
               <Monaco
-                height={400}
-                language="plaintext"
+                height="100%"
+                language={lang}
                 value={content}
                 onChange={(v) => setContent(v ?? '')}
-                theme="vs"
-                options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on' }}
+                theme="vs-dark"
+                onMount={(editor, monaco) => {
+                  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+                    saveCurrentRef.current?.();
+                  });
+                }}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  wordWrap: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  padding: { top: 8 },
+                  renderLineHighlight: 'line',
+                  fontFamily: 'Menlo, Monaco, Consolas, monospace',
+                }}
               />
             ) : (
               <TextInput
                 value={content}
                 onChangeText={setContent}
                 multiline
-                style={[S.input, { minHeight: 360, fontFamily: 'monospace', fontSize: 12 }]}
+                placeholderTextColor={c9.textMuted}
+                style={{
+                  flex: 1,
+                  minHeight: 320,
+                  padding: 12,
+                  color: c9.text,
+                  backgroundColor: '#1e1e1e',
+                  fontFamily: c9.mono,
+                  fontSize: 13,
+                  textAlignVertical: 'top',
+                }}
               />
             )}
-            {blob && !blob.binary ? (
-              <GitCodeView path={blob.path} content={content} height={120} />
-            ) : null}
+          </View>
+
+          <View style={S.console}>
+            <View style={S.consoleTabs}>
+              <View style={[S.consoleTab, S.consoleTabActive]}>
+                <Text style={S.consoleTabText}>
+                  Console{workspace ? ` · ${workspace.status}` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={S.consoleBody}>
+              <View style={S.termPromptRow}>
+                <Text style={S.prompt}>$</Text>
+                <TextInput
+                  value={termCmd}
+                  onChangeText={setTermCmd}
+                  placeholder="command"
+                  autoCapitalize="none"
+                  placeholderTextColor={c9.textMuted}
+                  style={S.termInput}
+                  onSubmitEditing={runTerm}
+                />
+                <ToolBtn label="Run" onPress={runTerm} disabled={busy} />
+              </View>
+              <ScrollView style={{ flex: 1 }}>
+                <Text selectable style={S.termOut}>
+                  {termOut || (workspace
+                    ? `workspace ${workspace.container_id || 'pending'} · ${workspace.status}`
+                    : 'Start a workspace to run commands.')}
+                </Text>
+              </ScrollView>
+            </View>
           </View>
         </View>
-        <View style={S.bottomPane}>
-          <Text style={{ fontWeight: '600', color: colors.textPrimary, marginBottom: 6 }}>
-            Terminal {workspace ? `· ${workspace.status} · ${workspace.container_id || 'pending'}` : '· workspace not started'}
-          </Text>
-          <View style={S.toolbar}>
-            <TextInput
-              value={termCmd}
-              onChangeText={setTermCmd}
-              placeholder="command"
-              autoCapitalize="none"
-              placeholderTextColor={colors.textMuted}
-              style={[S.input, { flex: 1, minWidth: 180, marginVertical: 0 }]}
-            />
-            <Button title="Run" variant="secondary" onPress={runTerm} />
-          </View>
-          <Text selectable style={S.termOut}>{termOut || ' '}</Text>
-        </View>
-      </ScrollView>
-    </Page>
+      </View>
+
+      <View style={S.statusbar}>
+        <Text style={S.statusText}>
+          {dirty ? '● unsaved' : 'ready'}
+          {status ? ` · ${status}` : ''}
+        </Text>
+        <Text style={[S.statusText, S.statusAccent]}>
+          {gitRef}{blob?.path ? ` · ${blob.path}` : ''}{lang && blob ? ` · ${lang}` : ''}
+        </Text>
+      </View>
+    </View>
   );
 };
 

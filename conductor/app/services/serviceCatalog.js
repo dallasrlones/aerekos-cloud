@@ -108,6 +108,35 @@ export const SERVICE_CATALOG = [
   { name: 'push_manager', label: 'Push Notifications', category: 'integration', icon: 'notifications-outline', description: 'Send when FCM secret exists; otherwise queue-only.' },
 ];
 
+const METAPHOR_BY_NAME = {
+  compute_manager: 'hangar',
+  app_manager: 'hangar',
+  worker_manager: 'hangar',
+  host_manager: 'planet',
+  storage_manager: 'vault',
+  registry_manager: 'vault',
+  git_manager: 'archive',
+  key_manager: 'cipher',
+  secrets_manager: 'cipher',
+  auth_manager: 'cipher',
+  ai_manager: 'station',
+};
+
+const metaphorFor = (s) => {
+  if (s.metaphor) return s.metaphor;
+  if (METAPHOR_BY_NAME[s.name]) return METAPHOR_BY_NAME[s.name];
+  if (s.category === 'compute') return 'hangar';
+  if (s.category === 'storage') return 'vault';
+  if (s.category === 'security') return 'cipher';
+  if (s.category === 'devtools') return 'archive';
+  return 'station';
+};
+
+// Enrich catalog entries with metaphor (mutable once at load).
+SERVICE_CATALOG.forEach((s) => {
+  s.metaphor = metaphorFor(s);
+});
+
 const BY_NAME = SERVICE_CATALOG.reduce((acc, s) => {
   acc[s.name] = s;
   return acc;

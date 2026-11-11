@@ -10,7 +10,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { colors } from '../../styles/theme';
 import { ComputeManagerStyles as S } from './ComputeManager.styles';
 import { EnvSwitcher } from '../../components/EnvSwitcher/EnvSwitcher';
-import { NextSteps } from '../../components/NextSteps/NextSteps';
+import { AnimusPage, AnimusNextSteps } from '../../components/Animus';
 import { formatBytes, formatCpu } from '../../utils/formatBytes';
 
 const statusColor = (status) => {
@@ -125,15 +125,20 @@ export const ComputeManager = ({ navigation }) => {
   };
 
   return (
+    <AnimusPage
+      title="Container Hosting"
+      job="Launch and manage this project’s containers from the hangar bay."
+      metaphor="hangar"
+      scroll={false}
+      primaryAction={<Button title="Launch" onPress={() => navigation.navigate('launchContainer')} />}
+    >
     <ScrollView
       style={S.container}
       contentContainerStyle={S.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={S.title}>Container Hosting</Text>
-      <Text style={S.subtitle}>Launch and manage this project’s containers.</Text>
       <EnvSwitcher />
-      <NextSteps navigation={navigation} filter={['launch', 'bind']} />
+      <AnimusNextSteps navigation={navigation} filter={['launch', 'bind']} />
 
       {error && (
         <Box style={S.errorBox}><Text style={S.errorText}>{error}</Text></Box>
@@ -225,5 +230,6 @@ export const ComputeManager = ({ navigation }) => {
         </Box>
       )}
     </ScrollView>
+    </AnimusPage>
   );
 };

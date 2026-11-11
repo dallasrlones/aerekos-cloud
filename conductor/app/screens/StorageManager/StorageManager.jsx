@@ -8,6 +8,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { storageManagerService } from '../../services/storageManagerService';
 import { StorageManagerStyles } from './StorageManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
+import { AnimusPage } from '../../components/Animus';
 
 export const StorageManager = ({ navigation }) => {
   const { currentProject } = useProject();
@@ -108,6 +109,13 @@ export const StorageManager = ({ navigation }) => {
   };
 
   return (
+    <AnimusPage
+      title="Object Storage"
+      job="Deep vault for buckets and objects — sealed chambers with signed access."
+      metaphor="vault"
+      scroll={false}
+      primaryAction={<Button title="Projects" onPress={() => navigation.navigate('projectsList')} />}
+    >
     <ScrollView
       style={StorageManagerStyles.container}
       contentContainerStyle={StorageManagerStyles.content}
@@ -115,7 +123,6 @@ export const StorageManager = ({ navigation }) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={StorageManagerStyles.title}>Storage Manager Service</Text>
 
       {error && (
         <Box style={StorageManagerStyles.errorBox}>
@@ -274,6 +281,7 @@ export const StorageManager = ({ navigation }) => {
       )}
       {status?.enabled ? <ResourceCrud serviceName="storage_manager" enabled title="Buckets" /> : null}
     </ScrollView>
+    </AnimusPage>
   );
 };
 

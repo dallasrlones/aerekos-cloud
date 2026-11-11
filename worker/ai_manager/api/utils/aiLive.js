@@ -121,6 +121,15 @@ function emitIcarusTool(payload, projectId) {
   });
 }
 
+function emitIcarusBench(payload, projectId) {
+  if (!payload) return;
+  liveEmitSoon(roomFor(projectId), 'ai:icarus.bench', {
+    ...payload,
+    project_id: projectId || payload.project_id || '',
+    at: payload.at || Date.now(),
+  });
+}
+
 module.exports = {
   emitPull,
   emitBench,
@@ -133,4 +142,5 @@ module.exports = {
   emitIcarusGraph,
   emitIcarusTask,
   emitIcarusTool,
+  emitIcarusBench,
 };

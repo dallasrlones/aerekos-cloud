@@ -331,4 +331,48 @@ r.get('/ux', async (req, res, next) => {
   } catch (e) { err(res, e, next); }
 });
 
+r.get('/bench', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const { liveBench } = require('../services/IcarusLiveBenchService');
+    res.json({ item: liveBench.last(f.projectId), ux: f.uxSlo.summary() });
+  } catch (e) { err(res, e, next); }
+});
+
+r.post('/bench/run', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const { liveBench } = require('../services/IcarusLiveBenchService');
+    const hard = req.body?.hard === true || req.query.hard === '1';
+    const item = await liveBench.runOnce(f.projectId, { hard, emit: true });
+    res.json({ item });
+  } catch (e) { err(res, e, next); }
+});
+
+r.post('/bench/live', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const { liveBench } = require('../services/IcarusLiveBenchService');
+    if (req.body?.stop) return res.json(liveBench.stop(f.projectId));
+    res.json(liveBench.start(f.projectId, { intervalMs: req.body?.interval_ms }));
+  } catch (e) { err(res, e, next); }
+});
+
+r.post('/nightly', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const { nightly } = require('../services/IcarusNightlyService');
+    if (req.body?.stop) return res.json(nightly.stop());
+    if (req.body?.once) return res.json({ item: await nightly.cycle(f.projectId, { hard: req.body?.hard !== false }) });
+    res.json(nightly.start(f.projectId, { intervalMs: req.body?.interval_ms }));
+  } catch (e) { err(res, e, next); }
+});
+
+r.get('/nightly', async (req, res, next) => {
+  try {
+    const { nightly } = require('../services/IcarusNightlyService');
+    res.json({ items: nightly.list() });
+  } catch (e) { err(res, e, next); }
+});
+
 module.exports = r;

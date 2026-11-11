@@ -93,6 +93,7 @@ export function PlansBoard({
   scrubAt,
   onScrub,
   scrubMax,
+  bench,
 }) {
   const currentPlans = plans.filter((p) => CURRENT.has(p.status));
   const historyPlans = plans.filter((p) => HISTORY.has(p.status));
@@ -128,6 +129,7 @@ export function PlansBoard({
           scrubAt={scrubAt}
           onScrub={onScrub}
           scrubMax={boardTab === 'history' ? scrubMax : 0}
+          bench={bench}
         />
         <View style={{ marginTop: 12 }}>
           <TaskInspector

@@ -6,7 +6,10 @@
     "start": "node index.js",
     "test": "jest",
     "bench:icarus": "ICARUS_GRAPH_MEMORY=1 node api/services/IcarusBenchmark.js",
-    "bench:icarus:hard": "ICARUS_GRAPH_MEMORY=1 ICARUS_BENCH_HARD=1 node api/services/IcarusBenchmark.js"
+    "bench:icarus:hard": "ICARUS_GRAPH_MEMORY=1 ICARUS_BENCH_HARD=1 node api/services/IcarusBenchmark.js",
+    "test:tools": "jest tests/unit/allToolsExhaustive.test.js --no-coverage",
+    "test:voice": "jest tests/unit/voice.e2e.test.js --no-coverage",
+    "test:chaos": "ICARUS_GRAPH_MEMORY=1 jest tests/unit/icarusChaos.test.js --no-coverage"
   },
   "license": "ISC",
   "dependencies": {

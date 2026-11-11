@@ -252,6 +252,9 @@ function verifyTool(call, ctx = {}) {
   if (name === 'git_push') {
     return { ok: false, level: 'ask', reason: 'git_push always ASK', ask: true };
   }
+  if (name === 'shell' && /\bgit\s+add\s+(-A|--all)\b/.test(String(args.cmd || ''))) {
+    return { ok: false, level: 'deny', reason: 'never git add -A; stage claimed paths only' };
+  }
   if (name === 'git_commit' || name === 'git_merge' || (name === 'shell' && /\bgit\s+(commit|merge|push)\b/.test(String(args.cmd || '')))) {
     const branch = String(args.branch || args.ref || ctx.branch || '');
     if (/^(main|master)$/.test(branch)) {

@@ -43,7 +43,7 @@ class CharterService {
     if (c.allowed_projects_deny?.includes(projectId) && /deploy|wipe|prod/i.test(action)) {
       return { allow: false, reason: 'charter_deny_project' };
     }
-    if (c.never_wipe_prod && /wipe|destroy|drop\s+database/i.test(action)) {
+    if (c.never_wipe_prod && /wipe|destroy|drop\s+database|rm\s+-rf\s+\/(\s|$)/i.test(action)) {
       return { allow: false, reason: 'never_wipe_prod' };
     }
     if (c.ask_before_deploy && /deploy/i.test(action)) {

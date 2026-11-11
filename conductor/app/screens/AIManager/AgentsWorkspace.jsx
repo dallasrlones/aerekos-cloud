@@ -70,6 +70,7 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
   const [scrubAt, setScrubAt] = useState(null);
   const [scrubMax, setScrubMax] = useState(0);
   const [icarusPlanId, setIcarusPlanId] = useState('');
+  const [icarusBench, setIcarusBench] = useState(null);
   const streamDoneTimer = useRef(null);
 
   useEffect(() => subscribe(setHolding), []);
@@ -215,6 +216,11 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
       if (!payload) return;
       setLiveTools((cur) => [{ ...payload, created_at: payload.at || Date.now() }, ...cur].slice(0, 200));
     });
+    const offBench = websocketService.on('ai:icarus.bench', (payload) => {
+      if (!payload) return;
+      if (payload.project_id && payload.project_id !== projectId) return;
+      setIcarusBench(payload);
+    });
     const offJob = websocketService.on('ai:job', (payload) => {
       const job = payload?.job;
       if (!job?.id) return;
@@ -255,7 +261,7 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
       if (payload?.ask) setAsks((prev) => prev.map((a) => (a.id === payload.ask.id ? payload.ask : a)));
     });
     return () => {
-      offPulse?.(); offGraph?.(); offTask?.(); offTool?.();
+      offPulse?.(); offGraph?.(); offTask?.(); offTool?.(); offBench?.();
       offJob?.(); offToken?.(); offAsk?.(); offAns?.();
     };
   }, [projectId, agent?.id, boardTab, reloadAgent]);
@@ -516,6 +522,7 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
           onSelectGraphTask={setSelectedGraphTask}
           scrubAt={scrubAt}
           scrubMax={scrubMax}
+          bench={icarusBench}
           onScrub={async (pct) => {
             setScrubAt(pct);
             if (!icarusPlanId || boardTab !== 'history') return;

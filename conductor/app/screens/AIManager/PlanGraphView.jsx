@@ -5,9 +5,11 @@ import {
 import { colors, spacing, typography } from '../../styles/theme';
 import { layoutPlanGraph, statusCounts, STATUS_COLOR } from './planGraphLayout';
 
-function StatusStrip({ tasks, gateway, readyCount }) {
+function StatusStrip({ tasks, gateway, readyCount, bench }) {
   const c = statusCounts(tasks);
   const owner = (gateway?.in_flight || [])[0];
+  const grade = bench?.grade || bench?.scorecard?.grade;
+  const pass = bench?.pass;
   return (
     <View style={{
       flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.sm, alignItems: 'center',
@@ -21,6 +23,16 @@ function StatusStrip({ tasks, gateway, readyCount }) {
         GPU: {owner ? `${owner.lane} · ${owner.agent_id || '—'}` : 'idle'}
         {gateway?.queued?.length != null ? ` · queue ${gateway.queued.length}` : ''}
       </Text>
+      {grade ? (
+        <Text style={{
+          ...typography.caption,
+          color: pass ? colors.success || '#2f6f4e' : colors.danger || '#8b3a3a',
+        }}
+        >
+          Bench {grade}{pass ? ' · pass' : ' · fail'}
+          {bench?.wall_ms != null ? ` · ${bench.wall_ms}ms` : ''}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -43,6 +55,7 @@ export function PlanGraphView({
   scrubAt,
   onScrub,
   scrubMax,
+  bench,
 }) {
   const layout = useMemo(() => layoutPlanGraph(subgraph || {}), [subgraph]);
   const tasks = subgraph?.tasks || [];
@@ -51,13 +64,16 @@ export function PlanGraphView({
     return (
       <View style={{ paddingVertical: spacing.md }}>
         <Text style={typography.caption}>No active plan — manager idle.</Text>
+        {bench?.grade ? (
+          <Text style={typography.caption}>Last bench {bench.grade}{bench.pass ? ' pass' : ' fail'}</Text>
+        ) : null}
       </View>
     );
   }
 
   return (
     <View>
-      <StatusStrip tasks={tasks} gateway={gateway} readyCount={readyCount} />
+      <StatusStrip tasks={tasks} gateway={gateway} readyCount={readyCount} bench={bench} />
       <EdgeLegend />
       {scrubMax > 0 ? (
         <View style={{ marginBottom: spacing.sm }}>

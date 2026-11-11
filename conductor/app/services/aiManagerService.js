@@ -560,6 +560,39 @@ export const aiManagerService = {
     return res.data?.result;
   },
 
+  async icarusPlans(projectId, { status } = {}) {
+    const res = await api.get(`${ROOT}/icarus/plans`, {
+      params: { project_id: projectId, ...(status ? { status } : {}) },
+    });
+    return res.data?.items || [];
+  },
+  async icarusSubgraph(projectId, planId) {
+    const res = await api.get(`${ROOT}/icarus/plans/${planId}`, { params: { project_id: projectId } });
+    return res.data;
+  },
+  async icarusScrub(projectId, planId, at) {
+    const res = await api.get(`${ROOT}/icarus/plans/${planId}/scrub`, {
+      params: { project_id: projectId, at },
+    });
+    return res.data;
+  },
+  async icarusReady(projectId, planId) {
+    const res = await api.get(`${ROOT}/icarus/ready`, {
+      params: { project_id: projectId, ...(planId ? { plan_id: planId } : {}) },
+    });
+    return res.data?.items || [];
+  },
+  async icarusTaskTrace(projectId, taskId, { agent_id } = {}) {
+    const res = await api.get(`${ROOT}/icarus/tasks/${taskId}/trace`, {
+      params: { project_id: projectId, ...(agent_id ? { agent_id } : {}) },
+    });
+    return res.data;
+  },
+  async icarusStatus(projectId) {
+    const res = await api.get(`${ROOT}/icarus/status`, { params: { project_id: projectId } });
+    return res.data;
+  },
+
   /** @deprecated use llmStatus */
   async status() { return this.llmStatus(); },
 };

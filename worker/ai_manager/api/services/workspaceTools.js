@@ -18,6 +18,7 @@ const READ_TOOLS = new Set([
   'git_status', 'git_diff', 'git_log', 'git_branch',
   'web_search', 'web_fetch', 'browser_navigate', 'browser_snapshot', 'browser_screenshot',
   'semantic_search', 'file_glob', 'iac_schema', 'iac_diff',
+  'plan_query', 'plan_ready', 'plan_subgraph', 'explain_why',
 ]);
 
 function classifyTool(name, args = {}) {
@@ -294,7 +295,15 @@ function toolSchemas() {
     { name: 'browser_type', description: 'Type into a field', parameters: { text: 'string', selector: 'string' } },
     { name: 'browser_press', description: 'Press a key', parameters: { key: 'string' } },
     { name: 'browser_select', description: 'Select an option', parameters: { selector: 'string', value: 'string' } },
-    { name: 'open_pr', description: 'Open a local PR for manager then user Merge', parameters: { title: 'string', summary: 'string', files: 'string' } },
+    { name: 'open_pr', description: 'Coding agent: create a PR (higher model approves; user merges)', parameters: { title: 'string', summary: 'string', files: 'string', diff: 'string', branch: 'string' } },
+    { name: 'approve_pr', description: 'Manager/review (higher model): approve, request changes, or reject a coding-agent PR', parameters: { pr_id: 'string' } },
+    { name: 'lora_propose', description: 'Propose Orin LoRA train for coding or higher-model tool calls (Qwen local / Gemma4→minis)', parameters: { agent_kind: 'string', base_model: 'string', adapter_name: 'string', dataset_preview: 'string' } },
+    { name: 'plan_query', description: 'User-layer safe Neo4j read against the plan graph', parameters: { cypher: 'string' } },
+    { name: 'plan_ready', description: 'List ready-set tasks from the plan graph', parameters: { plan_id: 'string' } },
+    { name: 'plan_subgraph', description: 'Fetch plan tasks + BEFORE/PARALLEL/MUTEX edges', parameters: { plan_id: 'string' } },
+    { name: 'explain_why', description: 'Explain why a task/decision happened', parameters: { task_id: 'string' } },
+    { name: 'ui_navigate', description: 'Cloud UI nav hint for the user layer', parameters: { path: 'string', note: 'string' } },
+    { name: 'project_create', description: 'Ask to create a cloud project (policy gated)', parameters: { name: 'string', template: 'string' } },
     { name: 'iac_schema', description: 'Empty project-stack JSON + catalog keys', parameters: {} },
     { name: 'iac_put', description: 'Draft project-stack JSON', parameters: { stack: 'object' } },
     { name: 'iac_diff', description: 'Diff draft vs applied stack', parameters: {} },

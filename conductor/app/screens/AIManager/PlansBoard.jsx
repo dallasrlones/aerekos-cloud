@@ -4,6 +4,8 @@ import { Box } from '../../components/Box/Box';
 import { Button } from '../../components/Button/Button';
 import { AIManagerStyles as S } from './AIManager.styles';
 import { progressOf, currentWork, formatPct, relatedPlan } from '../../utils/agentWorkProgress';
+import { PlanGraphView } from './PlanGraphView';
+import { TaskInspector } from './TaskInspector';
 
 function ProgressBar({ pct }) {
   const width = `${Math.max(0, Math.min(100, Number(pct) || 0))}%`;
@@ -81,6 +83,16 @@ export function PlansBoard({
   focus,
   onOpenChat,
   onOpenTask,
+  projectId,
+  liveGraph,
+  liveTools = [],
+  gateway,
+  readyCount,
+  selectedGraphTask,
+  onSelectGraphTask,
+  scrubAt,
+  onScrub,
+  scrubMax,
 }) {
   const currentPlans = plans.filter((p) => CURRENT.has(p.status));
   const historyPlans = plans.filter((p) => HISTORY.has(p.status));
@@ -92,7 +104,7 @@ export function PlansBoard({
   return (
     <>
       <Box title="Plans">
-        <Text style={S.hintText}>Current is the live board. History is finished work and the full timeline. Chat stays the voice surface.</Text>
+        <Text style={S.hintText}>Live task graph is the truth board. Current = real time; History + scrub = what we were doing. Chat stays the voice surface.</Text>
         {now ? (
           <TouchableOpacity onPress={() => now.task?.id && onOpenTask?.(now.task.id)}>
             <Text style={[S.rowName, { marginTop: 8 }]}>Currently: {now.label}</Text>
@@ -103,6 +115,28 @@ export function PlansBoard({
           <Button title="Current" variant={boardTab === 'current' ? 'primary' : 'secondary'} onPress={() => setBoardTab('current')} />
           <Button title="History" variant={boardTab === 'history' ? 'primary' : 'secondary'} onPress={() => setBoardTab('history')} />
           {onOpenChat ? <Button title="Open chat" variant="secondary" onPress={onOpenChat} /> : null}
+        </View>
+      </Box>
+
+      <Box title={boardTab === 'history' ? 'Task graph (history)' : 'Task graph (live)'}>
+        <PlanGraphView
+          subgraph={liveGraph}
+          gateway={gateway}
+          readyCount={readyCount}
+          selectedId={selectedGraphTask?.id}
+          onSelect={onSelectGraphTask}
+          scrubAt={scrubAt}
+          onScrub={onScrub}
+          scrubMax={boardTab === 'history' ? scrubMax : 0}
+        />
+        <View style={{ marginTop: 12 }}>
+          <TaskInspector
+            projectId={projectId}
+            task={selectedGraphTask}
+            liveTools={liveTools}
+            onOpenFull={onOpenTask}
+            onClose={() => onSelectGraphTask?.(null)}
+          />
         </View>
       </Box>
 

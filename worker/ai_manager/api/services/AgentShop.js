@@ -331,7 +331,10 @@ function trivialPrFiles(files) {
 }
 
 function reviewPr({ files = [], claim = '', staged = [] }) {
-  const names = files.map((f) => String(f.path || f || ''));
+  const list = Array.isArray(files)
+    ? files
+    : String(files || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const names = list.map((f) => String(f.path || f || ''));
   if (names.some((p) => pathLooksSecret(p) || /\.env/.test(p))) {
     return { verdict: 'request_changes', reason: 'secret or .env in the diff' };
   }
@@ -342,7 +345,7 @@ function reviewPr({ files = [], claim = '', staged = [] }) {
     return { verdict: 'request_changes', reason: 'files outside the claim' };
   }
   const code = names.filter((p) => /\.(js|ts|tsx|py|go|rb)$/i.test(p));
-  if (trivialPrFiles(files)) return { verdict: 'approve', trivial: true, reason: 'trivial scaffold' };
+  if (trivialPrFiles(list)) return { verdict: 'approve', trivial: true, reason: 'trivial scaffold' };
   if (code.length || names.length > 2) return { verdict: 'escalate', reason: 'needs user Merge', need_model: names.length > 2 };
   return { verdict: 'approve', trivial: false, reason: 'small non-code' };
 }

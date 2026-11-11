@@ -14,6 +14,8 @@ const { gatewayFor } = require('./AgentGateway');
 const DEFAULT_SETTINGS = {
   llm_max_concurrent: '1',
   lane_min_interval_ms: '0',
+  reserved_user_slots: '1',
+  max_parallel_workers: '3',
   workspace_worker_id: '',
   workspace_root: '/home/aerekos/work',
   write_policy: 'ask_writes',
@@ -42,6 +44,8 @@ function serializeSettings(row, projectId) {
     ...s,
     llm_max_concurrent: Number(s.llm_max_concurrent || 1),
     lane_min_interval_ms: Number(s.lane_min_interval_ms || 0),
+    reserved_user_slots: Number(s.reserved_user_slots != null ? s.reserved_user_slots : 1),
+    max_parallel_workers: Number(s.max_parallel_workers || 3),
     write_exceptions: json(s.write_exceptions, []),
     options: json(s.options, {}),
   };
@@ -67,6 +71,8 @@ class AgentService {
       project_id: projectId,
       llm_max_concurrent: String(body.llm_max_concurrent ?? cur.llm_max_concurrent),
       lane_min_interval_ms: String(body.lane_min_interval_ms ?? cur.lane_min_interval_ms),
+      reserved_user_slots: String(body.reserved_user_slots ?? cur.reserved_user_slots ?? 1),
+      max_parallel_workers: String(body.max_parallel_workers ?? cur.max_parallel_workers ?? 3),
       workspace_worker_id: body.workspace_worker_id != null ? String(body.workspace_worker_id) : cur.workspace_worker_id,
       workspace_root: body.workspace_root != null ? String(body.workspace_root) : cur.workspace_root,
       write_policy: body.write_policy || cur.write_policy || 'ask_writes',

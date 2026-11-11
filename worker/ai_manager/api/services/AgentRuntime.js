@@ -89,12 +89,49 @@ class AgentRuntime {
     await this.agents.addMessage(projectId, agent.id, { role: 'user', content: text || '[image]', layer: 'user' });
     await this._note(projectId, agent.id, { layer: 'user', type: 'chat', summary: text.slice(0, 160) });
 
+    // Dual-stream Context-Gate — user replies while manager keeps working
+    const { forProject } = require('./IcarusFacade');
+    const { uxSlo } = require('./UxSlo');
+    const icarus = forProject(projectId, settings);
+    const t0 = Date.now();
+    let livePlan = false;
+    try {
+      const plans = await icarus.graph.listPlans();
+      livePlan = (plans || []).some((p) => p.status === 'active');
+    } catch { /* memory/neo4j */ }
+    const gated = await icarus.gate.route(text, { hasLivePlan: livePlan });
+    uxSlo.record('gate_classify_ms', Date.now() - t0, { route: gated.route });
+
     const route = shop.routeChat(agent.mode);
     const userId = body.user_id || agent.user_id || 'console';
-    if (!route.shop) {
-      return this._userTurn(projectId, agent, settings, { text, userId, pins, rolls, images, shop: false });
+    const ctx = {
+      text, userId, pins, rolls, images, gate: gated, icarus,
+    };
+
+    if (gated.route === 'STEER' && livePlan) {
+      await this._note(projectId, agent.id, {
+        layer: 'user', type: 'steer', summary: text.slice(0, 160), meta: gated,
+      });
+      icarus.ledger.append({
+        projectId, agentId: agent.id, lane: 'user', tool: 'steer', args: { text, gate: gated },
+      });
     }
-    return this._shopTurn(projectId, agent, settings, { text, userId, pins, rolls, images });
+
+    if (!route.shop || gated.policy.user_immediate) {
+      const userOut = await this._userTurn(projectId, agent, settings, {
+        ...ctx, shop: Boolean(route.shop),
+      });
+      // Wake manager without blocking user stream
+      if (gated.policy.wake_manager && route.shop && gated.route === 'MANAGER') {
+        setImmediate(() => {
+          this._shopTurn(projectId, agent, settings, ctx).catch(() => {});
+        });
+        return { ...userOut, gate: gated, dual_stream: true };
+      }
+      if (!route.shop) return { ...userOut, gate: gated };
+    }
+    const shopOut = await this._shopTurn(projectId, agent, settings, ctx);
+    return { ...shopOut, gate: gated };
   }
 
   async _userTurn(projectId, agent, settings, { text, userId, pins, rolls, images, shop: inShop }) {
@@ -135,7 +172,15 @@ class AgentRuntime {
     }
     const gw = gatewayFor(projectId, settings);
     let job = null;
-    const names = [agent.intelligence, json(agent.options, {}).fallback_intelligence].filter(Boolean);
+    const { resolveLaneIntelligence } = require('./laneIntelligence');
+    const lane = resolveLaneIntelligence(agent, 'user');
+    const opts = json(agent.options, {});
+    const names = [
+      lane.intelligence,
+      lane.fallback,
+      agent.intelligence,
+      opts.fallback_intelligence,
+    ].filter((n, i, a) => n && a.indexOf(n) === i);
     const tools = hangoutReadSchemas();
     if (names.length) {
       try {
@@ -151,6 +196,7 @@ class AgentRuntime {
                 message_id: `u-${Date.now()}`,
                 lane: 'user',
                 agent_id: agent.id,
+                priority_class: 1,
                 tools,
                 tool_choice: 'auto',
                 hangout: {
@@ -162,7 +208,7 @@ class AgentRuntime {
             } catch (e) { last = e; }
           }
           throw last || fail(502, 'intelligence submit failed');
-        }, { agentId: agent.id });
+        }, { agentId: agent.id, priorityClass: 1 });
       } catch {
         job = null;
       }
@@ -995,6 +1041,61 @@ class AgentRuntime {
     if (name === 'report_manager') {
       return { result: { ok: true, reported: true, ...args }, pending: false, report: true };
     }
+    if (name === 'report_user') {
+      const ask = await this._createAsk(projectId, agentId, {
+        text: args.text || args.message || 'Options for you',
+        options: args.options || ['OK', 'Other'],
+        recommended: Array.isArray(args.options) ? args.options[0] : 'OK',
+        kind: 'choice',
+        from_layer: 'user',
+        speak_text: args.speak_text || args.text || 'Options for you',
+        payload: args,
+      });
+      return { ask, pending: true };
+    }
+    if (name === 'ui_navigate') {
+      return {
+        result: { ok: true, navigate: String(args.path || '/'), note: String(args.note || '') },
+        pending: false,
+      };
+    }
+    if (name === 'project_create') {
+      const ask = await this._createAsk(projectId, agentId, {
+        text: `Create project "${args.name || 'new'}"${args.template ? ` from ${args.template}` : ''}?`,
+        options: ['Yes', 'No', 'Other'],
+        recommended: 'Yes',
+        kind: 'confirm',
+        from_layer: 'user',
+        speak_text: `Create project ${args.name || ''}?`,
+        payload: { name: 'project_create', args },
+      });
+      return { ask, pending: true };
+    }
+    if (name === 'spawn_worker') {
+      const worker = await this.spawnWorker(projectId, agentId, {
+        persona: args.persona || 'dev',
+        objective: args.objective || args.goal || '',
+        claim_prefix: args.claim || args.claim_prefix || '',
+        parent_worker_id: workerId || '',
+      });
+      return { result: { ok: true, worker }, pending: false };
+    }
+    if (name === 'replan_worker') {
+      const wid = args.worker_id || workerId;
+      const mgr = await this.runManager(projectId, agentId, {
+        report: { worker_id: wid, tried: args.note || args.tried || 'replan', error: args.error || '' },
+      });
+      return { result: { ok: true, ...mgr }, pending: !!mgr?.ask, ask: mgr?.ask };
+    }
+    if (name === 'approve_pr') {
+      return this._approvePrTool(projectId, agentId, args);
+    }
+    if (name === 'lora_propose') {
+      return this._loraProposeTool(projectId, agentId, args, { approved, chunkGrant });
+    }
+    if (name === 'plan_query' || name === 'plan_ready' || name === 'plan_subgraph' || name === 'explain_why') {
+      return this._icarusGraphTool(projectId, agentId, name, args, settings);
+    }
     if (name === 'scaffold' || name === 'file_rollback') {
       const result = await this._runTool(name, { ...args, claim }, settings, projectId, persona);
       return { result, pending: false };
@@ -1061,11 +1162,27 @@ class AgentRuntime {
       const result = await Web.webFetch(args.url);
       return { result, pending: false };
     }
-    await this.agents.audit(projectId, agentId, { actor, kind: 'tool', tool: name, meta: { name } });
+    await this.agents.audit(projectId, agentId, {
+      actor, kind: 'tool', tool: name, meta: { name, task_id: args.task_id || '', worker_id: workerId || '' },
+    });
     if (write && workerId && String(actor || '').startsWith('worker:')) {
       await this._ensureCheckpoint(workerId, settings, projectId, persona, claim);
     }
     const result = await this._runTool(name, { ...args, claim }, settings, projectId, persona);
+    try {
+      const { forProject } = require('./IcarusFacade');
+      forProject(projectId, settings).ledger.append({
+        projectId,
+        agentId,
+        lane: String(actor || '').startsWith('worker:') ? 'execute' : 'user',
+        tool: name,
+        taskId: args.task_id || args.taskId || '',
+        workerId: workerId || '',
+        args: { ...args, task_id: args.task_id || args.taskId || '' },
+        ok: result?.ok !== false && !result?.error,
+        after: { ok: result?.ok !== false },
+      });
+    } catch { /* live ledger optional */ }
     if (result.snapshot && result.path) {
       this._snaps = this._snaps || new Map();
       this._snaps.set(`${projectId}:${result.path}`, result.snapshot);
@@ -2000,41 +2117,199 @@ class AgentRuntime {
     return { result: ran, pending: false };
   }
 
+  async _approvePrTool(projectId, agentId, args) {
+    const { agent, settings } = await this._ctx(projectId, agentId);
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings);
+    icarus.prReviews.jobs = this.jobs;
+    const prId = args.pr_id || args.prId || args.id;
+    if (!prId) return { result: { ok: false, error: 'pr_id required' }, pending: false };
+    const approved = await icarus.prReviews.approveWithHigherModel({
+      projectId, agent, prId, settings,
+    });
+    const askPayload = icarus.prReviews.userAskPayload(approved);
+    if (approved.status === 'approved') {
+      const ask = await this._createAsk(projectId, agentId, {
+        text: askPayload.text,
+        options: askPayload.options,
+        recommended: 'Merge',
+        kind: 'pr',
+        from_layer: 'user',
+        speak_text: askPayload.text,
+        payload: { icarus_pr_id: prId, higher_status: approved.status },
+      });
+      return { result: { ok: true, pr: approved }, ask, pending: true };
+    }
+    return { result: { ok: true, pr: approved }, pending: false };
+  }
+
+  async _loraProposeTool(projectId, agentId, args, { approved, chunkGrant }) {
+    const { settings } = await this._ctx(projectId, agentId);
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings);
+    const proposal = icarus.loraTrain.propose({
+      projectId,
+      agentKind: args.agent_kind || args.kind || 'coding',
+      baseModel: args.base_model,
+      adapterName: args.adapter_name,
+      datasetPreview: args.dataset_preview || args.preview,
+      epochs: args.epochs,
+    });
+    if (!approved && !chunkGrant) {
+      const ask = await this._createAsk(projectId, agentId, {
+        text: proposal.message,
+        options: ['Train on Orin', 'Skip', 'Other'],
+        recommended: 'Train on Orin',
+        kind: 'lora',
+        from_layer: 'user',
+        speak_text: proposal.message,
+        payload: { name: 'lora_propose', args, proposal },
+      });
+      return { result: { ok: true, proposal }, ask, pending: true };
+    }
+    const job = icarus.loraTrain.enqueue({
+      projectId,
+      agentId,
+      agentKind: proposal.agent_kind,
+      adapterName: proposal.adapter_name,
+      epochs: proposal.epochs,
+      dataset: proposal.dataset_preview,
+      baseModel: proposal.base_model,
+    });
+    return { result: { ok: true, proposal, job }, pending: false };
+  }
+
+  async _icarusGraphTool(projectId, agentId, name, args, settings) {
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings || {});
+    await icarus.boot().catch(() => ({ ok: false }));
+    if (name === 'plan_ready') {
+      const ready = await icarus.graph.readySet(args.plan_id || null);
+      return { result: { ok: true, ready }, pending: false };
+    }
+    if (name === 'plan_subgraph') {
+      if (!args.plan_id) return { result: { ok: false, error: 'plan_id required' }, pending: false };
+      const sub = await icarus.graph.subgraph(args.plan_id);
+      return { result: { ok: true, ...sub }, pending: false };
+    }
+    if (name === 'explain_why') {
+      const taskId = args.task_id || args.taskId;
+      if (!taskId) return { result: { ok: false, error: 'task_id required' }, pending: false };
+      const why = await icarus.explain.whyTask(projectId, taskId);
+      return { result: { ok: true, why }, pending: false };
+    }
+    if (name === 'plan_query') {
+      try {
+        const rows = await icarus.graph.queryUser({
+          cypher: args.cypher || args.query || 'RETURN 1 AS ok',
+          params: args.params || {},
+        });
+        return { result: { ok: true, rows }, pending: false };
+      } catch (e) {
+        return { result: { ok: false, error: e.message }, pending: false };
+      }
+    }
+    return { result: { ok: false, error: `unknown graph tool ${name}` }, pending: false };
+  }
+
   async _openPr(projectId, agentId, args, { claim, workerId }) {
+    // Coding agents create PRs; higher model (manager/review) approves before user Merge.
+    const { agent, settings } = await this._ctx(projectId, agentId);
     const files = args.files || [];
     const review = shop.reviewPr({ files, claim, staged: args.staged || [] });
     const item = await this.agents.createWork(projectId, agentId, {
       kind: 'pr',
       title: args.title || 'PR',
-      status: review.trivial ? 'merged_skip' : 'review',
+      status: review.trivial ? 'merged_skip' : 'awaiting_review',
       payload: { files, review, worker_id: workerId, summary: args.summary, diff: String(args.diff || '').slice(0, 20000) },
     });
     this._prDiffs = this._prDiffs || new Map();
-    this._prDiffs.set(item.id, String(args.diff || '').slice(0, 20000));
+    const diff = String(args.diff || '').slice(0, 20000);
+    this._prDiffs.set(item.id, diff);
     if (review.verdict === 'request_changes') {
       return { result: { ok: false, review, pr_id: item.id, report_manager: true }, pending: false };
     }
     if (review.trivial) {
       return { result: { ok: true, trivial: true, skipped_user_ask: true, review, pr_id: item.id }, pending: false };
     }
-    const n = files.length || 1;
-    const speak = `Ready to merge ${args.title || 'this change'}. ${n} file${n === 1 ? '' : 's'}.`;
+
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings);
+    const pr = icarus.prReviews.openFromWorker({
+      projectId,
+      agent,
+      workerId,
+      title: args.title || 'PR',
+      summary: args.summary,
+      branch: args.branch || '',
+      files,
+      diff,
+      taskId: args.task_id || item.id,
+    });
+    icarus.prReviews.jobs = this.jobs;
+    const approved = await icarus.prReviews.approveWithHigherModel({
+      projectId, agent, prId: pr.id, settings,
+    });
+    // Sync work-item status with higher-model verdict
+    try {
+      await this.agents.updateWork?.(projectId, agentId, item.id, {
+        status: approved.status === 'approved' ? 'review' : approved.status,
+        payload: { ...(item.payload || {}), higher_review: approved.review, icarus_pr_id: pr.id },
+      });
+    } catch { /* best-effort */ }
+
+    if (approved.status === 'rejected' || approved.status === 'changes_requested') {
+      const askPayload = icarus.prReviews.userAskPayload(approved);
+      const ask = await this._createAsk(projectId, agentId, {
+        text: askPayload.text,
+        options: askPayload.options.length ? askPayload.options : ['OK'],
+        recommended: askPayload.options[0] || 'OK',
+        kind: 'pr',
+        from_layer: 'user',
+        speak_text: askPayload.text,
+        payload: {
+          pr_id: item.id, icarus_pr_id: pr.id, worker_id: workerId, claim, files,
+          higher_status: approved.status,
+        },
+      });
+      return {
+        ask, pending: true, review: approved.review, pr_id: item.id, icarus_pr_id: pr.id,
+      };
+    }
+
+    // Only after higher-model approval does the user see Merge
+    const askPayload = icarus.prReviews.userAskPayload(approved);
     const ask = await this._createAsk(projectId, agentId, {
-      text: speak,
-      options: ['Merge', 'Request changes', 'Reject'],
+      text: askPayload.text,
+      options: askPayload.options,
       recommended: 'Merge',
       kind: 'pr',
       from_layer: 'user',
-      speak_text: speak,
-      payload: { pr_id: item.id, worker_id: workerId, claim, files },
+      speak_text: askPayload.text,
+      payload: {
+        pr_id: item.id, icarus_pr_id: pr.id, worker_id: workerId, claim, files,
+        higher_status: approved.status,
+      },
     });
-    return { ask, pending: true, review, pr_id: item.id };
+    return {
+      ask, pending: true, review: approved.review, pr_id: item.id, icarus_pr_id: pr.id,
+    };
   }
 
   async _finishPr(projectId, agent, ask, answer, payload) {
     const settings = await this.agents.getSettings(projectId);
     const a = String(answer || '');
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings);
     if (/merge/i.test(a)) {
+      if (payload.icarus_pr_id) {
+        try { icarus.prReviews.markMerged(payload.icarus_pr_id); } catch (e) {
+          if (e.status === 409) {
+            this._pulse(projectId, agent.id);
+            return { ask, rejected: true, reply: 'Higher model has not approved this PR yet.' };
+          }
+        }
+      }
       const branch = payload.branch || `icarus/${String(payload.pr_id || 'task').slice(0, 24)}`;
       const ran = await this._runTool('shell', {
         cmd: `git merge --no-ff ${JSON.stringify(branch)} -m ${JSON.stringify(payload.title || 'merge icarus')}`,
@@ -2060,8 +2335,15 @@ class AgentRuntime {
 
   async _iacTool(projectId, agentId, name, args, { approved, chunkGrant }) {
     const Iac = require('./IacShop');
+    const wrap = async (fn) => {
+      try {
+        return { result: await fn(), pending: false };
+      } catch (e) {
+        return { result: { ok: false, error: e.message || String(e), tool: name }, pending: false };
+      }
+    };
     if (name === 'iac_schema') return { result: Iac.schema(), pending: false };
-    if (name === 'iac_diff') return { result: await Iac.diff(args.project_id || projectId), pending: false };
+    if (name === 'iac_diff') return wrap(() => Iac.diff(args.project_id || projectId));
     if (name === 'iac_put') {
       if (!approved && !chunkGrant) {
         const ask = await this._createAsk(projectId, agentId, {
@@ -2075,7 +2357,7 @@ class AgentRuntime {
         });
         return { ask, pending: true };
       }
-      return { result: await Iac.put(args.project_id || projectId, args.stack || args), pending: false };
+      return wrap(() => Iac.put(args.project_id || projectId, args.stack || args));
     }
     if (name === 'iac_apply' || name === 'iac_rollback') {
       if (!approved) {
@@ -2090,10 +2372,9 @@ class AgentRuntime {
         });
         return { ask, pending: true };
       }
-      const result = name === 'iac_apply'
-        ? await Iac.apply(args.project_id || projectId)
-        : await Iac.rollback(args.project_id || projectId);
-      return { result, pending: false };
+      return wrap(() => (name === 'iac_apply'
+        ? Iac.apply(args.project_id || projectId)
+        : Iac.rollback(args.project_id || projectId)));
     }
     return { result: { ok: false, error: name }, pending: false };
   }

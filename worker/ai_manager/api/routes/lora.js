@@ -115,6 +115,8 @@ r.post('/train', async (req, res) => {
   }
   const name = String(req.body?.name || `adapter-${Date.now()}`).trim();
   const examples = Array.isArray(req.body?.examples) ? req.body.examples : [];
+  const agentKind = String(req.body?.agent_kind || req.body?.kind || 'coding');
+  const base = String(req.body?.base_llm || req.body?.base_model || process.env.LORA_BASE_MODEL || 'qwen');
   const state = load();
   const adapter = {
     id: `lora-${Date.now().toString(36)}`,
@@ -123,20 +125,57 @@ r.post('/train', async (req, res) => {
     attached: false,
     examples: examples.length,
     status: process.env.SKIP_LORA === '1' ? 'completed' : 'queued',
-    base: req.body?.base_llm || process.env.LORA_BASE_MODEL || 'sshleifer/tiny-gpt2',
+    base,
+    agent_kind: agentKind,
+    train_host: 'orin',
     created_at: new Date().toISOString(),
   };
   if (process.env.SKIP_LORA !== '1') queueJob(adapter, examples);
   adapter.derived_model = `${adapter.base}-${adapter.name}`;
+  // Control-plane: Orin trains; Qwen pins local, Gemma* plans move to minis
+  try {
+    const { loraTrain } = require('../services/LoraTrainService');
+    const job = loraTrain.enqueue({
+      projectId: pid,
+      agentKind,
+      adapterName: name,
+      baseModel: base,
+      epochs: req.body?.epochs,
+      dataset: examples.map((e) => JSON.stringify(e)).join('\n'),
+      targets: req.body?.targets,
+    });
+    adapter.icarus_job_id = job.id;
+    if (process.env.SKIP_LORA === '1') {
+      loraTrain.update(job.id, {
+        status: 'succeeded',
+        adapter_path: `/models/lora/${name}`,
+        adapter_version: adapter.id,
+      });
+      adapter.distribute = loraTrain.get(job.id)?.distribute || null;
+    }
+  } catch (_) { /* optional facade */ }
   state.adapters.push(adapter);
   save(state);
   if (process.env.SKIP_LORA !== '1') {
     try {
       const { publish } = require('../services/AiRabbit');
-      await publish(pid, 'lora-inbox', { job_id: adapter.id });
+      await publish(pid, 'lora-inbox', {
+        job_id: adapter.id, train_host: 'orin', base_model: base, agent_kind: agentKind,
+      });
     } catch (_) { /* disk queued.json remains */ }
   }
-  res.status(201).json({ adapter, job_id: adapter.id, status: adapter.status });
+  res.status(201).json({
+    adapter, job_id: adapter.id, status: adapter.status, train_host: 'orin',
+  });
+});
+
+r.get('/train-targets', (_req, res) => {
+  try {
+    const { loraTrain } = require('../services/LoraTrainService');
+    return res.json(loraTrain.targets());
+  } catch (e) {
+    return res.status(500).json({ error: { message: e.message } });
+  }
 });
 
 r.post('/attach', (req, res) => {

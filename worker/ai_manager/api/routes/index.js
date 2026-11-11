@@ -27,6 +27,7 @@ router.use('/intelligence', require('./intelligence'));
 router.use('/rag', require('./rag'));
 router.use('/lora', require('./lora'));
 router.use('/agents', require('./agents'));
+router.use('/icarus', require('./icarus'));
 router.use('/connectors', require('./connectors'));
 
 for (const [mount, file] of [

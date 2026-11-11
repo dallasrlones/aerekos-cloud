@@ -63,6 +63,13 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
   const [boardFocus, setBoardFocus] = useState(null);
   const [prompts, setPrompts] = useState({ overrides: {}, effective: {}, defaults: {} });
   const [holding, setHolding] = useState(isListening());
+  const [liveGraph, setLiveGraph] = useState(null);
+  const [liveTools, setLiveTools] = useState([]);
+  const [selectedGraphTask, setSelectedGraphTask] = useState(null);
+  const [readyCount, setReadyCount] = useState(null);
+  const [scrubAt, setScrubAt] = useState(null);
+  const [scrubMax, setScrubMax] = useState(0);
+  const [icarusPlanId, setIcarusPlanId] = useState('');
   const streamDoneTimer = useRef(null);
 
   useEffect(() => subscribe(setHolding), []);
@@ -127,6 +134,43 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const scrubRangeRef = useRef({ min: 0, max: 0 });
+
+  const hydrateLiveGraph = useCallback(async (preferHistory = false) => {
+    if (!projectId) return;
+    try {
+      let rows = await aiManagerService.icarusPlans(projectId, {
+        status: preferHistory ? 'done' : undefined,
+      });
+      if (!preferHistory) {
+        rows = (rows || []).filter((p) => !['done', 'cancelled'].includes(p.status));
+        if (!rows.length) rows = await aiManagerService.icarusPlans(projectId);
+      }
+      const plan = rows?.[0];
+      if (!plan?.id) {
+        setLiveGraph(null);
+        setIcarusPlanId('');
+        setReadyCount(0);
+        return;
+      }
+      setIcarusPlanId(plan.id);
+      const sub = await aiManagerService.icarusSubgraph(projectId, plan.id);
+      setLiveGraph(sub);
+      const ready = await aiManagerService.icarusReady(projectId, plan.id).catch(() => []);
+      setReadyCount(ready.length);
+      const times = (sub.tasks || []).flatMap((t) => (t.status_history || []).map((h) => h.at));
+      const maxT = times.length ? Math.max(...times) : Date.now();
+      const minT = times.length ? Math.min(...times) : maxT;
+      scrubRangeRef.current = { min: minT, max: maxT };
+      setScrubMax(preferHistory ? 100 : 0);
+      setScrubAt(preferHistory ? 100 : null);
+    } catch { /* graph optional until Neo4j/memory */ }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (pane === 'plans') hydrateLiveGraph(boardTab === 'history');
+  }, [pane, boardTab, hydrateLiveGraph]);
+
   useEffect(() => {
     if (!projectId) return undefined;
     const room = `ai:live:${projectId}`;
@@ -138,6 +182,38 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
         if (payload.pulse.work) setWork(payload.pulse.work);
         if (payload.pulse.workers) setWorkers(payload.pulse.workers);
       }
+    });
+    const offGraph = websocketService.on('ai:icarus.graph', (payload) => {
+      if (!payload || boardTab === 'history') return;
+      if (payload.project_id && payload.project_id !== projectId) return;
+      setLiveGraph(payload);
+      if (payload.plan_id) setIcarusPlanId(payload.plan_id);
+    });
+    const offTask = websocketService.on('ai:icarus.task', (payload) => {
+      if (!payload?.task_id || boardTab === 'history') return;
+      setLiveGraph((cur) => {
+        if (!cur?.tasks) return cur;
+        const tasks = cur.tasks.map((t) => (
+          t.id === payload.task_id
+            ? {
+              ...t,
+              status: payload.status || t.status,
+              title: payload.title || t.title,
+              agent_id: payload.agent_id || t.agent_id,
+            }
+            : t
+        ));
+        return { ...cur, tasks };
+      });
+      setSelectedGraphTask((cur) => (
+        cur?.id === payload.task_id
+          ? { ...cur, status: payload.status || cur.status, ...(payload.task || {}) }
+          : cur
+      ));
+    });
+    const offTool = websocketService.on('ai:icarus.tool', (payload) => {
+      if (!payload) return;
+      setLiveTools((cur) => [{ ...payload, created_at: payload.at || Date.now() }, ...cur].slice(0, 200));
     });
     const offJob = websocketService.on('ai:job', (payload) => {
       const job = payload?.job;
@@ -178,8 +254,11 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
     const offAns = websocketService.on('ai:agent.ask.answered', (payload) => {
       if (payload?.ask) setAsks((prev) => prev.map((a) => (a.id === payload.ask.id ? payload.ask : a)));
     });
-    return () => { offPulse?.(); offJob?.(); offToken?.(); offAsk?.(); offAns?.(); };
-  }, [projectId, agent?.id]);
+    return () => {
+      offPulse?.(); offGraph?.(); offTask?.(); offTool?.();
+      offJob?.(); offToken?.(); offAsk?.(); offAns?.();
+    };
+  }, [projectId, agent?.id, boardTab, reloadAgent]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !agent?.id || !projectId) return undefined;
@@ -428,6 +507,25 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
           focus={boardFocus}
           onOpenChat={() => setPane('chat')}
           onOpenTask={openTask}
+          projectId={projectId}
+          liveGraph={liveGraph}
+          liveTools={liveTools}
+          gateway={pulseLive?.gateway || fleet?.gateway}
+          readyCount={readyCount}
+          selectedGraphTask={selectedGraphTask}
+          onSelectGraphTask={setSelectedGraphTask}
+          scrubAt={scrubAt}
+          scrubMax={scrubMax}
+          onScrub={async (pct) => {
+            setScrubAt(pct);
+            if (!icarusPlanId || boardTab !== 'history') return;
+            const { min, max } = scrubRangeRef.current;
+            const at = min + ((max - min) * (Number(pct) || 0)) / 100;
+            try {
+              const sub = await aiManagerService.icarusScrub(projectId, icarusPlanId, at);
+              setLiveGraph(sub);
+            } catch { /* */ }
+          }}
         />
       ) : null}
 

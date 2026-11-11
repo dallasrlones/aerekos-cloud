@@ -107,10 +107,14 @@ class AgentSetupService {
       workspace_root: body.workspace_root || '/home/aerekos/work',
       workspace_worker_id: computerId,
       llm_max_concurrent: body.llm_max_concurrent ?? 1,
+      reserved_user_slots: body.reserved_user_slots ?? 1,
+      max_parallel_workers: body.max_parallel_workers ?? 3,
       write_policy: body.write_policy || 'ask_writes',
       lane_min_interval_ms: body.lane_min_interval_ms ?? 0,
     });
 
+    const { defaultLaneIntelligenceNames } = require('./laneIntelligence');
+    const laneNames = body.lane_intelligence || defaultLaneIntelligenceNames(name);
     let intelligenceName = body.intelligence || '';
     try {
       const listed = await this.intel.list(projectId);
@@ -121,23 +125,33 @@ class AgentSetupService {
         intelligenceName = listed[0].name;
       }
     } catch { /* no intel yet */ }
-    if (!intelligenceName && body.create_intelligence !== false) {
-      try {
-        const created = await this.intel.create({
-          project_id: projectId,
-          name: `${name}-brain`,
-          execution: 'queued',
-          llm_integration: body.llm_integration || '',
-          inject_memory: true,
-          inject_rag: true,
-          ingest_on_chat: true,
-        });
-        intelligenceName = created.name;
-      } catch (e) {
-        if (e.status !== 409) {
-          /* leave empty — status will show */
+    if (body.create_intelligence !== false) {
+      const ensureIntel = async (intelName, extra = {}) => {
+        try {
+          return await this.intel.create({
+            project_id: projectId,
+            name: intelName,
+            execution: 'queued',
+            llm_integration: body.llm_integration || '',
+            inject_memory: extra.inject_memory !== false,
+            inject_rag: extra.inject_rag !== false,
+            ingest_on_chat: extra.ingest_on_chat !== false,
+          });
+        } catch (e) {
+          if (e.status === 409) {
+            try { return await this.intel.getByName(projectId, intelName); } catch { return null; }
+          }
+          return null;
         }
+      };
+      // Multi-intelligence: user / manager(review) / worker(coding)
+      if (!intelligenceName) {
+        const brain = await ensureIntel(`${name}-brain`);
+        intelligenceName = brain?.name || laneNames.manager || `${name}-manager`;
       }
+      await ensureIntel(laneNames.user || `${name}-user`, { inject_rag: false });
+      await ensureIntel(laneNames.manager || `${name}-manager`);
+      await ensureIntel(laneNames.worker || laneNames.coding || `${name}-worker`, { inject_memory: false });
     }
 
     try {
@@ -228,10 +242,20 @@ class AgentSetupService {
     }
 
     let agent;
+    const agentOptions = {
+      lane_intelligence: {
+        user: laneNames.user,
+        manager: laneNames.manager,
+        review: laneNames.review || laneNames.manager,
+        worker: laneNames.worker || laneNames.coding,
+        coding: laneNames.coding || laneNames.worker,
+      },
+      ...(body.options || {}),
+    };
     try {
       agent = await this.agents.getByName(projectId, name);
       agent = await this.agents.update(agent.id, projectId, {
-        intelligence: intelligenceName || agent.intelligence,
+        intelligence: intelligenceName || agent.intelligence || laneNames.manager,
         memory: memoryName,
         rag_collection: ragName,
         timezone: body.timezone || agent.timezone,
@@ -239,6 +263,7 @@ class AgentSetupService {
         stt: body.stt != null ? body.stt : (agent.stt || 'orin-stt'),
         tts: body.tts != null ? body.tts : (agent.tts || 'orin-tts-cache'),
         user_id: body.user_id || agent.user_id,
+        options: { ...(agent.options || {}), ...agentOptions },
       });
     } catch {
       agent = await this.agents.create({
@@ -246,15 +271,21 @@ class AgentSetupService {
         name,
         type: 'icarus',
         mode: body.mode || 'ask',
-        intelligence: intelligenceName,
+        intelligence: intelligenceName || laneNames.manager,
         memory: memoryName,
         rag_collection: ragName,
         timezone: body.timezone || 'America/Los_Angeles',
         stt: body.stt || 'orin-stt',
         tts: body.tts || 'orin-tts-cache',
         user_id: body.user_id || '',
+        options: agentOptions,
       });
     }
+
+    try {
+      const { forProject } = require('./IcarusFacade');
+      await forProject(projectId, settings).boot();
+    } catch { /* graph optional until Neo4j */ }
 
     const status = await this.status(projectId);
     try {

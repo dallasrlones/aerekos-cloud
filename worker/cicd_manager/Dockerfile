@@ -2,6 +2,8 @@
 # Build context MUST be the worker/ directory:
 #   docker build -f cicd_manager/Dockerfile -t aerekos-cicd_manager worker/
 FROM node:20-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/cicd_manager
 COPY cicd_manager/package*.json ./
 RUN npm install --omit=dev && npm cache clean --force

@@ -8,8 +8,52 @@ const FileRepository = require('../repos/FileRepository');
 const BucketRepository = require('../repos/BucketRepository');
 const EncryptionService = require('./EncryptionService');
 const logger = require('../utils/logger');
+const DecryptingStream = require('./DecryptingStream');
 
 const pipelineAsync = promisify(pipeline);
+
+/**
+ * Parse an HTTP Range header (single absolute or suffix range).
+ * Returns {start, end} (both inclusive) or null if malformed/unsatisfiable.
+ */
+function parseByteRange(header, totalSize) {
+  if (!header) return null;
+  const m = /^bytes=(\d*)-(\d*)$/i.exec(String(header).trim());
+  if (!m) return null;
+  if (m[1] === '' && m[2] === '') return null;
+  let start;
+  let end;
+  if (m[1] === '') {
+    // Suffix range: last N bytes
+    const suffix = parseInt(m[2], 10);
+    if (suffix <= 0) return null;
+    start = Math.max(0, totalSize - suffix);
+    end = totalSize - 1;
+  } else {
+    start = parseInt(m[1], 10);
+    end = m[2] === '' ? totalSize - 1 : Math.min(parseInt(m[2], 10), totalSize - 1);
+    if (start >= totalSize) return null;
+  }
+  return { start, end };
+}
+
+/**
+ * Read exactly `length` bytes at `offset` from a file, failing on a short
+ * read (used to pull the 16-byte IV header from a stored object).
+ */
+async function readFixedBytes(filePath, offset, length) {
+  const handle = await fs.open(filePath);
+  try {
+    const buf = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buf, 0, length, offset);
+    if (bytesRead < length) {
+      throw new Error(`Short read on ${filePath}: got ${bytesRead} of ${length} bytes at offset ${offset}`);
+    }
+    return buf;
+  } finally {
+    await handle.close();
+  }
+}
 
 class StorageService {
   constructor(conductorUrl, serviceToken) {
@@ -220,9 +264,20 @@ class StorageService {
   }
   
   /**
-   * Download a file (decrypted)
+   * Download a file (decrypted), streamed in bounded memory.
+   *
+   * The stored object is decrypted on the fly by DecryptingStream (8 MiB
+   * chunks): the OpenSSL GCM limit on a single update() call (2 GiB) no
+   * longer applies, and a Range request reads only the ciphertext window it
+   * serves — so objects of any size (e.g. a 20 GiB movie) stream without
+   * buffering the whole file.
+   *
+   * Pass an HTTP Range header (e.g. 'bytes=100-199') to get a partial
+   * result: the stream contains only the range, `size` is the slice length,
+   * `contentRange` is the 'bytes a-b/total' header value and `totalSize` is
+   * the full file size.
    */
-  async downloadFile(projectId, bucketName, key, systemId = null) {
+  async downloadFile(projectId, bucketName, key, systemId = null, rangeHeader = null) {
     // Get bucket
     const bucket = await this._resolveBucket({ projectId, systemId, name: bucketName });
     
@@ -232,16 +287,61 @@ class StorageService {
       throw new Error(`File '${key}' not found in bucket '${bucketName}'`);
     }
     
-    // Read encrypted file
-    const encryptedBuffer = await fs.readFile(file.storage_path);
+    // Stat the stored object up front: size drives Range handling and a
+    // missing/corrupt object fails fast before any streaming.
+    let stat;
+    try {
+      stat = await fs.stat(file.storage_path);
+    } catch (err) {
+      throw new Error(`Stored object missing: ${file.storage_path}`);
+    }
+    if (stat.size < 32) {
+      throw new Error(`Stored object too small to be valid (${stat.size} bytes): ${file.storage_path}`);
+    }
     
-    // Decrypt file
-    const decryptedBuffer = await this.encryptionService.decryptBuffer(
-      encryptedBuffer,
+    // On-disk layout: IV (16) || ciphertext (size-32) || auth tag (16).
+    // GCM is a stream cipher, so plaintext length === ciphertext length.
+    const iv = await readFixedBytes(file.storage_path, 0, 16);
+    const ctLen = stat.size - 32;
+    const totalSize = ctLen;
+    
+    let start = 0;
+    let end = totalSize - 1;
+    let contentRange = null;
+    if (rangeHeader) {
+      const range = parseByteRange(rangeHeader, totalSize);
+      if (!range) {
+        throw Object.assign(new Error('Range not satisfiable'), { status: 416 });
+      }
+      start = range.start;
+      end = range.end;
+      contentRange = `bytes ${start}-${end}/${totalSize}`;
+    }
+    
+    const keyBuffer = await this.encryptionService.getKeyBuffer(
       bucket.encryption_key_name,
-      projectId, // Pass projectId for project-scoped key lookup
-      file.encryption_key_version
+      projectId // projectId for project-scoped key lookup
     );
+    
+    let stream;
+    if (end < start) {
+      // Degenerate range (e.g. bytes=100-50): serve an empty body.
+      stream = Readable.from([]);
+    } else {
+      stream = new DecryptingStream({
+        filePath: file.storage_path,
+        iv,
+        keyBuffer,
+        ctLen,
+        start,
+        end,
+        // The GCM auth tag authenticates the whole ciphertext, so it is only
+        // verifiable when the entire ciphertext is processed. Range reads
+        // skip the check (standard trade-off for ranged reads of
+        // server-side-encrypted objects).
+        verifyTag: start === 0 && end === totalSize - 1
+      });
+    }
     
     // Log access
     await this.fileRepo.logAccess(file.id, {
@@ -251,15 +351,14 @@ class StorageService {
       success: 1
     });
     
-    // Create readable stream from decrypted buffer
-    const stream = Readable.from(decryptedBuffer);
-    
     return {
       stream,
-      size: file.size,
+      size: end < start ? 0 : end - start + 1,
       content_type: file.content_type,
       etag: file.etag,
-      metadata: file.metadata ? JSON.parse(file.metadata) : {}
+      metadata: file.metadata ? JSON.parse(file.metadata) : {},
+      contentRange,
+      totalSize
     };
   }
   
@@ -349,12 +448,21 @@ class StorageService {
     const allItems = folders.concat(fileList);
     const totalCount = allItems.length;
     
-    // Apply pagination
-    const paginatedItems = allItems.slice(offset, offset + maxKeys);
+    // The SQL already applied `offset` to the raw rows — do NOT slice by
+    // `offset` again. The old code double-applied it: with 2365 rows,
+    // maxKeys=1000, offset=1000 it fetched rows 1000-2364 (1365) and then
+    // slice(1000, 2000) returned only rows 2000-2364, dropping rows
+    // 1000-1999 (1000 files) from every paged listing.
+    //
+    // A "full" batch (we hit fetchLimit) means more raw rows exist, so cap
+    // this page at maxKeys and say hasMore. A partial batch is the end:
+    // return the WHOLE batch (even if it exceeds maxKeys) and stop.
+    const fullBatch = files.length >= fetchLimit;
+    const paginatedItems = allItems.slice(0, fullBatch ? maxKeys : allItems.length);
     const paginatedFolders = paginatedItems.filter(item => item.prefix !== undefined);
     const paginatedFiles = paginatedItems.filter(item => item.prefix === undefined);
-    
-    const hasMore = offset + maxKeys < totalCount;
+
+    const hasMore = fullBatch;
     
     return {
       files: paginatedFiles,

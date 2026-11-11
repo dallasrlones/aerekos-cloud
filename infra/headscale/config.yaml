@@ -26,9 +26,9 @@ dns:
 derp:
   server:
     enabled: false
-  urls:
-    - https://controlplane.tailscale.com/derpmap/default
-  paths: []
+  urls: []
+  paths:
+    - /etc/headscale/derpmap.json
   auto_update_enabled: false
 
 database:

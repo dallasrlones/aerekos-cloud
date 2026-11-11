@@ -7,6 +7,22 @@ const ServiceOrchestrator = require('./ServiceOrchestrator');
 const MANAGER_SERVICE_PORTS = require('../config/managerServicePorts');
 const { mergeProjectSecretsIntoConfig } = require('./projectSecretEnv');
 
+// Repeated identical errors (e.g. a disabled/unreachable service being
+// probed every second by workers) are rate-limited to one log line per
+// 60s per key so a busy fleet doesn't drown the rest of the log. The
+// first occurrence always prints; repeats stay silent for the window.
+const _throttledLog = new Map(); // key -> last logged time (ms)
+function throttledLog(level, key, ...args) {
+  const now = Date.now();
+  if (now - (_throttledLog.get(key) || 0) < 60000) return;
+  _throttledLog.set(key, now);
+  if (_throttledLog.size > 500) {
+    for (const [k, t] of _throttledLog) if (now - t > 120000) _throttledLog.delete(k);
+  }
+  if (level === 'warn') console.warn(...args);
+  else console.error(...args);
+}
+
 /**
  * Map a worker (device) to its friendly display name.
  * Single source of truth for device naming — used by ServiceManager status
@@ -821,7 +837,9 @@ class ServiceManager {
       }
     }
     if (lastError) {
-      console.warn(
+      throttledLog(
+        'warn',
+        `direct:${serviceName}:${lastError.message}`,
         `[ServiceManager] direct routing for ${serviceName} failed on all candidates: ${lastError.message}`
       );
     }
@@ -876,7 +894,9 @@ class ServiceManager {
       // Single-host compose: managers self-register as deployments but are reachable
       // on the Docker network (ai_manager:3126). Worker LAN IPs are often unreachable
       // from inside the conductor container — try direct routing first.
+      let directTried = false;
       if (process.env.CONDUCTOR_DIRECT_SERVICE_ROUTING !== 'false') {
+        directTried = true;
         const directHit = await this._directServiceRequest(
           serviceName,
           method,
@@ -901,17 +921,21 @@ class ServiceManager {
       if (!deployment) {
         // No worker-managed deployment. In a single-host docker-compose stack the
         // managers run as their own containers and only self-register, so fall back
-        // to direct routing over the Docker network before giving up.
-        const direct = await this._directServiceRequest(
-          serviceName,
-          method,
-          path,
-          data,
-          query,
-          options
-        );
-        if (direct) {
-          return direct;
+        // to direct routing over the Docker network before giving up. Skip if the
+        // first direct attempt above already ran and failed (avoids a second
+        // identical ECONNREFUSED burst for the same request).
+        if (!directTried) {
+          const direct = await this._directServiceRequest(
+            serviceName,
+            method,
+            path,
+            data,
+            query,
+            options
+          );
+          if (direct) {
+            return direct;
+          }
         }
 
         // Check if service is enabled for this project
@@ -1175,7 +1199,12 @@ class ServiceManager {
         originalError: lastError?.message
       };
     } catch (error) {
-      console.error(`[ServiceManager] Error proxying request to ${serviceName}:`, error.message || error);
+      throttledLog(
+        'error',
+        `proxy:${serviceName}:${projectId}:${error.message || error}`,
+        `[ServiceManager] Error proxying request to ${serviceName}:`,
+        error.message || error
+      );
       
       // If it's already a formatted error, re-throw it
       if (error.status && error.code) {

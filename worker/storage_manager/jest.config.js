@@ -1,0 +1,1 @@
+module.exports = { testEnvironment: 'node', maxWorkers: 1, testMatch: ['**/tests/**/*.test.js'], testTimeout: 15000, moduleNameMapper: { '^axios$': '<rootDir>/../../node_modules/axios' } };

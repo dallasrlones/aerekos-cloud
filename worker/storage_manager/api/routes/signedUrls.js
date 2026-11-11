@@ -2,6 +2,7 @@ const express = require('express');
 const SignedUrlService = require('../services/SignedUrlService');
 const StorageService = require('../services/StorageService');
 const validateServiceToken = require('../middleware/auth');
+const { pipeStreamToResponse } = require('../utils/streamResponse');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -134,8 +135,9 @@ router.get('/signed/:signature/:fileId/:bucketId/:urlType', async (req, res, nex
       ttlStr
     );
     
-    // Mark URL as used
-    if (validation.signed_url_record) {
+    // Mark URL as used. Upload URLs are one-shot; download URLs may be
+    // re-requested (e.g. browser Range/seek requests against the same URL).
+    if (validation.signed_url_record && urlType === 'upload') {
       await signedUrlService.markUrlAsUsed(validation.signed_url_record.id);
     }
     
@@ -163,25 +165,43 @@ router.get('/signed/:signature/:fileId/:bucketId/:urlType', async (req, res, nex
         });
       }
       
-      const project = await projectRepo.findById(bucket.project_id);
-      if (!project) {
-        return res.status(404).json({
-          error: { message: 'Project not found', status: 404 }
-        });
+      // Project buckets resolve through their project; system buckets
+      // (project_id = null) resolve through their system.
+      let projectId = null;
+      let systemId = null;
+      if (bucket.project_id) {
+        const project = await projectRepo.findById(bucket.project_id);
+        if (!project) {
+          return res.status(404).json({
+            error: { message: 'Project not found', status: 404 }
+          });
+        }
+        projectId = project.id;
+      } else {
+        systemId = bucket.system_id;
       }
       
       const storageService = getStorageService();
       const fileData = await storageService.downloadFile(
-        project.id,
+        projectId,
         bucket.name,
-        file.key
+        file.key,
+        systemId,
+        req.headers['range']
       );
       
       res.setHeader('Content-Type', fileData.content_type);
       res.setHeader('Content-Length', fileData.size);
       res.setHeader('ETag', fileData.etag);
+      res.setHeader('Accept-Ranges', 'bytes');
+      if (fileData.contentRange) {
+        res.status(206);
+        res.setHeader('Content-Range', fileData.contentRange);
+      }
       
-      fileData.stream.pipe(res);
+      // Stream the decrypted object to the client with abort/error
+      // handling (see pipeStreamToResponse).
+      pipeStreamToResponse(fileData.stream, res);
     } else if (urlType === 'upload') {
       // Handle upload via signed URL
       const FileRepository = require('../repos/FileRepository');
@@ -246,6 +266,11 @@ router.get('/signed/:signature/:fileId/:bucketId/:urlType', async (req, res, nex
       });
     }
   } catch (error) {
+    if (error.status === 416) {
+      return res.status(416).json({
+        error: { message: 'Range not satisfiable', status: 416 }
+      });
+    }
     if (error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('used')) {
       return res.status(403).json({
         error: { message: error.message, status: 403 }
@@ -346,12 +371,13 @@ router.put('/signed/:signature/:fileId/:bucketId/:urlType', async (req, res, nex
       // Pass the existing fileId so we update the placeholder record instead of creating a new one
       logger.info(`[signedUrls] Starting upload for file ${fileId} in bucket ${bucketId}, project ${projectId}`);
       const result = await storageService.uploadFile(
-        projectId, // Use bucket.project_id directly
+        projectId, // Use bucket.project_id directly (null for system buckets)
         bucket.name,
         file.key,
         req, // req is already a readable stream
         metadata,
-        fileId // Pass existing fileId to update placeholder record
+        fileId, // Pass existing fileId to update placeholder record
+        bucket.system_id || null // System buckets resolve through their system
       );
       
       logger.info(`[signedUrls] Upload completed for file ${fileId}`);

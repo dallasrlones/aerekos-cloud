@@ -164,7 +164,8 @@ r.post('/:id/merge', async (req, res, next) => {
     } catch (hookErr) {
       console.warn('[git_manager] merge cicd trigger skipped:', hookErr.message);
     }
-    return { pull: { ...pull, status: 'merged' }, merged: true, sha: result?.sha || '' };
+    const pullOut = typeof pull.toJSON === 'function' ? pull.toJSON() : { ...pull };
+    return { pull: { ...pullOut, status: 'merged' }, merged: true, sha: result?.sha || '' };
   };
   try {
     const done = mergeLock.then(run, run);
@@ -182,7 +183,8 @@ r.post('/:id/notes', async (req, res, next) => {
     if (!rows.length) return res.status(404).json({ error: { message: 'not found' } });
     const notes = `${rows[0].notes || ''}\n${req.body.note || ''}`.trim();
     await PullRequest.update(req.params.id, { notes });
-    res.json({ pull: { ...rows[0], notes } });
+    const pullOut = typeof rows[0].toJSON === 'function' ? rows[0].toJSON() : { ...rows[0] };
+    res.json({ pull: { ...pullOut, notes } });
   } catch (e) { next(e); }
 });
 

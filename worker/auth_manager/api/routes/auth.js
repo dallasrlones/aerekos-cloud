@@ -1,6 +1,9 @@
 const express = require('express');
 const TokenService = require('../services/TokenService');
+const { UserService } = require('../services/UserService');
 const { createRateLimiter } = require('../../../shared/rateLimit');
+
+const userService = new UserService();
 
 const r = express.Router();
 
@@ -19,6 +22,19 @@ r.post('/token', tokenRateLimit, async (req, res, next) => {
       return res.status(400).json({ error: 'unsupported_grant_type' });
     }
     const out = await TokenService.issueClientToken(req.body || {});
+    res.json(out);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+// POST /api/v1/auth/login — resource-owner password grant -> user JWT
+// body: { username, password, project_id? } (project_id scopes the lookup)
+// -> { token, token_type, expires_in, user }
+r.post('/login', tokenRateLimit, async (req, res, next) => {
+  try {
+    const out = await userService.login(req.body || {});
     res.json(out);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });

@@ -40,8 +40,8 @@ class QbitClient {
   }
 
   _headers() {
-    const h = {};
-    if (this.sid) h.Cookie = `SID=${this.sid}`;
+    const h = { Referer: this._base(), Origin: this._base() };
+    if (this.sid) h.Cookie = `${this._cookieName || 'SID'}=${this.sid}`;
     return h;
   }
 
@@ -52,21 +52,33 @@ class QbitClient {
       `${this._base()}/api/v2/auth/login`,
       Q.stringify({ username: this.user, password: this.pass }),
       {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Referer: this._base(),
+          Origin: this._base(),
+        },
         timeout: this.timeout,
         validateStatus: () => true,
       },
     );
     const setCookie = res.headers['set-cookie'] || [];
     const raw = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
-    const m = raw.match(/SID=([^;]+)/);
-    if (res.status === 200 && m) {
+    // qBittorrent >= 5.x sets "QBT_SID_<port>=..."; older builds set "SID=...".
+    let m = raw.match(/QBT_SID_[^=]+=([^;]+)/);
+    if (m) this._cookieName = m[0].split('=')[0];
+    if (!m) m = raw.match(/(?:^|,\s*)SID=([^;]+)/);
+    const ok = res.status >= 200 && res.status < 300;
+    const body = typeof res.data === 'string' ? res.data.trim().toLowerCase() : '';
+    // Success is 200 (older) or 204 (qBittorrent 5.x) plus a SID cookie.
+    if (ok && m) {
       this.sid = m[1];
       return true;
     }
-    if (res.status === 403) throw new Error('qBittorrent auth failed (403) — check QBITTORRENT_USER/PASS');
-    if (res.status === 200) {
-      // Some builds return 200 without a fresh cookie; treat as already logged in.
+    if (res.status === 401 || res.status === 403 || body === 'fails.' || body === 'unauthorized') {
+      throw new Error(`qBittorrent auth failed (HTTP ${res.status}) — check QBITTORRENT_USER/PASS`);
+    }
+    if (ok) {
+      // Some builds return 2xx without a fresh cookie; treat as already logged in.
       this.sid = this.sid || 'anonymous';
       return true;
     }

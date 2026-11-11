@@ -51,6 +51,7 @@ import { LaunchContainer } from './screens/ComputeManager/LaunchContainer';
 import { ContainerDetails } from './screens/ComputeManager/ContainerDetails';
 import { AuthManager } from './screens/AuthManager/AuthManager';
 import { ProviderForm } from './screens/AuthManager/ProviderForm';
+import { UserForm } from './screens/AuthManager/UserForm';
 import { EdgeManager } from './screens/EdgeManager/EdgeManager';
 import { QueueManager } from './screens/QueueManager/QueueManager';
 import { DownloadManager } from './screens/DownloadManager/DownloadManager';
@@ -324,6 +325,8 @@ const AppContent = () => {
         return <AuthManager navigation={navigation} />;
       case 'providerForm':
         return <ProviderForm navigation={navigation} route={{ params: screenParams }} />;
+      case 'userForm':
+        return <UserForm navigation={navigation} route={{ params: screenParams }} />;
       case 'dashboard':
       default:
         return <Dashboard navigation={navigation} />;

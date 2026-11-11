@@ -15,6 +15,26 @@ const PORT = parseInt(process.env.PORT || '3130', 10);
 app.use(cors());
 setupPrometheus(app, { serviceName: 'git_manager' });
 
+// Full request trail: request line, then status + duration (+JSON body).
+app.use((req, res, next) => {
+  const start = Date.now();
+  const now = () => new Date().toISOString();
+  const quiet = req.path.startsWith('/health') || req.path.startsWith('/metrics') || req.path.startsWith('/git');
+  if (!quiet) console.log(`[${now()}] --> ${req.method} ${req.path}${req.search || ''}`);
+  res.on('finish', () => {
+    let bodyLog = '';
+    if (req.method !== 'GET' && req.body && typeof req.body === 'object') {
+      try {
+        let s = JSON.stringify(req.body);
+        if (s.length > 2000) s = s.slice(0, 2000) + '…';
+        bodyLog = ' body=' + s;
+      } catch (e) { bodyLog = ' body=<unserializable>'; }
+    }
+    if (!quiet) console.log(`[${now()}] <-- ${req.method} ${req.originalUrl || req.path} ${res.statusCode} ${Date.now() - start}ms${bodyLog}`);
+  });
+  next();
+});
+
 // Git Smart HTTP transport is mounted BEFORE the JSON body parser so the
 // upload-pack / receive-pack request streams reach the git binary untouched.
 app.use('/git', gitHttp);

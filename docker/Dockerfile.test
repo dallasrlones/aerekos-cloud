@@ -21,4 +21,16 @@ COPY . .
 # aerekos-record bundles a macOS better-sqlite3 binary; re-fetch the Linux build.
 RUN npm rebuild better-sqlite3
 
+# Each manager is NOT an npm workspace (only worker/ and conductor/ are), and
+# .dockerignore strips their node_modules — so give every manager that has
+# tests a fresh Node-20 install here. First install is slow; the rest reuse
+# the npm cache in this layer.
+RUN for d in worker/*/; do \
+      if [ -f "$d/package.json" ] && [ -d "$d/tests" ]; then \
+        echo "→ npm install $d"; \
+        (cd "$d" && npm install --no-audit --no-fund --loglevel=error) \
+          || echo "WARN: npm install failed in $d (its suite will be skipped)"; \
+      fi; \
+    done
+
 CMD ["bash", "scripts/run-tests.sh"]

@@ -450,7 +450,7 @@ class SetupService {
     return { ok: false, skipped: true, error: 'unreachable' };
   }
 
-  async enableService(projectId, serviceName, { defaults = true, workerId = null } = {}) {
+  async enableService(projectId, serviceName, { defaults = true, workerId = null, record = true } = {}) {
     const ServiceManager = require('./ServiceManager');
     const WorkerRepository = require('../repos/WorkerRepository');
     const sm = ServiceManager.getInstance(WorkerRepository);
@@ -471,30 +471,41 @@ class SetupService {
     if (defaults && enabledOk) {
       def = await this.callEnsureDefaults(serviceName, projectId);
     }
-    if (enabledOk) {
+    if (enabledOk && record) {
+      // Single writer: re-record services + wanted and commit infra.json.
+      // record:false = the caller records (apply's bake-back, one per batch).
       try {
-        const StackService = require('./StackService');
-        await StackService.recordWanted(projectId, serviceName);
-      } catch (_) { /* stack wanted is best-effort */ }
+        const InfraService = require('./InfraService');
+        await InfraService.recordServiceChange(projectId, { changed: serviceName });
+      } catch (_) { /* stack is best-effort */ }
     }
     return { service: serviceName, enabled: enabledOk, error, defaults: def };
   }
 
-  async enableWithDependencies(projectId, serviceName, { with_dependencies = true, defaults = true, workerId = null } = {}) {
+  async enableWithDependencies(projectId, serviceName, { with_dependencies = true, defaults = true, workerId = null, record = true } = {}) {
     const names = with_dependencies ? requiredDepsInOrder(serviceName) : [serviceName];
     const enabled = [];
     const defaultsOut = {};
+    let anyOk = false;
     for (const name of names) {
       // Only the primary service honors the device pin; dependencies resolve
       // on their own (shared instances keep running where they already run).
-      const row = await this.enableService(projectId, name, { defaults, workerId: name === serviceName ? workerId : null });
+      const row = await this.enableService(projectId, name, { defaults, record: false, workerId: name === serviceName ? workerId : null });
       enabled.push(row);
+      if (row.enabled) anyOk = true;
       if (row.defaults) defaultsOut[name] = row.defaults;
+    }
+    if (record && anyOk) {
+      // One refresh for the whole dependency chain, not one per service.
+      try {
+        const InfraService = require('./InfraService');
+        await InfraService.recordServiceChange(projectId, { changed: serviceName });
+      } catch (_) { /* stack is best-effort */ }
     }
     return { project_id: projectId, service: serviceName, enabled: enabled.map((e) => e.service), results: enabled, defaults: defaultsOut };
   }
 
-  async enablePack(projectId, packName, { defaults = true } = {}) {
+  async enablePack(projectId, packName, { defaults = true, record = true } = {}) {
     const pack = getPack(packName);
     if (!pack) {
       const e = new Error(`Unknown pack: ${packName}`);
@@ -504,15 +515,24 @@ class SetupService {
     const seen = new Set();
     const enabled = [];
     const defaultsOut = {};
+    let anyOk = false;
     for (const svc of pack.services) {
       const names = requiredDepsInOrder(svc);
       for (const name of names) {
         if (seen.has(name)) continue;
         seen.add(name);
-        const row = await this.enableService(projectId, name, { defaults });
+        const row = await this.enableService(projectId, name, { defaults, record: false });
         enabled.push(row);
+        if (row.enabled) anyOk = true;
         if (row.defaults) defaultsOut[name] = row.defaults;
       }
+    }
+    if (record && anyOk) {
+      // One refresh for the whole pack, not one per service.
+      try {
+        const InfraService = require('./InfraService');
+        await InfraService.recordServiceChange(projectId);
+      } catch (_) { /* stack is best-effort */ }
     }
     return {
       project_id: projectId,

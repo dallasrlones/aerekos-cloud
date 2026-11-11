@@ -46,6 +46,14 @@ router.post('/search', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// YouTube search — separate engine from the torrent /search above.
+// Body: { query, max? }  ->  { results: [{id,url,title,duration,channel,view_count,thumbnail}], source:'youtube', engine:'yt-dlp' }
+router.post('/search/youtube', async (req, res, next) => {
+  try {
+    res.json(await downloads.searchYouTube(projectId(req), req.body || {}));
+  } catch (e) { next(e); }
+});
+
 router.get('/lists/:id/items', async (req, res, next) => {
   try {
     res.json({ items: await downloads.listItems(projectId(req), req.params.id) });

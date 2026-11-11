@@ -35,6 +35,12 @@ export const AuthManagerStyles = StyleSheet.create({
     borderTopColor: colors.divider,
   },
   rowMain: { flex: 1 },
+  colorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: spacing.sm,
+  },
   rowName: { ...typography.body, fontWeight: '400' },
   rowSub: { ...typography.caption, marginTop: 2 },
   badge: {

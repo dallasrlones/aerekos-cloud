@@ -7,11 +7,14 @@ const { verify, normalizeAuthClaims } = require('../../../shared/authManagerClie
  * Icarus C0 / app proxies present typ=app JWTs, not Service.service_token.
  */
 async function validateServiceToken(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const rawAuth = req.headers.authorization;
+  // Standard bearer parsing: strip a leading "Bearer " prefix (not any
+  // occurrence — .replace() could strip a substring inside the token itself).
+  const token = rawAuth && rawAuth.startsWith('Bearer ') ? rawAuth.slice(7) : rawAuth;
   
   if (!token) {
     return res.status(401).json({
-      error: { message: 'Service token required', status: 401 }
+      error: { message: 'Authentication required', status: 401 }
     });
   }
 

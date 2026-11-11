@@ -675,7 +675,7 @@ router.get('/:id/stack/revisions', authenticate, async (req, res, next) => {
 
 router.post('/:id/stack/rollback', authenticate, async (req, res, next) => {
   try {
-    res.json(await StackService.rollback(req.params.id));
+    res.json(await StackService.rollback(req.params.id, { revision: req.body && req.body.revision }));
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: { message: err.message } });
     next(err);
@@ -706,6 +706,34 @@ router.post('/:id/iac/hookup', authenticate, async (req, res, next) => {
     const IacHookupService = require('../services/IacHookupService');
     res.json(await IacHookupService.hookup(req.params.id, req.body || {}, req.headers.authorization));
   } catch (err) { next(err); }
+});
+
+// GET /api/projects/:id/infra — the project's current infra file (from the
+// stack record) + fleet devices (with disk figures) + hookup state.
+// This is the read endpoint behind the Infra tab.
+router.get('/:id/infra', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    res.json(await InfraService.currentInfra(req.params.id));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
+});
+
+// PUT /api/projects/:id/infra — save an (edited) infra file into the stack:
+// services / wanted / resources / vpc from the file become the new stack
+// content; put() no-ops when unchanged and commits infra.json otherwise.
+// Body: { file } (or the file object itself).
+router.put('/:id/infra', authenticate, async (req, res, next) => {
+  try {
+    const InfraService = require('../services/InfraService');
+    const file = (req.body && req.body.file) || req.body;
+    res.json(await InfraService.updateFromFile(req.params.id, file));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: { message: err.message } });
+    next(err);
+  }
 });
 
 // GET /api/projects/:id/infra/export — task 5: infra-as-code file.

@@ -22,7 +22,7 @@ router.post('/login', loginRateLimit, async (req, res, next) => {
     }
 
     console.log(`[auth] Login attempt for username: ${username}`);
-    
+
     const result = await UserService.authenticate(username, password, totp);
     
     console.log(`[auth] Login successful for username: ${username}`);

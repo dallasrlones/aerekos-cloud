@@ -240,8 +240,12 @@ async function main() {
     if (act === 'export') return out(await client.iac.export(project, { commit: !flags['no-commit'] }), asJson);
     if (act === 'apply') return out(await client.iac.applyFile(project, { file: dataOf(flags) || undefined, any_device: !!flags['any-device'] }), asJson);
     if (act === 'down') return out(await client.iac.down(project, { hard: !!flags.hard }), asJson);
+    if (act === 'current') return out(await client.iac.current(project), asJson);
+    if (act === 'save') return out(await client.iac.saveFile(project, dataOf(flags) || {}), asJson);
+    if (act === 'revisions') return out(await client.iac.revisions(project), asJson);
+    if (act === 'rollback') return out(await client.iac.rollback(project, { revision: flags.revision }), asJson);
     if (act === 'put') return out(await client.iac.put(project, dataOf(flags) || {}), asJson);
-    die('usage: aerekos iac status|hookup|export|apply|down|system|import [--project P] [--data JSON] [--hard] [--any-device] [--no-commit] [--name N]');
+    die('usage: aerekos iac status|hookup|export|apply|down|current|save|revisions|rollback|system|import [--project P] [--data JSON] [--hard] [--any-device] [--no-commit] [--revision N] [--name N]');
   }
   if (cmd === 'setup') {
     const act = positionals[1];

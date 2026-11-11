@@ -30,6 +30,9 @@ beforeAll(async () => {
   app.use('/api/projects', signedUrlRoutes);
   app.use('/api/projects', chunkedUploadRoutes);
   app.use('/api/projects', fileRoutes);
+  // Mirror the production mount (index.js) so generated signed URLs
+  // (…/api/services/storage_manager/signed/…) resolve in tests too.
+  app.use('/api/services/storage_manager', signedUrlRoutes);
   
   // Set test token
   process.env.SERVICE_TOKEN = 'test-token';
@@ -267,6 +270,97 @@ describe('API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('signed_urls');
       expect(Array.isArray(response.body.signed_urls)).toBe(true);
+    });
+  });
+
+  describe('Signed URL Download (streaming decryption)', () => {
+    // Deterministic pseudo-random content so a corrupted/truncated stream
+    // would fail the byte comparison.
+    function makeContent(size) {
+      const buf = Buffer.alloc(size);
+      for (let i = 0; i < size; i++) buf[i] = (i * 31 + 7) & 0xff;
+      return buf;
+    }
+
+    const content = makeContent(200 * 1024); // 200 KiB
+    const key = 'signed-stream-file.bin';
+    let signedUrl;
+
+    it('uploads a file with known content', async () => {
+      const response = await request(app)
+        .post(`/api/projects/${testProjectId}/buckets/test-bucket/files/${key}`)
+        .set(authHeader)
+        .attach('file', content, key);
+      expect(response.status).toBe(200);
+      expect(response.body.size).toBe(content.length);
+    });
+
+    it('generates a signed download URL', async () => {
+      const response = await request(app)
+        .post(`/api/projects/${testProjectId}/buckets/test-bucket/files/${key}/signed-url/download`)
+        .set(authHeader)
+        .send({ ttl_seconds: 3600 });
+      expect(response.status).toBe(201);
+      signedUrl = response.body.url;
+      expect(signedUrl).toContain('/signed/');
+    });
+
+    it('downloads the full object byte-identically through the signed URL', async () => {
+      const u = new URL(signedUrl);
+      const response = await request(app)
+        .get(u.pathname + u.search)
+        .buffer(true);
+
+      expect(response.status).toBe(200);
+      expect(response.headers['content-type']).toBeDefined();
+      expect(Number(response.headers['content-length'])).toBe(content.length);
+      expect(response.headers['accept-ranges']).toBe('bytes');
+      expect(Buffer.isBuffer(response.body)).toBe(true);
+      expect(response.body.equals(content)).toBe(true);
+    });
+
+    it('serves a Range request (206) with the exact slice', async () => {
+      const u = new URL(signedUrl);
+      const response = await request(app)
+        .get(u.pathname + u.search)
+        .set('Range', 'bytes=100-199')
+        .buffer(true);
+
+      expect(response.status).toBe(206);
+      expect(response.headers['content-range']).toBe(`bytes 100-199/${content.length}`);
+      expect(Number(response.headers['content-length'])).toBe(100);
+      expect(response.body.equals(content.subarray(100, 200))).toBe(true);
+    });
+
+    it('serves a mid-file Range request with the exact slice', async () => {
+      const u = new URL(signedUrl);
+      const response = await request(app)
+        .get(u.pathname + u.search)
+        .set('Range', 'bytes=100000-100099')
+        .buffer(true);
+
+      expect(response.status).toBe(206);
+      expect(response.body.equals(content.subarray(100000, 100100))).toBe(true);
+    });
+
+    it('serves a suffix Range request (bytes=-16)', async () => {
+      const u = new URL(signedUrl);
+      const response = await request(app)
+        .get(u.pathname + u.search)
+        .set('Range', 'bytes=-16')
+        .buffer(true);
+
+      expect(response.status).toBe(206);
+      expect(response.body.equals(content.subarray(content.length - 16))).toBe(true);
+    });
+
+    it('returns 416 for a Range beyond EOF', async () => {
+      const u = new URL(signedUrl);
+      const response = await request(app)
+        .get(u.pathname + u.search)
+        .set('Range', `bytes=${content.length + 10}-`);
+
+      expect(response.status).toBe(416);
     });
   });
 

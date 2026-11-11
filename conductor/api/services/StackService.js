@@ -400,30 +400,49 @@ class StackService {
     }));
   }
 
-  async rollback(projectId) {
+  /**
+   * Roll the stack back: to the previous revision by default, or to a
+   * specific one when { revision } is given. The rolled-back content is
+   * committed to infra.json (single writer) so the file and the stack never
+   * disagree.
+   */
+  async rollback(projectId, { revision = null } = {}) {
     const rows = await ProjectStack.findAll({ where: { project_id: projectId } });
     rows.sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0));
     const latest = rows[0];
-    const prev = rows[1];
     if (!latest) {
       const e = new Error('nothing to roll back');
       e.status = 404;
       throw e;
     }
-    if (!prev) {
+    let target;
+    if (revision != null && revision !== '') {
+      target = rows.find((r) => Number(r.revision || 0) === Number(revision));
+      if (!target) {
+        const e = new Error(`no revision ${revision} (have ${rows.map((r) => r.revision).join(', ') || 'none'})`);
+        e.status = 404;
+        throw e;
+      }
+    } else {
+      target = rows[1];
+    }
+    if (!target) {
       await ProjectStack.update(latest.id, {
         content: JSON.stringify(emptyStack(projectId)),
         applied: JSON.stringify(emptyStack(projectId)),
         status: 'rolled-back',
       });
-      return this.current(projectId);
+    } else if (Number(target.id) !== Number(latest.id)) {
+      await ProjectStack.update(latest.id, {
+        content: target.content,
+        applied: target.content,
+        status: 'rolled-back',
+      });
     }
-    await ProjectStack.update(latest.id, {
-      content: prev.content,
-      applied: prev.content,
-      status: 'rolled-back',
-    });
-    return this.current(projectId);
+    const out = await this.current(projectId);
+    this.commitInfraFile(projectId, out.stack, out.revision)
+      .catch((err) => console.warn('[stack] commit after rollback:', err.message));
+    return out;
   }
 
   async drift(projectId) {

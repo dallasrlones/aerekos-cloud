@@ -212,13 +212,22 @@ services:
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+      # S3-style signed URLs: base origin must be reachable from the LAN (phone),
+      # HMAC secret from .env.
+      - PUBLIC_URL=${STORAGE_PUBLIC_URL:-http://192.168.0.141:3003}
+      - SIGNED_URL_SECRET=${STORAGE_SIGNED_URL_SECRET:-}
     ports:
       - "3003:3003"
     volumes:
       - storage_manager-data:/app/storage_manager/data
       # System buckets can target a physical base_path (e.g. the 24TB USB media
-      # library); expose that path so files land on the real disk.
+      # library); expose that path so files land on the real disk. The TV
+      # media bucket lives at /mnt/usb24tb/aerekos_storage/aerekos-tv.
       - /mnt/usb24tb/media:/mnt/usb24tb/media
+      - /mnt/usb24tb/aerekos_storage/aerekos-tv:/mnt/usb24tb/aerekos_storage/aerekos-tv
+      # aerekos-tv media library: base_path for the 'tv-media' system bucket.
+      # Bucket objects land under <base_path>/<bucketId>/ (encrypted).
+      - /mnt/usb24tb/aerekos_storage/aerekos-tv:/mnt/usb24tb/aerekos_storage/aerekos-tv
     depends_on:
       conductor:
         condition: service_healthy
@@ -544,7 +553,7 @@ services:
       # manager reads the same volume at /data and streams files into buckets.
       - QBITTORRENT_URL=http://qbittorrent:8080
       - QBITTORRENT_USER=admin
-      - QBITTORRENT_PASS=***
+      - QBITTORRENT_PASS=${QBITTORRENT_PASS}
       - QBITTORRENT_SAVE_ROOT=/downloads
       - DOWNLOAD_MEDIA_DIR=/data
       - MAX_CONCURRENT=2
@@ -575,6 +584,9 @@ services:
       - PGID=1000
       - TZ=America/New_York
       - WEBUI_PORT=8080
+      # linuxserver/qBittorrent 5.x ignores this unless config has no password;
+      # we also persist it via WebAPI setPreferences (see download_manager).
+      - WEBUI_PASSWORD=${QBITTORRENT_PASS}
     ports:
       - "8090:8080"   # WebUI (8080 is taken by headscale on the host)
       - "6881:6881"

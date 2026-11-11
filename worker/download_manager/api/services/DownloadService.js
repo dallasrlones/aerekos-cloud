@@ -8,7 +8,7 @@ const { DownloadList, DownloadItem, DownloadWindow, Indexer } = require('../mode
 const { CrudService, fail } = require('../../../shared/crudBase');
 const { conductorBase, authHeaders, skipFlag } = require('../../../shared/conductorProxy');
 const { QbitClient } = require('../utils/qbit');
-const { runYtdlp } = require('../utils/ytdlp');
+const { runYtdlp, searchYtdlp } = require('../utils/ytdlp');
 
 const SKIP_DOWNLOAD = skipFlag('SKIP_DOWNLOAD');
 const SKIP_TORRENT = skipFlag('SKIP_TORRENT');
@@ -91,6 +91,57 @@ function qbit() {
   if (!QBT_URL) return null;
   if (!_qbt) _qbt = new QbitClient({ url: QBT_URL, user: QBT_USER, pass: QBT_PASS, timeout: 30000 });
   return _qbt;
+}
+
+// ---- torrent search via tor-dl scrapers (public sites, no qBittorrent needed)
+// Replaces the old qBittorrent built-in search (5.x needs python plugins +
+// PBKDF2 auth). thepiratebay / torrentscsv / yts return magnets directly.
+let _scrapers = null;
+function torrentScrapers() {
+  if (!_scrapers) {
+    try { _scrapers = require('tor-dl').scrapers || {}; } catch { _scrapers = {}; }
+  }
+  return _scrapers;
+}
+const TORRENT_SOURCES = ['thepiratebay', 'torrentscsv', 'yts'];
+const SOURCE_TIMEOUT_MS = 20000;
+
+function withTimeout(p, ms, label) {
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms)),
+  ]);
+}
+
+async function scrapeTorrentSources(query, category) {
+  const scrapers = torrentScrapers();
+  const out = [];
+  const errors = [];
+  await Promise.all(TORRENT_SOURCES.map(async (name) => {
+    const s = scrapers[name];
+    if (!s) { errors.push(`${name}: unavailable`); return; }
+    try {
+      const rows = await withTimeout(s.search(query, category || 'all'), SOURCE_TIMEOUT_MS, name);
+      for (const r of rows || []) {
+        if (!r || !r.name) continue;
+        out.push({
+          title: r.name,
+          magnet: r.magnet || (r.hash ? `magnet:?xt=urn:btih:${r.hash}` : ''),
+          size: r.size || '',
+          size_bytes: r.sizeBytes || null,
+          seeders: r.seeds || 0,
+          leechers: r.peers || 0,
+          site: name,
+          url: r.url || '',
+          category: r.category || category || 'all',
+        });
+      }
+    } catch (err) {
+      errors.push(`${name}: ${String(err.message || err).slice(0, 120)}`);
+    }
+  }));
+  const results = out.filter((r) => r.magnet).sort((a, b) => (b.seeders || 0) - (a.seeders || 0));
+  return { results: results.slice(0, 50), errors };
 }
 
 // ---- storage upload (project bucket OR system bucket) -----------------------
@@ -293,7 +344,7 @@ class DownloadService {
     return { deleted: true, id, qbt_hash: item.qbt_hash || null };
   }
 
-  // ---- search (Jackett first, qBittorrent built-in as fallback) -------------
+  // ---- search (Jackett first, public-site scrapers as fallback) --------------
   async search(projectId, { query, category }) {
     if (SKIP_DOWNLOAD) {
       return { results: [{ title: `fake:${query}`, magnet: 'magnet:?xt=urn:btih:deadbeef', category: category || 'all' }], fake: true, source: 'skip' };
@@ -303,7 +354,7 @@ class DownloadService {
       const idx = indexers[0];
       try {
         const res = await axios.get(`${idx.url.replace(/\/$/, '')}/api/v2.0/indexers/all/results`, {
-          params: { apikey: idx.apikey, Query: query, Category: category },
+          params: { apikey: idx.api_key_secret, Query: query, Category: category },
           timeout: 20000,
         });
         return { results: res.data?.Results || res.data || [], source: 'jackett' };
@@ -311,30 +362,29 @@ class DownloadService {
         return { results: [], error: err.message, source: 'jackett' };
       }
     }
-    const client = qbit();
-    if (client) {
-      try {
-        await client.login();
-        const id = await client.searchStart(query, category);
-        const t0 = Date.now();
-        while (Date.now() - t0 < 30000) {
-          const st = await client.searchStatus(id);
-          if (st && st.status === 'Running') { await sleep(1500); continue; }
-          break;
-        }
-        const raw = await client.searchResults(id);
-        const results = (raw || []).map((r) => ({
-          title: r.fileName,
-          magnet: r.magnetLink || (r.hash ? `magnet:?xt=urn:btih:${r.hash}` : ''),
-          size: r.size, seeders: r.nbLeechs, leechers: r.nbPeers, site: r.siteName,
-          category: r.category || category || 'all',
-        }));
-        return { results, source: 'qbittorrent' };
-      } catch (err) {
-        return { results: [], error: err.message, source: 'qbittorrent' };
-      }
+    try {
+      const { results, errors } = await scrapeTorrentSources(query, category);
+      return { results, source: 'scrapers', ...(errors.length ? { error: errors.join('; ').slice(0, 300) } : {}) };
+    } catch (err) {
+      return { results: [], error: String(err.message || err).slice(0, 300), source: 'scrapers' };
     }
-    return { results: [], warning: 'no_indexers' };
+  }
+
+  // ---- YouTube search (own "YouTube" engine — separate from torrent search) ---
+  async searchYouTube(_projectId, { query, max } = {}) {
+    if (SKIP_DOWNLOAD) {
+      return {
+        results: [{ id: 'fakeyt0', url: 'https://www.youtube.com/watch?v=fakeyt0', title: `fake:${query || 'youtube'}`, duration: 120, channel: 'Fake Channel', source: 'youtube', engine: 'skip' }],
+        fake: true,
+        source: 'youtube',
+        engine: 'skip',
+      };
+    }
+    try {
+      return await searchYtdlp({ query, max });
+    } catch (err) {
+      return { results: [], error: String(err.message || err).slice(0, 300), source: 'youtube', engine: 'yt-dlp' };
+    }
   }
 
   windowAllows(win, now) {

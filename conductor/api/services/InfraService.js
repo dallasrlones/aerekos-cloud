@@ -190,6 +190,181 @@ class InfraService {
     };
   }
 
+  /**
+   * Single-writer refresh: after any service-level change (enable / disable
+   * via the UI, CLI or SDK), re-record the project's services + wanted into
+   * the stack and let put() commit infra.json. Unapplied device pins in the
+   * file for services OTHER than the one that changed are preserved, so one
+   * explicit change never stomps the user's intent for the rest. Put's
+   * no-op guard keeps the revision history clean when nothing changed.
+   */
+  async recordServiceChange(projectId, { changed = null, record = true } = {}) {
+    if (!record) return null;
+    const cur = await StackService.current(projectId);
+    if (!cur || cur.revision === 0) return null; // not hooked up yet — first export picks it up
+    const live = await this.projectServices(projectId);
+    const fileByName = new Map();
+    for (const s of (cur.stack && cur.stack.services) || []) {
+      if (s && s.name) fileByName.set(s.name, s);
+    }
+    const liveByName = new Map(live.map((s) => [s.name, s]));
+    const merged = [];
+    for (const ls of live) {
+      const fs = fileByName.get(ls.name);
+      const unappliedPin = fs && fs.device && fs.device !== 'auto' && fs.device !== ls.device;
+      merged.push({
+        name: ls.name,
+        // An explicit change on this service wins over a stale file pin.
+        device: (unappliedPin && ls.name !== changed) ? fs.device : ls.device,
+        worker_id: ls.worker_id || null,
+        config: ls.config || null,
+      });
+    }
+    for (const [name, fs] of fileByName) {
+      if (!liveByName.has(name) && name !== changed) {
+        merged.push({ name, device: fs.device || 'auto', worker_id: fs.worker_id || null, config: fs.config || null });
+      }
+    }
+    const content = {
+      ...cur.stack,
+      services: merged,
+      wanted: merged.map((s) => s.name),
+      kind: 'project-stack',
+      project_id: projectId,
+    };
+    const out = await StackService.put(projectId, content);
+    if (out && out.revision) {
+      console.log(`[infra] project=${projectId} service-change → rev ${out.revision} ${changed ? '(change: ' + changed + ')' : '(bake-back)'} services=${merged.length}`);
+    }
+    return out;
+  }
+
+  /**
+   * Read endpoint for the Infra tab: the current infra file (from the stack
+   * record), the fleet (with disk figures for the UI) and the hookup state.
+   */
+  async currentInfra(projectId) {
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) {
+      const e = new Error('Project not found');
+      e.status = 404;
+      throw e;
+    }
+    const cur = await StackService.current(projectId);
+    const file = cur.revision > 0 ? this.toInfraFile(project, cur, {}) : null;
+    // Best-effort live placement so the UI can show "running on X" vs "pending".
+    const liveByName = new Map();
+    try {
+      for (const s of await this.projectServices(projectId)) liveByName.set(s.name, s.device);
+    } catch {}
+    if (file) {
+      for (const s of file.services) {
+        s.live_device = liveByName.has(s.name) ? liveByName.get(s.name) : null;
+      }
+    }
+    const [devices, hookup] = await Promise.all([
+      this.listDevices(),
+      (async () => {
+        try {
+          const IacHookupService = require('./IacHookupService');
+          return await IacHookupService.status(projectId);
+        } catch {
+          return { hooked_up: false, mode: null, repo: null, missing: ['status'] };
+        }
+      })(),
+    ]);
+    const devicesOut = devices.map((d) => ({
+      ...d,
+      disk_free_gb: (d.resources && d.resources.disk && d.resources.disk.available_gb != null) ? d.resources.disk.available_gb : null,
+      disk_total_gb: (d.resources && d.resources.disk && d.resources.disk.total_gb != null) ? d.resources.disk.total_gb : null,
+    }));
+    return {
+      file,
+      devices: devicesOut,
+      hookup,
+      revision: cur.revision,
+      status: cur.status,
+      generated_at: file ? file.generated_at : null,
+    };
+  }
+
+  /**
+   * Write an (edited) infra file back into the stack — the single-writer
+   * path for "Edit file" in the UI and PUT /infra. The file's
+   * services / wanted / resources / vpc become the new stack content;
+   * put() no-ops when nothing changed and commits infra.json otherwise.
+   */
+  async updateFromFile(projectId, file) {
+    console.log(`[infra] project=${projectId} updateFromFile keys=${Object.keys(file || {}).join(',')}`);
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) {
+      const e = new Error('Project not found');
+      e.status = 404;
+      throw e;
+    }
+    if (!file || typeof file !== 'object' || Array.isArray(file) || !Object.keys(file).length) {
+      const e = new Error('file is required (an infra file object)');
+      e.status = 400;
+      throw e;
+    }
+    if (file.kind === 'system-infra') {
+      const e = new Error('cannot save a system-tier file to a project');
+      e.status = 400;
+      throw e;
+    }
+    const cur = await StackService.current(projectId);
+    const services = (Array.isArray(file.services) ? file.services : [])
+      .filter((x) => x && x.name)
+      .map((x) => ({
+        name: String(x.name),
+        device: x.device || 'auto',
+        worker_id: x.worker_id || null,
+        config: x.config || null,
+      }));
+    const content = {
+      ...(cur.stack || {}),
+      kind: 'project-stack',
+      project_id: projectId,
+      services,
+      // wanted defaults to the file's service list when not given.
+      wanted: (Array.isArray(file.wanted) && file.wanted.length)
+        ? file.wanted.map(String)
+        : services.map((s) => s.name),
+      vpc: (file.vpc && typeof file.vpc === 'object' && !Array.isArray(file.vpc))
+        ? file.vpc
+        : ((cur.stack && cur.stack.vpc) || {}),
+    };
+    for (const ops of listClickOps()) {
+      if (Array.isArray(file.resources && file.resources[ops.stackKey])) {
+        content[ops.stackKey] = file.resources[ops.stackKey];
+      } else {
+        delete content[ops.stackKey]; // file is the source: absent section = no resources
+      }
+    }
+    const out = await StackService.put(projectId, content, { commit: false });
+    const infraFile = this.toInfraFile(project, out, {});
+    const changed = out.revision !== cur.revision;
+    // Single writer (git): mirror the new stack into the project's infra
+    // repo — same pattern as export, so the file in git always matches the
+    // stack record. A no-op save (no new revision) does not commit, so
+    // re-saving an unchanged file doesn't stack identical-content commits.
+    let repo = { committed: false, reason: changed ? 'commit skipped' : 'no change', repo: null };
+    if (changed) {
+      const found = await this._ensureRepo(projectId, 'infra');
+      if (found.ok && found.repo && found.repo.id) {
+        repo = {
+          repo: { id: found.repo.id, name: found.repo.name },
+          ...(await this._commitFile(projectId, found.repo, 'infra.json', JSON.stringify(infraFile, null, 2),
+            `infra: save ${project.name} (rev ${out.revision})`)),
+        };
+      } else {
+        repo = { committed: false, reason: found.reason || 'no infra repo', repo: null };
+      }
+    }
+    console.log(`[infra] project=${projectId} updateFromFile done rev=${out.revision} changed=${changed} commit=${repo.committed ? (repo.commit || 'yes') : 'no (' + repo.reason + ')'}`);
+    return { file: infraFile, revision: out.revision, changed, repo };
+  }
+
   // ---------- git (single-writer) helpers ----------
 
   /** Find (or create) a project's git repo by name via git_manager. */
@@ -264,6 +439,7 @@ class InfraService {
    * write the infra file, and commit it to the project's `infra` git repo.
    */
   async exportProject(projectId, { commit = true } = {}) {
+    console.log(`[infra] project=${projectId} exportProject commit=${commit}`);
     const project = await ProjectRepository.findById(projectId);
     if (!project) {
       const e = new Error('Project not found');
@@ -307,6 +483,7 @@ class InfraService {
         repo = { committed: false, reason: found.reason || 'no infra repo', repo: null };
       }
     }
+    console.log(`[infra] project=${projectId} export done rev=${cur.revision} unchanged=${unchanged} commit=${repo.committed ? (repo.commit || 'yes') : 'no (' + repo.reason + ')'}`);
     return { file, revision: cur.revision, unchanged, repo };
   }
 
@@ -485,6 +662,7 @@ class InfraService {
     const file = this.toInfraFile(project, { stack, revision: revision || 0, status: status || 'draft' });
     const c = await this._commitFile(projectId, found.repo, 'infra.json', JSON.stringify(file, null, 2),
       `infra: sync ${project.name} (rev ${revision || 0})`);
+    console.log(`[infra] project=${projectId} commitInfraFile repo=${found.repo.name} rev=${revision || 0} status=${status || 'draft'} committed=${c.committed ? (c.commit || 'yes') : 'no (' + (c.reason || c.error || '') + ')'}`);
     return { repo: { id: found.repo.id, name: found.repo.name }, ...c };
   }
 
@@ -533,6 +711,7 @@ class InfraService {
         name,
         device: ((content.services.find((s) => s && s.name === name) || {}).device) || 'auto',
       }));
+    console.log(`[infra] project=${projectId} applyProject file=${!!file} anyDevice=${anyDevice} plan=${plan.length}: ${plan.map((p) => p.name + '@' + p.device).join(', ')}`);
 
     const results = [];
     for (const p of plan) {
@@ -541,8 +720,10 @@ class InfraService {
       try {
         const pick = this._pickDevice(devices, p.device, anyDevice);
         device = pick.name;
+        // record:false — the bake-back below is the single write for the
+        // whole apply, so N services don't create N noisy revisions.
         const row = await SetupService.enableWithDependencies(
-          projectId, p.name, { with_dependencies: true, defaults: true, workerId: pick.id });
+          projectId, p.name, { with_dependencies: true, defaults: true, workerId: pick.id, record: false });
         const bad = (row.results || []).filter((r) => !r.enabled);
         if (bad.length) error = bad.map((b) => `${b.service}: ${b.error || 'failed'}`).join('; ');
       } catch (e) {
@@ -573,9 +754,11 @@ class InfraService {
       await ProjectStack.update(rows[0].id, { status: 'applied', applied: rows[0].content, lock_holder: '' });
     }
 
+    console.log(`[infra] project=${projectId} apply results: ${results.map((r) => r.name + '=' + r.status + (r.device ? '@' + r.device : '') + (r.error ? ' (' + r.error + ')' : '')).join(', ')}`);
     const provisioned = await StackService.provision(projectId, content);
     const final = await StackService.current(projectId);
     const repo = await this.commitInfraFile(projectId, { stack: final.stack, revision: final.revision, status: final.status });
+    console.log(`[infra] project=${projectId} apply done rev=${final.revision} commit=${repo.committed ? (repo.commit || 'yes') : 'no (' + repo.reason + ')'} provisioned=${provisioned ? Object.values(provisioned).flat().length : 0}`);
     return { project: project.name, services: results, provisioned, repo, revision: final.revision };
   }
 
@@ -598,6 +781,7 @@ class InfraService {
       ...(Array.isArray(cur.stack.services) ? cur.stack.services.map((s) => s && s.name) : []),
       ...(Array.isArray(cur.stack.wanted) ? cur.stack.wanted : []),
     ])].filter((n) => n && n !== 'auth_manager' && n !== 'vllm');
+    console.log(`[infra] project=${projectId} downProject hard=${hard} services=${names.length}: ${names.join(', ')}`);
 
     const disabled = [];
     for (const name of names) {
@@ -633,7 +817,10 @@ class InfraService {
     const next = hard
       ? { ...emptyStack(projectId), kind: 'project-stack', project_id: projectId }
       : { ...cur.stack, kind: 'project-stack', project_id: projectId };
-    await StackService.put(projectId, next, { commit: false });
+    // commit: hard — a hard down rewrites the file to its empty state, so the
+    // single writer must commit it. Soft leaves the content unchanged (no-op
+    // put, no new revision, nothing to commit).
+    await StackService.put(projectId, next, { commit: hard });
     const rows = await ProjectStack.findAll({ where: { project_id: projectId } });
     rows.sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0));
     if (rows[0]) {
@@ -642,6 +829,7 @@ class InfraService {
 
     const final = await StackService.current(projectId);
     const repo = await this.commitInfraFile(projectId, { stack: final.stack, revision: final.revision, status: final.status });
+    console.log(`[infra] project=${projectId} down done hard=${hard} disabled=${disabled.map((d) => d.name + '=' + d.status + (d.error ? ' (' + d.error + ')' : '')).join(', ')} commit=${repo.committed ? (repo.commit || 'yes') : 'no (' + repo.reason + ')'} rev=${final.revision}`);
     return { hard, disabled, deleted, repo, revision: final.revision };
   }
 

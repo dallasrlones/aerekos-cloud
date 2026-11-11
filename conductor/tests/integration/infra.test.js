@@ -27,7 +27,7 @@ const { createApiClient } = require('../helpers/apiClient');
 const { mockServiceProxy, restoreProxyMock } = require('../helpers/proxyMock');
 const { makeStackStore, mockStackService, restoreStackService } = require('../helpers/stackStore');
 const { PROD_PROJECT_ID } = require('../../../e2e/lib/prodGuard');
-const { Project, ProjectService, Service, ServiceDeployment, Worker } = require('../../api/models');
+const { Project, ProjectService, Service, ServiceDeployment, Worker, ProjectStack } = require('../../api/models');
 const db = require('../../api/utils/db');
 const SetupService = require('../../api/services/SetupService');
 const IacHookupService = require('../../api/services/IacHookupService');
@@ -463,5 +463,259 @@ describe('import (POST /api/system/infra/import)', () => {
     const res = await api.post('/api/system/infra/import', { file: { kind: 'project-infra' } });
     expect(res.status).toBe(400);
     expect(res.body.error.message).toContain('name is required');
+  });
+});
+
+describe('Infra tab (GET /:id/infra)', () => {
+  test('no stack yet: file null, rev 0, devices carry disk figures, hookup state', async () => {
+    jest.spyOn(IacHookupService, 'status').mockResolvedValue({
+      hooked_up: true, mode: 'git', repo: 'infra', missing: [],
+    });
+    const res = await api.get(`/api/projects/${fx.project.id}/infra`);
+    expect(res.status).toBe(200);
+    expect(res.body.file).toBeNull();
+    expect(res.body.revision).toBe(0);
+    expect(res.body.hookup).toMatchObject({ hooked_up: true, mode: 'git', repo: 'infra' });
+    const pm = res.body.devices.find((d) => d.name === 'Prod-Mini');
+    expect(pm).toMatchObject({ status: 'online', disk_free_gb: 100, disk_total_gb: null });
+    expect(res.body.devices.find((d) => d.name === 'Orin').status).toBe('offline');
+  });
+
+  test('with a stack: file mirrors it, unapplied pins survive, live placements annotated', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, {
+      services: [
+        { name: 'storage_manager', device: 'Prod-Mini', worker_id: fx.workers['aerekos-server'].id },
+        { name: 'git_manager', device: 'Orin' }, // unapplied pin — live is auto
+      ],
+      wanted: ['storage_manager', 'git_manager'],
+    }));
+    jest.spyOn(IacHookupService, 'status').mockResolvedValue({
+      hooked_up: false, mode: null, repo: null, missing: ['source'],
+    });
+    const res = await api.get(`/api/projects/${fx.project.id}/infra`);
+    expect(res.status).toBe(200);
+    expect(res.body.revision).toBe(1);
+    expect(res.body.file.kind).toBe('project-infra');
+    const storage = res.body.file.services.find((s) => s.name === 'storage_manager');
+    const git = res.body.file.services.find((s) => s.name === 'git_manager');
+    expect(storage.device).toBe('Prod-Mini');
+    expect(storage.live_device).toBe('Prod-Mini'); // running where the file says
+    expect(git.device).toBe('Orin'); // the pin stays in the file
+    expect(git.live_device).toBe('auto'); // enabled, not deployed yet
+    expect(res.body.hookup).toMatchObject({ hooked_up: false, mode: null, missing: ['source'] });
+  });
+
+  test('unknown project -> 404', async () => {
+    const res = await api.get('/api/projects/00000000-0000-4000-8000-000000000003/infra');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('save file (PUT /:id/infra)', () => {
+  test('saves the edited file: new revision + infra.json committed', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, {
+      services: [{ name: 'storage_manager', device: 'Prod-Mini' }],
+      wanted: ['storage_manager'],
+    }));
+    const file = {
+      kind: 'project-infra',
+      services: [
+        { name: 'storage_manager', device: 'Prod-Mini' },
+        { name: 'key_manager', device: 'auto' },
+      ],
+      wanted: ['storage_manager', 'key_manager'],
+      resources: { buckets: [{ name: 'b1' }] },
+    };
+    const res = await api.put(`/api/projects/${fx.project.id}/infra`, { file });
+    expect(res.status).toBe(200);
+    expect(res.body.revision).toBe(2);
+    expect(res.body.changed).toBe(true);
+    expect(res.body.file.services.map((s) => s.name).sort()).toEqual(['key_manager', 'storage_manager']);
+    expect(res.body.file.wanted).toEqual(['storage_manager', 'key_manager']);
+    expect(res.body.repo.committed).toBe(true);
+    const commit = proxy.callsTo('git_manager', 'POST', '/api/v1/repos/')[0];
+    expect(commit.body.path).toBe('infra.json');
+    const committed = JSON.parse(commit.body.content);
+    expect(committed.resources.buckets).toEqual([{ name: 'b1' }]);
+    expect(committed.services.map((s) => s.name).sort()).toEqual(['key_manager', 'storage_manager']);
+  });
+
+  test('repeating the same file is a no-op: no new revision, no duplicate commit', async () => {
+    restoreStackService(); // the no-op guard lives in the REAL StackService.put
+    const file = {
+      kind: 'project-infra',
+      services: [{ name: 'storage_manager', device: 'auto' }],
+      wanted: ['storage_manager'],
+    };
+    const first = await api.put(`/api/projects/${fx.project.id}/infra`, { file });
+    expect(first.status).toBe(200);
+    expect(first.body.revision).toBe(1);
+    expect(first.body.changed).toBe(true);
+    expect(first.body.repo.committed).toBe(true);
+    expect(proxy.callsTo('git_manager', 'POST', '/api/v1/repos/')).toHaveLength(1);
+
+    const second = await api.put(`/api/projects/${fx.project.id}/infra`, { file });
+    expect(second.status).toBe(200);
+    expect(second.body.revision).toBe(1);
+    expect(second.body.changed).toBe(false);
+    expect(second.body.repo.committed).toBe(false);
+    expect(proxy.callsTo('git_manager', 'POST', '/api/v1/repos/')).toHaveLength(1);
+  });
+
+  test('system-tier file -> 400', async () => {
+    const res = await api.put(`/api/projects/${fx.project.id}/infra`, { file: { kind: 'system-infra' } });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('system-tier');
+  });
+
+  test('missing or empty file -> 400', async () => {
+    let res = await api.put(`/api/projects/${fx.project.id}/infra`, {});
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('file is required');
+    res = await api.put(`/api/projects/${fx.project.id}/infra`, { file: {} });
+    expect(res.status).toBe(400);
+  });
+
+  test('unknown project -> 404', async () => {
+    const res = await api.put('/api/projects/00000000-0000-4000-8000-000000000003/infra', { file: { services: [] } });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('rollback (POST /:id/stack/rollback)', () => {
+  // Rollback operates on the REAL ProjectStack rows (the mock store is a
+  // separate in-memory thing), so these tests restore the real StackService.
+  async function twoRevisions() {
+    restoreStackService();
+    // the fire-and-forget commit after rollback is gated on a git iac_hookup
+    await Project.update(fx.project.id, {
+      config: JSON.stringify({ iac_hookup: { mode: 'git', repo: 'infra' } }),
+    });
+    const base = stackWith(fx.project.id, { services: [], wanted: [] });
+    const r1 = { ...base, services: [{ name: 'storage_manager', device: 'Prod-Mini' }], wanted: ['storage_manager'] };
+    const r2 = { ...base, services: [{ name: 'git_manager', device: 'Orin' }], wanted: ['git_manager'] };
+    await ProjectStack.create({ project_id: fx.project.id, revision: 1, content: JSON.stringify(r1), applied: '', status: 'draft', lock_holder: '' });
+    await ProjectStack.create({ project_id: fx.project.id, revision: 2, content: JSON.stringify(r2), applied: '', status: 'draft', lock_holder: '' });
+    return { r1, r2 };
+  }
+
+  test('to a specific revision: that content becomes current and is committed', async () => {
+    const { r1 } = await twoRevisions();
+    const res = await api.post(`/api/projects/${fx.project.id}/stack/rollback`, { revision: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.revision).toBe(2);
+    expect(res.body.status).toBe('rolled-back');
+    expect(res.body.stack.services).toEqual(r1.services);
+    expect(res.body.stack.wanted).toEqual(r1.wanted);
+
+    const row = (await ProjectStack.findAll({ where: { project_id: fx.project.id, revision: 2 } }))[0];
+    expect(JSON.parse(row.content)).toEqual(r1);
+    expect(row.status).toBe('rolled-back');
+
+    // the single writer committed the restored file (fire-and-forget)
+    await new Promise((r) => setTimeout(r, 100));
+    const commit = proxy.callsTo('git_manager', 'POST', '/api/v1/repos/')[0];
+    const committed = JSON.parse(commit.body.content);
+    expect(committed.services).toEqual([{ name: 'storage_manager', device: 'Prod-Mini', worker_id: null, config: null }]);
+  });
+
+  test('without a revision: rolls back to the previous one', async () => {
+    const { r1 } = await twoRevisions();
+    const res = await api.post(`/api/projects/${fx.project.id}/stack/rollback`, {});
+    expect(res.status).toBe(200);
+    expect(res.body.stack.wanted).toEqual(r1.wanted);
+  });
+
+  test('unknown revision -> 404', async () => {
+    await twoRevisions();
+    const res = await api.post(`/api/projects/${fx.project.id}/stack/rollback`, { revision: 7 });
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toContain('no revision 7');
+  });
+
+  test('nothing to roll back -> 404', async () => {
+    restoreStackService();
+    const res = await api.post(`/api/projects/${fx.project.id}/stack/rollback`, {});
+    expect(res.status).toBe(404);
+    expect(res.body.error.message).toContain('nothing to roll back');
+  });
+});
+
+describe('single writer: recordServiceChange (enable/disable mirrors)', () => {
+  test('enable: the service enters the file, other services\' pins survive', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, {
+      services: [
+        { name: 'storage_manager', device: 'Prod-Mini', worker_id: fx.workers['aerekos-server'].id },
+        { name: 'git_manager', device: 'Orin' }, // unapplied pin (live: auto)
+      ],
+      wanted: ['storage_manager', 'git_manager'],
+    }));
+    const svc = (await Service.findAll({ where: { name: 'key_manager' } }))[0];
+    await ProjectService.create({ project_id: fx.project.id, service_id: svc.id, enabled: 1 });
+
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'key_manager' });
+    expect(out.revision).toBe(2);
+    expect(out.stack.wanted).toEqual(['storage_manager', 'git_manager', 'key_manager']);
+    const byName = Object.fromEntries(out.stack.services.map((s) => [s.name, s]));
+    expect(byName.key_manager).toMatchObject({ name: 'key_manager', device: 'auto' });
+    expect(byName.git_manager.device).toBe('Orin'); // untouched pin survives
+    expect(byName.storage_manager.device).toBe('Prod-Mini'); // live placement recorded
+  });
+
+  test('a stale pin on the CHANGED service loses to its live placement', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, {
+      services: [
+        { name: 'storage_manager', device: 'Orin' }, // the file said Orin...
+        { name: 'git_manager', device: 'auto' },
+      ],
+      wanted: ['storage_manager', 'git_manager'],
+    }));
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'storage_manager' });
+    const byName = Object.fromEntries(out.stack.services.map((s) => [s.name, s]));
+    expect(byName.storage_manager.device).toBe('Prod-Mini'); // ...but it was actually enabled on Prod-Mini
+    expect(byName.git_manager.device).toBe('auto');
+  });
+
+  test('disable: the service leaves the file, the rest stay', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, {
+      services: [
+        { name: 'storage_manager', device: 'Prod-Mini', worker_id: fx.workers['aerekos-server'].id },
+        { name: 'git_manager', device: 'Orin' },
+      ],
+      wanted: ['storage_manager', 'git_manager'],
+    }));
+    const git = (await Service.findAll({ where: { name: 'git_manager' } }))[0];
+    const ps = (await ProjectService.findAll({ where: { project_id: fx.project.id, service_id: git.id } }))[0];
+    await ProjectService.update(ps.id, { enabled: 0 });
+
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'git_manager' });
+    expect(out.stack.wanted).toEqual(['storage_manager']);
+    expect(out.stack.services.map((s) => s.name)).toEqual(['storage_manager']);
+  });
+
+  test('no stack yet (revision 0) -> null, harmless', async () => {
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'storage_manager' });
+    expect(out).toBeNull();
+  });
+
+  test('record:false -> null (the caller records, e.g. apply\'s bake-back)', async () => {
+    stack.put(fx.project.id, stackWith(fx.project.id, { wanted: ['storage_manager'] }));
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'storage_manager', record: false });
+    expect(out).toBeNull();
+  });
+
+  test('real put: an unchanged file does not bump the revision (no-op guard)', async () => {
+    restoreStackService();
+    const base = stackWith(fx.project.id, {
+      services: [
+        { name: 'storage_manager', device: 'Prod-Mini', worker_id: fx.workers['aerekos-server'].id, config: {} },
+        { name: 'git_manager', device: 'auto', worker_id: null, config: {} },
+      ],
+      wanted: ['storage_manager', 'git_manager'],
+    });
+    await ProjectStack.create({ project_id: fx.project.id, revision: 1, content: JSON.stringify(base), applied: '', status: 'draft', lock_holder: '' });
+
+    const out = await InfraService.recordServiceChange(fx.project.id, { changed: 'storage_manager' });
+    expect(out.revision).toBe(1);
   });
 });

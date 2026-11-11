@@ -185,6 +185,102 @@ class SignedUrlService {
   }
   
   /**
+   * Generate a signed DOWNLOAD URL for a SYSTEM bucket file (S3-style).
+   * System buckets have project_id = null and resolve through their system.
+   */
+  async generateSignedDownloadUrlForSystem(systemId, bucketName, key, ttlSeconds = 900) {
+    if (!systemId || !bucketName || !key) {
+      throw new Error('Missing required parameters: systemId, bucketName, and key are required');
+    }
+    const bucket = await this.bucketRepo.findBySystemAndName(systemId, bucketName);
+    if (!bucket) {
+      throw new Error(`Bucket '${bucketName}' not found in system '${systemId}'`);
+    }
+    const file = await this.fileRepo.findByBucketAndKey(bucket.id, key);
+    if (!file) {
+      throw new Error(`File '${key}' not found in bucket '${bucketName}'`);
+    }
+    const signedUrlData = this.generateSignedUrl(file.id, bucket.id, 'download', ttlSeconds);
+    await this.signedUrlRepo.create({
+      file_id: file.id,
+      bucket_id: bucket.id,
+      url_type: 'download',
+      url: signedUrlData.url,
+      expires_at: signedUrlData.expires_at,
+      used: 0,
+      used_at: null,
+      metadata: JSON.stringify({})
+    });
+    logger.info(`[SignedUrlService] Generated signed download URL for system file: ${key}`);
+    return {
+      url: signedUrlData.url,
+      expires_at: signedUrlData.expires_at,
+      file_id: file.id
+    };
+  }
+  
+  /**
+   * Generate a one-shot signed UPLOAD URL for a SYSTEM bucket file.
+   */
+  async generateSignedUploadUrlForSystem(systemId, bucketName, key, ttlSeconds = 3600, metadata = {}) {
+    if (!systemId || !bucketName || !key) {
+      throw new Error('Missing required parameters: systemId, bucketName, and key are required');
+    }
+    const bucket = await this.bucketRepo.findBySystemAndName(systemId, bucketName);
+    if (!bucket) {
+      throw new Error(`Bucket '${bucketName}' not found in system '${systemId}'`);
+    }
+    let file = await this.fileRepo.findByBucketAndKey(bucket.id, key);
+    if (!file) {
+      const fileId = crypto.randomUUID();
+      const baseDir = bucket.base_path || process.env.STORAGE_PATH || './storage';
+      const storagePath = path.join(baseDir, bucket.id, `pending_${fileId}_${key.replace(/\//g, '_')}`);
+      try {
+        file = await this.fileRepo.create({
+          bucket_id: bucket.id,
+          key,
+          size: 0,
+          content_type: metadata.content_type || 'application/octet-stream',
+          etag: null,
+          encryption_key_version: 1,
+          storage_path: storagePath, // Temporary path, updated by uploadFile
+          chunk_count: 0,
+          chunk_size: 0,
+          upload_id: null,
+          upload_status: 'pending',
+          metadata: JSON.stringify(metadata)
+        });
+      } catch (createError) {
+        if (createError.message && createError.message.includes('UNIQUE constraint')) {
+          file = await this.fileRepo.findByBucketAndKey(bucket.id, key);
+          if (!file) {
+            throw new Error(`Failed to create or find file record: ${createError.message}`);
+          }
+        } else {
+          throw createError;
+        }
+      }
+    }
+    const signedUrlData = this.generateSignedUrl(file.id, bucket.id, 'upload', ttlSeconds);
+    await this.signedUrlRepo.create({
+      file_id: file.id,
+      bucket_id: bucket.id,
+      url_type: 'upload',
+      url: signedUrlData.url,
+      expires_at: signedUrlData.expires_at,
+      used: 0,
+      used_at: null,
+      metadata: JSON.stringify(metadata)
+    });
+    logger.info(`[SignedUrlService] Generated signed upload URL for system bucket: ${key}`);
+    return {
+      url: signedUrlData.url,
+      expires_at: signedUrlData.expires_at,
+      file_id: file.id
+    };
+  }
+  
+  /**
    * Validate signed URL
    */
   async validateSignedUrl(signature, fileId, bucketId, urlType, timestamp, ttl) {

@@ -270,7 +270,8 @@ class AgentService {
     };
     if (existing[0]) {
       await AgentRoll.update(existing[0].id, payload);
-      return { ...existing[0], ...payload };
+      const base = typeof existing[0].toJSON === 'function' ? existing[0].toJSON() : { ...existing[0] };
+      return { ...base, ...payload };
     }
     return AgentRoll.create(payload);
   }
@@ -340,7 +341,8 @@ class AgentService {
     const next = pending[0];
     if (!next) return null;
     await AgentAsk.update(next.id, { status: 'open' });
-    const ask = { ...next, status: 'open' };
+    const nextBase = typeof next.toJSON === 'function' ? next.toJSON() : { ...next };
+    const ask = { ...nextBase, status: 'open' };
     try { emitAgentAsk(ask, projectId); } catch { /* */ }
     try { await this.notifyAsk(projectId, agentId, ask); } catch { /* */ }
     return ask;
@@ -409,7 +411,8 @@ class AgentService {
       /* only the open card */
     }
     await AgentAsk.update(askId, { status: 'answered', answer: String(answer || '') });
-    const ask = { ...cur, status: 'answered', answer: String(answer || '') };
+    const curBase = typeof cur.toJSON === 'function' ? cur.toJSON() : { ...cur };
+    const ask = { ...curBase, status: 'answered', answer: String(answer || '') };
     try { emitAgentAskAnswered(ask, projectId); } catch { /* */ }
     try { await this.addTimeline(projectId, agentId, { layer: 'user', type: 'ask.answered', ref_id: ask.id, summary: String(answer || '') }); } catch { /* */ }
     try { await this.promotePending(projectId, agentId); } catch { /* */ }

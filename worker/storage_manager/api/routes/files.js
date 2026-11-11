@@ -5,6 +5,7 @@ const path = require('path');
 const { pipeline } = require('stream/promises');
 const StorageService = require('../services/StorageService');
 const validateServiceToken = require('../middleware/auth');
+const { pipeStreamToResponse } = require('../utils/streamResponse');
 
 const router = express.Router();
 
@@ -319,16 +320,26 @@ router.get('/:projectId/buckets/:bucketName/files/:key(*)', validateServiceToken
     const { projectId, bucketName, key } = req.params;
     
     const storageService = getStorageService();
-    const fileData = await storageService.downloadFile(projectId, bucketName, key);
+    const fileData = await storageService.downloadFile(projectId, bucketName, key, null, req.headers['range']);
     
     // Set headers
     res.setHeader('Content-Type', fileData.content_type);
     res.setHeader('Content-Length', fileData.size);
     res.setHeader('ETag', fileData.etag);
+    res.setHeader('Accept-Ranges', 'bytes');
+    if (fileData.contentRange) {
+      res.status(206);
+      res.setHeader('Content-Range', fileData.contentRange);
+    }
     
     // Stream file
-    fileData.stream.pipe(res);
+    pipeStreamToResponse(fileData.stream, res);
   } catch (error) {
+    if (error.status === 416) {
+      return res.status(416).json({
+        error: { message: 'Range not satisfiable', status: 416 }
+      });
+    }
     if (error.message.includes('not found')) {
       return res.status(404).json({
         error: { message: error.message, status: 404 }

@@ -10,22 +10,6 @@
     "test:watch": "jest --watch --testEnvironment=node",
     "test:coverage": "jest --coverage --testEnvironment=node"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "maxWorkers": 1,
-    "testMatch": [
-      "**/tests/**/*.test.js"
-    ],
-    "collectCoverageFrom": [
-      "api/**/*.js",
-      "!api/routes/**",
-      "!**/node_modules/**"
-    ],
-    "coverageDirectory": "coverage",
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/helpers/setup.js"
-    ]
-  },
   "keywords": [
     "storage",
     "s3",

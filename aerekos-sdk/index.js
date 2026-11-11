@@ -36,11 +36,25 @@ class AerekosClient {
    * @param {number} [opts.timeoutMs=30000]
    * @param {typeof fetch} [opts.fetch] Custom fetch implementation.
    */
-  constructor({ baseUrl, token = null, timeoutMs = 30000, fetch: fetchImpl } = {}) {
+  /**
+   * @param {object} opts
+   * @param {string} opts.baseUrl  Conductor base URL, e.g. http://localhost:3000
+   * @param {string} [opts.token]  Existing JWT or service token (optional).
+   * @param {number} [opts.timeoutMs=30000]
+   * @param {Record<string,string>} [opts.serviceUrls]  Optional direct manager bases
+   *   (e.g. { auth_manager: 'http://host:3116', download_manager: 'http://host:3133' }).
+   *   When set, `proxy(service, …)` hits that host + path instead of the conductor proxy.
+   * @param {typeof fetch} [opts.fetch] Custom fetch implementation.
+   */
+  constructor({ baseUrl, token = null, timeoutMs = 30000, serviceUrls = {}, fetch: fetchImpl } = {}) {
     if (!baseUrl) throw new AerekosError('baseUrl is required');
     this.baseUrl = String(baseUrl).replace(/\/+$/, '');
     this.token = token;
     this.timeoutMs = timeoutMs;
+    this.serviceUrls = {};
+    for (const [k, v] of Object.entries(serviceUrls || {})) {
+      if (v) this.serviceUrls[k] = String(v).replace(/\/+$/, '');
+    }
     this._fetch = fetchImpl || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null);
     if (!this._fetch) {
       throw new AerekosError(
@@ -50,6 +64,7 @@ class AerekosClient {
 
     // Namespaced helpers
     this.auth = new AuthApi(this);
+    this.users = new UsersApi(this);
     this.workers = new WorkersApi(this);
     this.services = new ServicesApi(this);
     this.keys = new KeyManagerApi(this);
@@ -105,9 +120,10 @@ class AerekosClient {
     return this;
   }
 
-  /** Low-level request against the conductor API. */
-  async request(method, path, { body, query, headers = {}, raw = false } = {}) {
-    const url = new URL(`${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`);
+  /** Low-level request against the conductor API (or an absolute override base). */
+  async request(method, path, { body, query, headers = {}, raw = false, timeoutMs, baseUrl } = {}) {
+    const root = String(baseUrl || this.baseUrl).replace(/\/+$/, '');
+    const url = new URL(`${root}${path.startsWith('/') ? path : `/${path}`}`);
     if (query) {
       for (const [k, v] of Object.entries(query)) {
         if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
@@ -120,12 +136,25 @@ class AerekosClient {
     }
     let payload;
     if (body !== undefined && body !== null) {
-      finalHeaders['Content-Type'] = finalHeaders['Content-Type'] || 'application/json';
-      payload = typeof body === 'string' ? body : JSON.stringify(body);
+      if (
+        typeof body === 'string' ||
+        body instanceof ArrayBuffer ||
+        (typeof Buffer !== 'undefined' && Buffer.isBuffer(body)) ||
+        (typeof Uint8Array !== 'undefined' && body instanceof Uint8Array) ||
+        (typeof Blob !== 'undefined' && body instanceof Blob)
+      ) {
+        // Raw/binary body: pass through (string, Buffer, Uint8Array, ArrayBuffer, Blob).
+        // JSON is the default for plain objects.
+        finalHeaders['Content-Type'] = finalHeaders['Content-Type'] || (typeof body === 'string' ? 'text/plain' : 'application/octet-stream');
+        payload = body;
+      } else {
+        finalHeaders['Content-Type'] = finalHeaders['Content-Type'] || 'application/json';
+        payload = JSON.stringify(body);
+      }
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs || this.timeoutMs);
     let res;
     try {
       res = await this._fetch(url.toString(), {
@@ -190,13 +219,19 @@ class AerekosClient {
    * @param {object} [opts.query]
    * @param {object} [opts.headers]
    */
-  proxy(serviceName, { method = 'GET', path, projectId, body, query = {}, headers, raw = false } = {}) {
+  proxy(serviceName, { method = 'GET', path, projectId, body, query = {}, headers, raw = false, timeoutMs } = {}) {
     if (!serviceName) throw new AerekosError('serviceName is required');
     if (!path) throw new AerekosError('path is required');
     const q = { ...query };
     if (projectId) q.project_id = projectId;
-    const full = `/api/services/${serviceName}${path.startsWith('/') ? path : `/${path}`}`;
-    return this.request(method, full, { body, query: q, headers, raw });
+    const direct = this.serviceUrls[serviceName];
+    const p = path.startsWith('/') ? path : `/${path}`;
+    if (direct) {
+      // Hit the manager directly (sibling apps on LAN) while keeping the SDK surface.
+      return this.request(method, p, { body, query: q, headers, raw, timeoutMs, baseUrl: direct });
+    }
+    const full = `/api/services/${serviceName}${p}`;
+    return this.request(method, full, { body, query: q, headers, raw, timeoutMs });
   }
 
   /**
@@ -323,11 +358,19 @@ class AuthApi {
    */
   async getAppToken({ clientId, clientSecret, projectId, scope } = {}) {
     if (!clientId || !clientSecret) throw new AerekosError('clientId and clientSecret are required');
-    const res = await this.c.post(
-      '/api/services/auth_manager/api/v1/auth/token',
-      { grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope },
-      { query: projectId ? { project_id: projectId } : {} }
-    );
+    // Prefer direct auth_manager when serviceUrls.auth_manager is set; else conductor proxy path.
+    const res = this.c.serviceUrls.auth_manager
+      ? await this.c.proxy('auth_manager', {
+          method: 'POST',
+          path: '/api/v1/auth/token',
+          projectId,
+          body: { grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope },
+        })
+      : await this.c.post(
+          '/api/services/auth_manager/api/v1/auth/token',
+          { grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope },
+          { query: projectId ? { project_id: projectId } : {} }
+        );
     const token = res && (res.access_token || res.token);
     if (token) this.c.setToken(token);
     return res;
@@ -339,6 +382,60 @@ class AuthApi {
       projectId,
       body: { project_id: projectId, ...body },
     });
+  }
+}
+
+/**
+ * Per-project human user system (auth_manager password grant).
+ * Apps authenticate their end-users here instead of storing passwords
+ * themselves: create users, then call login() with the user's
+ * username+password to get a JWT that auth_manager /auth/verify accepts.
+ */
+class UsersApi {
+  constructor(client) { this.c = client; }
+  /** @returns {Promise<{items: any[], users: any[]}>} */
+  list(projectId) {
+    return this.c.proxy('auth_manager', { path: '/api/v1/users', projectId });
+  }
+  /** @returns {Promise<{user: any}>} — password is only accepted at create time. */
+  create(projectId, body) {
+    return this.c.proxy('auth_manager', { method: 'POST', path: '/api/v1/users', projectId, body: { project_id: projectId, ...body } });
+  }
+  /** @returns {Promise<{user: any}>} */
+  get(projectId, id) {
+    return this.c.proxy('auth_manager', { path: `/api/v1/users/${encodeURIComponent(id)}`, projectId });
+  }
+  /** { name?, display_color?, password?, enabled? } — @returns {Promise<{user: any}>} */
+  update(projectId, id, body) {
+    return this.c.proxy('auth_manager', { method: 'PATCH', path: `/api/v1/users/${encodeURIComponent(id)}`, projectId, body: { project_id: projectId, ...body } });
+  }
+  /** @returns {Promise<{deleted: boolean, id: string}>} */
+  remove(projectId, id) {
+    return this.c.proxy('auth_manager', { method: 'DELETE', path: `/api/v1/users/${encodeURIComponent(id)}`, projectId });
+  }
+  /**
+   * Resource-owner password grant.
+   * @param {{ username: string, password: string, projectId?: string }} opts
+   * @returns {Promise<{token: string, user: any, expires_in: number}>}
+   */
+  login({ username, password, projectId } = {}) {
+    return this.c.proxy('auth_manager', { method: 'POST', path: '/api/v1/auth/login', projectId, body: { project_id: projectId, username, password } });
+  }
+  /** Introspect a user/app JWT. @returns {Promise<{active:boolean, claims?:object}>} */
+  verify(token) {
+    return this.c.proxy('auth_manager', { method: 'POST', path: '/api/v1/auth/verify', body: { token } });
+  }
+  /**
+   * Change password: re-auth with current password, then PATCH the user.
+   * Uses app/service token already on the client for the update call after login check.
+   */
+  async changePassword({ projectId, userId, username, currentPassword, newPassword } = {}) {
+    if (!projectId || !userId || !username || !currentPassword || !newPassword) {
+      throw new AerekosError('projectId, userId, username, currentPassword, and newPassword are required');
+    }
+    // Prove possession of the current password (throws / non-ok via proxy).
+    await this.login({ username, password: currentPassword, projectId });
+    return this.update(projectId, userId, { password: newPassword });
   }
 }
 
@@ -436,17 +533,153 @@ class StorageManagerApi {
   constructor(client) {
     this.c = client;
   }
+
+  // Encode an object key ('movies/a b.mp4') into a URL path segment.
+  static keyToPath(key) {
+    return String(key).split('/').map(encodeURIComponent).join('/');
+  }
+
+  // ---- Project buckets (routes: /api/projects/:projectId/...) ----
+  // NOTE: these use direct service paths. When client.baseUrl points at the
+  // storage_manager itself (typical), they hit it directly (S3-style); when it
+  // points at the conductor, the conductor's /api/services/storage_manager
+  // proxy is what forwards, so prefer baseUrl = the service itself.
+
   listBuckets(projectId) {
-    return this.c.proxy('storage_manager', { path: '/api/buckets', projectId });
+    return this.c.get(`/api/projects/${encodeURIComponent(projectId)}/buckets`);
   }
   createBucket(projectId, body) {
-    return this.c.proxy('storage_manager', { method: 'POST', path: '/api/buckets', projectId, body });
+    return this.c.post(`/api/projects/${encodeURIComponent(projectId)}/buckets`, body);
   }
-  listObjects(projectId, bucket) {
-    return this.c.proxy('storage_manager', {
-      path: `/api/buckets/${encodeURIComponent(bucket)}/objects`,
-      projectId
-    });
+  getBucket(projectId, name) {
+    return this.c.get(`/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(name)}`);
+  }
+  deleteBucket(projectId, name) {
+    return this.c.del(`/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(name)}`);
+  }
+  listObjects(projectId, bucket, query = {}) {
+    return this.c.get(`/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files`, { query });
+  }
+  uploadObject(projectId, bucket, key, data, { contentType, timeoutMs } = {}) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    return this.c.post(
+      `/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      data,
+      { headers, timeoutMs }
+    );
+  }
+  async downloadObject(projectId, bucket, key, { range, timeoutMs } = {}) {
+    const headers = {};
+    if (range) headers['Range'] = range;
+    const res = await this.c.request('GET',
+      `/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      { headers, raw: true, timeoutMs });
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return {
+      status: res.status,
+      buffer,
+      size: buffer.length,
+      contentRange: res.headers.get('content-range') || null,
+      contentType: res.headers.get('content-type') || null
+    };
+  }
+  headObject(projectId, bucket, key) {
+    return this.c.request('HEAD',
+      `/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      { raw: true });
+  }
+  deleteObject(projectId, bucket, key) {
+    return this.c.del(`/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`);
+  }
+  getSignedDownloadUrl(projectId, bucket, key, { ttlSeconds = 3600 } = {}) {
+    return this.c.post(
+      `/api/projects/${encodeURIComponent(projectId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}/signed-url/download`,
+      { ttl_seconds: ttlSeconds }
+    );
+  }
+
+  // ---- System buckets (routes: /api/systems/:systemId/...) ----
+  // System buckets may carry a physical base_path (e.g. a 24TB USB media
+  // library) so their (encrypted) data lands on a specific disk.
+
+  getSystemBucket(systemId, name) {
+    return this.c.get(`/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(name)}`);
+  }
+  listSystemBuckets(systemId) {
+    return this.c.get(`/api/systems/${encodeURIComponent(systemId)}/buckets`);
+  }
+  listSystems() {
+    return this.c.get('/api/systems');
+  }
+  createSystemBucket(systemId, body) {
+    return this.c.post(`/api/systems/${encodeURIComponent(systemId)}/buckets`, body);
+  }
+  deleteSystemBucket(systemId, name) {
+    return this.c.del(`/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(name)}`);
+  }
+  /** Get the bucket, creating it (with base_path/metadata) if it doesn't exist. */
+  async ensureSystemBucket(systemId, name, { base_path, metadata } = {}) {
+    try {
+      return await this.getSystemBucket(systemId, name);
+    } catch (err) {
+      if (!err || err.status !== 404) throw err;
+      return await this.createSystemBucket(systemId, { name, base_path, metadata });
+    }
+  }
+  listSystemFiles(systemId, bucket, { prefix, maxKeys, delimiter, offset } = {}) {
+    const query = {};
+    if (prefix !== undefined) query.prefix = prefix;
+    if (maxKeys !== undefined) query.maxKeys = maxKeys;
+    if (delimiter !== undefined) query.delimiter = delimiter;
+    if (offset !== undefined) query.offset = offset;
+    return this.c.get(`/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files`, { query });
+  }
+  uploadSystemFile(systemId, bucket, key, data, { contentType, timeoutMs } = {}) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    return this.c.post(
+      `/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      data,
+      { headers, timeoutMs }
+    );
+  }
+  async downloadSystemFile(systemId, bucket, key, { range, timeoutMs } = {}) {
+    const headers = {};
+    if (range) headers['Range'] = range;
+    const res = await this.c.request('GET',
+      `/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      { headers, raw: true, timeoutMs });
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return {
+      status: res.status,
+      buffer,
+      size: buffer.length,
+      contentRange: res.headers.get('content-range') || null,
+      contentType: res.headers.get('content-type') || null
+    };
+  }
+  headSystemFile(systemId, bucket, key) {
+    return this.c.request('HEAD',
+      `/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`,
+      { raw: true });
+  }
+  deleteSystemFile(systemId, bucket, key) {
+    return this.c.del(`/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}`);
+  }
+  /** S3-style: mint a short-lived signed DOWNLOAD url (phone fetches it directly). */
+  getSystemFileSignedUrl(systemId, bucket, key, { ttlSeconds = 900 } = {}) {
+    return this.c.post(
+      `/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}/signed-url/download`,
+      { ttl_seconds: ttlSeconds }
+    );
+  }
+  /** S3-style: mint a one-shot signed UPLOAD url. */
+  getSystemFileSignedUploadUrl(systemId, bucket, key, { ttlSeconds = 3600, metadata } = {}) {
+    return this.c.post(
+      `/api/systems/${encodeURIComponent(systemId)}/buckets/${encodeURIComponent(bucket)}/files/${StorageManagerApi.keyToPath(key)}/signed-url/upload`,
+      { ttl_seconds: ttlSeconds, metadata }
+    );
   }
 }
 
@@ -983,20 +1216,101 @@ class RealtimeApi {
 
 class DownloadApi {
   constructor(client) { this.c = client; }
+
+  // ---- lists -----------------------------------------------------------------
   lists(projectId) {
     return this.c.proxy('download_manager', { path: '/api/v1/lists', projectId });
   }
+  createList(projectId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/lists', projectId, body: { project_id: projectId, ...body } });
+  }
+  getList(projectId, id) {
+    return this.c.proxy('download_manager', { path: `/api/v1/lists/${encodeURIComponent(id)}`, projectId });
+  }
+  updateList(projectId, id, body) {
+    return this.c.proxy('download_manager', { method: 'PATCH', path: `/api/v1/lists/${encodeURIComponent(id)}`, projectId, body });
+  }
+  deleteList(projectId, id) {
+    return this.c.proxy('download_manager', { method: 'DELETE', path: `/api/v1/lists/${encodeURIComponent(id)}`, projectId });
+  }
+
+  // ---- windows + indexers (simple CRUD) --------------------------------------
   windows(projectId) {
     return this.c.proxy('download_manager', { path: '/api/v1/windows', projectId });
   }
+  createWindow(projectId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/windows', projectId, body: { project_id: projectId, ...body } });
+  }
+  indexers(projectId) {
+    return this.c.proxy('download_manager', { path: '/api/v1/indexers', projectId });
+  }
+  createIndexer(projectId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/indexers', projectId, body: { project_id: projectId, ...body } });
+  }
+
+  // ---- search ----------------------------------------------------------------
+  // Torrent search (Jackett if configured, otherwise public-site scrapers).
+  // body: { query, category? }  ->  { results: [{title, magnet, size, seeders, site}], source }
   search(projectId, body) {
     return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/search', projectId, body: { project_id: projectId, ...body } });
   }
+  // YouTube search — a separate engine backed by yt-dlp (no API key needed).
+  // body: { query, max? }  ->  { results: [{id, url, title, duration, channel, view_count, thumbnail}], source:'youtube', engine:'yt-dlp' }
+  searchYouTube(projectId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/search/youtube', projectId, body: { project_id: projectId, ...body } });
+  }
+
+  // ---- items -----------------------------------------------------------------
+  // Quick-add URLs (magnet/torrent/http/youtube) to a list.
+  // body: { urls, list?, window?, format?, system_id?, bucket?, prefix? }
   addItems(projectId, body) {
     return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/quick-add', projectId, body: { project_id: projectId, ...body } });
   }
   quickAdd(opts) {
-    return this.addItems(opts.projectId, { urls: opts.urls, window: opts.window || 'overnight', list: opts.list || 'inbox', format: opts.format });
+    return this.addItems(opts.projectId, {
+      urls: opts.urls,
+      window: opts.window || 'overnight',
+      list: opts.list || 'inbox',
+      format: opts.format,
+      bucket: opts.bucket,
+      prefix: opts.prefix,
+      system_id: opts.system_id || opts.systemId,
+    });
+  }
+  // Add URLs directly to a specific list.
+  addItemsToList(projectId, listId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: `/api/v1/lists/${encodeURIComponent(listId)}/items`, projectId, body: { project_id: projectId, ...body } });
+  }
+  listItems(projectId, listId) {
+    return this.c.proxy('download_manager', { path: `/api/v1/lists/${encodeURIComponent(listId)}/items`, projectId });
+  }
+  // All items across lists. query: { list?, status? }
+  items(projectId, query = {}) {
+    return this.c.proxy('download_manager', { path: '/api/v1/items', projectId, query });
+  }
+  getItem(projectId, id) {
+    return this.c.proxy('download_manager', { path: `/api/v1/items/${encodeURIComponent(id)}`, projectId });
+  }
+  updateItem(projectId, id, body) {
+    return this.c.proxy('download_manager', { method: 'PATCH', path: `/api/v1/items/${encodeURIComponent(id)}`, projectId, body });
+  }
+  removeItem(projectId, id) {
+    return this.c.proxy('download_manager', { method: 'DELETE', path: `/api/v1/items/${encodeURIComponent(id)}`, projectId });
+  }
+  pauseItem(projectId, id) {
+    return this.c.proxy('download_manager', { method: 'POST', path: `/api/v1/items/${encodeURIComponent(id)}/pause`, projectId });
+  }
+  resumeItem(projectId, id) {
+    return this.c.proxy('download_manager', { method: 'POST', path: `/api/v1/items/${encodeURIComponent(id)}/resume`, projectId });
+  }
+  retryItem(projectId, id) {
+    return this.c.proxy('download_manager', { method: 'POST', path: `/api/v1/items/${encodeURIComponent(id)}/retry`, projectId });
+  }
+
+  // ---- tick ------------------------------------------------------------------
+  // Start pending / resume orphaned items. body: { now? }
+  tick(projectId, body) {
+    return this.c.proxy('download_manager', { method: 'POST', path: '/api/v1/tick', projectId, body: { project_id: projectId, ...(body || {}) } });
   }
 }
 
@@ -1245,6 +1559,14 @@ class IacApi {
   down(projectId, body = {}) { return this.c.request('POST', `/api/projects/${projectId}/infra/down`, { body }); }
   // Import an infra file as a brand-new project (hooked up + applied).
   import(body) { return this.c.request('POST', '/api/system/infra/import', { body }); }
+  // Current infra file (from the stack) + fleet devices + hookup state.
+  current(projectId) { return this.c.request('GET', `/api/projects/${projectId}/infra`); }
+  // Save an infra file into the stack (single writer; commits infra.json).
+  saveFile(projectId, file) { return this.c.request('PUT', `/api/projects/${projectId}/infra`, { body: { file } }); }
+  // Stack revision history.
+  revisions(projectId) { return this.c.request('GET', `/api/projects/${projectId}/stack/revisions`); }
+  // Roll back to the previous revision, or to a specific one via { revision }.
+  rollback(projectId, body = {}) { return this.c.request('POST', `/api/projects/${projectId}/stack/rollback`, { body }); }
   apply(projectId) { return this.c.request('POST', `/api/projects/${projectId}/stack/apply`); }
   put(projectId, body) { return this.c.request('PUT', `/api/projects/${projectId}/stack`, { body }); }
 }

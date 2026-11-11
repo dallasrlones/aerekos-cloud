@@ -110,6 +110,13 @@ const normalizeIncludes = (includes, selfName) => {
     .filter(Boolean)
 }
 
+// Shared across every DB instance in this process: many record-store DBs run
+// the same handful of query shapes (heartbeats, token checks, ...). A
+// per-DB throttle map would still let each DB log the same shape once per
+// 60s, which at hundreds of DBs is a firehose — so one process-wide map
+// caps each query shape to one line per 60s total.
+const _queryLogSeen = new Map() // fingerprint -> last logged time (ms)
+
 const sqliteAdapter = (connectionSettings = {}) => {
   const cfg = { ...DEFAULT_CONNECTION, ...connectionSettings }
   const db = new Database(cfg.database, {
@@ -127,10 +134,29 @@ const sqliteAdapter = (connectionSettings = {}) => {
 
   const registry = new Map()
 
-  // Enable query logging if configured
+  // Enable query logging if configured. Repeats of the same query shape are
+  // rate-limited to once per 60s (process-wide, see _queryLogSeen) so
+  // polling traffic doesn't drown the log — the first execution of each
+  // query still prints in full. The fingerprint normalizes string literals
+  // (ids, uuids) so per-row queries of the same shape collapse into one.
   if (cfg.logQueries) {
     const originalPrepare = db.prepare.bind(db)
+    const fingerprint = (sql) =>
+      String(sql)
+        .replace(/'[^']*'/g, "'?'")
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 300)
     db.prepare = function(sql) {
+      const fp = fingerprint(sql)
+      const now = Date.now()
+      if (now - (_queryLogSeen.get(fp) || 0) < 60000) {
+        return originalPrepare(sql)
+      }
+      if (_queryLogSeen.size > 1000) {
+        for (const [k, t] of _queryLogSeen) if (now - t > 120000) _queryLogSeen.delete(k)
+      }
+      _queryLogSeen.set(fp, now)
       console.log('[sqlite] query', sql)
       return originalPrepare(sql)
     }

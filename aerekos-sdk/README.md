@@ -139,6 +139,7 @@ work on every command.
 | Namespace | Methods |
 |-----------|---------|
 | `client.auth` | `login(user, pass)`, `me()`, `getAppToken({ clientId, clientSecret, projectId })` |
+| `client.users` | `list/get/create/update/remove(projectId, ...)`, `login({ username, password, projectId })` (auth_manager user system) |
 | `client.workers` | `list()`, `get(id)`, `resources()` |
 | `client.services` | `list()`, `get(name)`, `enable(name, projectId)`, `disable(name, projectId)`, `deployments(name)`, `health(name, projectId)` |
 | `client.keys` | `list/get/create/rotate` (key_manager) |
@@ -181,6 +182,24 @@ await client.balancer.health(projectId);
 ```
 
 `ai_manager` catalog segment is `intelligence` (providers live at `/api/v1/providers`).
+
+### User system (auth_manager password grant)
+
+Apps authenticate their end-users through auth_manager instead of storing
+passwords themselves — e.g. aerekos-tv logs users in here and removes
+self-registration:
+
+```js
+// manage users (console / admin tooling)
+await client.users.create(projectId, { username: 'alice', password: 'hunter22', name: 'Alice' });
+await client.users.list(projectId);            // { items, users }
+await client.users.update(projectId, id, { password: 'newpass', enabled: false });
+await client.users.remove(projectId, id);
+
+// the app's login flow: returns { token, user, expires_in }
+// — a JWT signed with auth_manager's KMS secret, verifiable at POST /api/v1/auth/verify
+const { token, user } = await client.users.login({ username, password, projectId });
+```
 
 ### Catalog-driven
 

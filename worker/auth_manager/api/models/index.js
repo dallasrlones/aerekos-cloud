@@ -17,5 +17,17 @@ const Credential = db.model('Credential', {
   enabled: 'number',
   last_used_at: 'string',
 }, { required: ['project_id', 'name', 'client_id'], indexes: ['project_id', 'name', 'client_id'], timestamps: true });
+// Per-project human users (password grant). Apps like aerekos-tv authenticate
+// their own end-users here: POST /auth/login verifies username+password and
+// issues a JWT (sub `user:<id>`, typ `user`) that /auth/verify will accept.
+const User = db.model('User', {
+  project_id: 'string',
+  username: 'string',
+  name: 'string',
+  display_color: 'string',
+  password_hash: 'string',
+  enabled: 'number',
+  last_login_at: 'string',
+}, { required: ['project_id', 'username'], indexes: ['project_id', 'username'], timestamps: true });
 
-module.exports = { OidcProvider: M, Credential, db };
+module.exports = { OidcProvider: M, Credential, User, db };

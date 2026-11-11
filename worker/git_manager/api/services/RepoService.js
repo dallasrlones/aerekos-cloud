@@ -95,7 +95,9 @@ class RepoService {
     this.assertProjectId(body.project_id);
     assertPrivateVisibility(body);
     const name = this.validateName(body.name);
-    const existing = await this.Repository.findAll({ where: { name } });
+    // Uniqueness is per (project_id, name) — repos live in per-project dirs
+    // (repos/<project_id>/<name>.git), so two projects may share a name.
+    const existing = await this.Repository.findAll({ where: { name, project_id: body.project_id } });
     if (existing.length) {
       throw err(`repository "${name}" already exists`, 409, 'REPO_EXISTS');
     }

@@ -13,6 +13,26 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 setupPrometheus(app, { serviceName: 'code_as_infra' });
+
+// Full request trail: request line, then status + duration (+JSON body).
+app.use((req, res, next) => {
+  const start = Date.now();
+  const now = () => new Date().toISOString();
+  const quiet = req.path.startsWith('/health') || req.path.startsWith('/metrics') || req.path.startsWith('/ready');
+  if (!quiet) console.log(`[${now()}] --> ${req.method} ${req.path}${req.search || ''}`);
+  res.on('finish', () => {
+    let bodyLog = '';
+    if (req.method !== 'GET' && req.body && typeof req.body === 'object') {
+      try {
+        let s = JSON.stringify(req.body);
+        if (s.length > 2000) s = s.slice(0, 2000) + '…';
+        bodyLog = ' body=' + s;
+      } catch (e) { bodyLog = ' body=<unserializable>'; }
+    }
+    if (!quiet) console.log(`[${now()}] <-- ${req.method} ${req.originalUrl || req.path} ${res.statusCode} ${Date.now() - start}ms${bodyLog}`);
+  });
+  next();
+});
 app.get('/health', async (req, res) => {
   try {
     const health = await db.healthCheck();

@@ -49,13 +49,47 @@ test('proxy builds the conductor path with project_id', async () => {
 
 test('non-2xx throws AerekosError with status', async () => {
   const fetchImpl = fakeFetch(() => ({ status: 404, body: { error: { message: 'nope' } } }));
-  const client = new AerekosClient({ baseUrl: 'http://c:3000', fetch: fetchImpl });
+  const client = new AerekosClient({ baseUrl: 'http://c:3000', token: 't', fetch: fetchImpl });
   await assert.rejects(() => client.services.get('x'), (err) => {
     assert.ok(err instanceof AerekosError);
     assert.strictEqual(err.status, 404);
     assert.strictEqual(err.message, 'nope');
     return true;
   });
+});
+
+test('users CRUD + login target auth_manager with project scope', async () => {
+  const fetchImpl = fakeFetch((url, init) => {
+    const path = url.split('?')[0];
+    if (path.includes('/api/v1/auth/login')) return { body: { token: 'user-jwt', user: { id: 'u1', username: 'alice' }, expires_in: 604800 } };
+    if (init && init.method === 'DELETE') return { body: { deleted: true, id: 'u1' } };
+    if (/\/api\/v1\/users\/[^/]+$/.test(path)) return { body: { user: { id: 'u1', username: 'alice', enabled: true } } };
+    if (init && init.method === 'POST') return { status: 201, body: { user: { id: 'u1', username: 'alice' } } };
+    return { body: { items: [{ id: 'u1' }], users: [{ id: 'u1' }] } };
+  });
+  const client = new AerekosClient({ baseUrl: 'http://c:3000', token: 't', fetch: fetchImpl });
+
+  const created = await client.users.create('p-1', { username: 'alice', password: 'hunter22', name: 'Alice' });
+  assert.strictEqual(created.user.username, 'alice');
+  let last = fetchImpl.calls.at(-1);
+  assert.ok(last.url.includes('/api/services/auth_manager/api/v1/users'));
+  assert.ok(last.url.includes('project_id=p-1'));
+  assert.deepStrictEqual(JSON.parse(last.init.body), { project_id: 'p-1', username: 'alice', password: 'hunter22', name: 'Alice' });
+
+  const listed = await client.users.list('p-1');
+  assert.strictEqual(listed.users.length, 1);
+
+  const got = await client.users.get('p-1', 'u1');
+  assert.strictEqual(got.user.id, 'u1');
+
+  await client.users.update('p-1', 'u1', { enabled: false });
+  await client.users.remove('p-1', 'u1');
+
+  const login = await client.users.login({ username: 'alice', password: 'hunter22', projectId: 'p-1' });
+  assert.strictEqual(login.token, 'user-jwt');
+  last = fetchImpl.calls.at(-1);
+  assert.ok(last.url.includes('/api/services/auth_manager/api/v1/auth/login'));
+  assert.deepStrictEqual(JSON.parse(last.init.body), { project_id: 'p-1', username: 'alice', password: 'hunter22' });
 });
 
 test('ensure posts pack enable', async () => {
@@ -79,6 +113,61 @@ test('typed helpers: llm, events, download, functions', async () => {
   assert.ok(urls.some((u) => u.includes('/event_manager/api/v1/events')));
   assert.ok(urls.some((u) => u.includes('/download_manager/api/v1/quick-add')));
   assert.ok(urls.some((u) => u.includes('/function_manager/api/v1/functions/hello/invoke')));
+});
+
+test('download api: youtube search, items, actions, tick, list CRUD', async () => {
+  const fetchImpl = fakeFetch(() => ({ body: { ok: true, items: [] } }));
+  const client = new AerekosClient({ baseUrl: 'http://c:3000', token: 't', fetch: fetchImpl });
+
+  // YouTube search posts to /search/youtube with project_id in the query + body
+  await client.download.searchYouTube('p-1', { query: 'big buck bunny', max: 5 });
+  let call = fetchImpl.calls.at(-1);
+  assert.ok(call.url.includes('/download_manager/api/v1/search/youtube'), call.url);
+  assert.ok(call.url.includes('project_id=p-1'), call.url);
+  assert.ok(String(call.init.body).includes('big buck bunny'), call.init.body);
+  assert.strictEqual(call.init.method, 'POST');
+
+  // torrent search still posts to /search
+  await client.download.search('p-1', { query: 'interstellar' });
+  call = fetchImpl.calls.at(-1);
+  assert.ok(call.url.includes('/download_manager/api/v1/search') && !call.url.includes('youtube'), call.url);
+
+  // items list passes filters through the query string
+  await client.download.items('p-1', { status: 'completed', list: 'inbox' });
+  call = fetchImpl.calls.at(-1);
+  assert.ok(call.url.includes('/download_manager/api/v1/items'), call.url);
+  assert.ok(call.url.includes('status=completed'), call.url);
+  assert.ok(call.url.includes('list=inbox'), call.url);
+
+  // item actions + get/update/remove
+  await client.download.pauseItem('p-1', 'item-9');
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/items/item-9/pause'));
+  await client.download.resumeItem('p-1', 'item-9');
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/items/item-9/resume'));
+  await client.download.retryItem('p-1', 'item-9');
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/items/item-9/retry'));
+  await client.download.getItem('p-1', 'item-9');
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/items/item-9'));
+  await client.download.updateItem('p-1', 'item-9', { format: 'mp3' });
+  assert.strictEqual(fetchImpl.calls.at(-1).init.method, 'PATCH');
+  await client.download.removeItem('p-1', 'item-9');
+  assert.strictEqual(fetchImpl.calls.at(-1).init.method, 'DELETE');
+
+  // list + window CRUD
+  await client.download.createList('p-1', { name: 'movies' });
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/lists'));
+  assert.strictEqual(fetchImpl.calls.at(-1).init.method, 'POST');
+  await client.download.updateList('p-1', 'list-1', { name: 'movies2' });
+  assert.ok(fetchImpl.calls.at(-1).url.includes('/download_manager/api/v1/lists/list-1'));
+  assert.strictEqual(fetchImpl.calls.at(-1).init.method, 'PATCH');
+  await client.download.deleteList('p-1', 'list-1');
+  assert.strictEqual(fetchImpl.calls.at(-1).init.method, 'DELETE');
+
+  // tick posts to /tick
+  await client.download.tick('p-1', { now: '2026-10-14T03:00:00Z' });
+  call = fetchImpl.calls.at(-1);
+  assert.ok(call.url.includes('/download_manager/api/v1/tick'), call.url);
+  assert.strictEqual(call.init.method, 'POST');
 });
 
 test('data.query serializes where and include', async () => {

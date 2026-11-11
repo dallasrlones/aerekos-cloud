@@ -2,6 +2,7 @@ const express = require('express');
 const StorageService = require('../services/StorageService');
 const validateServiceToken = require('../middleware/auth');
 const { handleDirectUpload, handleMultipartUpload } = require('./files');
+const { pipeStreamToResponse } = require('../utils/streamResponse');
 
 const router = express.Router();
 
@@ -21,6 +22,48 @@ const getStorageService = () => {
     process.env.SERVICE_TOKEN
   );
 };
+
+const SignedUrlService = require('../services/SignedUrlService');
+
+const getSignedUrlService = () => {
+  return new SignedUrlService(process.env.CONDUCTOR_URL);
+};
+
+// POST /api/systems/:systemId/buckets/:bucketName/files/:key(*)/signed-url/download
+// Generate a short-lived SIGNED DOWNLOAD URL (S3-style). The phone/browser fetches
+// this URL directly from storage_manager (no auth header, Range supported for seeking).
+// Declared BEFORE the generic /files/:key(*) upload route so the wildcard doesn't swallow it.
+router.post('/:systemId/buckets/:bucketName/files/:key(*)/signed-url/download', validateServiceToken, async (req, res, next) => {
+  try {
+    const { systemId, bucketName, key } = req.params;
+    const { ttl_seconds = 900 } = req.body;
+    const signedUrlService = getSignedUrlService();
+    const result = await signedUrlService.generateSignedDownloadUrlForSystem(systemId, bucketName, key, parseInt(ttl_seconds));
+    res.status(201).json(result);
+  } catch (error) {
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: { message: error.message, status: 404 } });
+    }
+    next(error);
+  }
+});
+
+// POST /api/systems/:systemId/buckets/:bucketName/files/:key(*)/signed-url/upload
+// Generate a one-shot SIGNED UPLOAD URL (PUT the file to it).
+router.post('/:systemId/buckets/:bucketName/files/:key(*)/signed-url/upload', validateServiceToken, async (req, res, next) => {
+  try {
+    const { systemId, bucketName, key } = req.params;
+    const { ttl_seconds = 3600, metadata = {} } = req.body;
+    const signedUrlService = getSignedUrlService();
+    const result = await signedUrlService.generateSignedUploadUrlForSystem(systemId, bucketName, key, parseInt(ttl_seconds), metadata);
+    res.status(201).json(result);
+  } catch (error) {
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: { message: error.message, status: 404 } });
+    }
+    next(error);
+  }
+});
 
 // Upload to a system bucket
 router.post('/:systemId/buckets/:bucketName/files/:key(*)', validateServiceToken, async (req, res, next) => {
@@ -47,14 +90,22 @@ router.get('/:systemId/buckets/:bucketName/files/:key(*)', validateServiceToken,
     const { systemId, bucketName, key } = req.params;
 
     const storageService = getStorageService();
-    const fileData = await storageService.downloadFile(null, bucketName, key, systemId);
+    const fileData = await storageService.downloadFile(null, bucketName, key, systemId, req.headers['range']);
 
     res.setHeader('Content-Type', fileData.content_type);
     res.setHeader('Content-Length', fileData.size);
     res.setHeader('ETag', fileData.etag);
+    res.setHeader('Accept-Ranges', 'bytes');
+    if (fileData.contentRange) {
+      res.status(206);
+      res.setHeader('Content-Range', fileData.contentRange);
+    }
 
-    fileData.stream.pipe(res);
+    pipeStreamToResponse(fileData.stream, res);
   } catch (error) {
+    if (error.status === 416) {
+      return res.status(416).json({ error: { message: 'Range not satisfiable', status: 416 } });
+    }
     if (error.message.includes('not found')) {
       return res.status(404).json({ error: { message: error.message, status: 404 } });
     }

@@ -49,8 +49,13 @@ export const stackService = {
     return res.data;
   },
 
-  async rollback(projectId) {
-    const res = await api.post(`/api/projects/${projectId}/stack/rollback`, {});
+  async rollback(projectId, body = {}) {
+    const res = await api.post(`/api/projects/${projectId}/stack/rollback`, body);
+    return res.data;
+  },
+
+  async revisions(projectId) {
+    const res = await api.get(`/api/projects/${projectId}/stack/revisions`);
     return res.data;
   },
 
@@ -81,6 +86,21 @@ export const stackService = {
   /** Down: soft (detach services) or { hard: true } (also delete resources). */
   async downInfra(projectId, body = {}) {
     const res = await api.post(`/api/projects/${projectId}/infra/down`, body);
+    return res.data;
+  },
+
+  /**
+   * The Infra tab's read: current infra file (from the stack) + fleet
+   * devices (with disk figures) + hookup state.
+   */
+  async infra(projectId) {
+    const res = await api.get(`/api/projects/${projectId}/infra`);
+    return res.data;
+  },
+
+  /** Save an (edited) infra file into the stack — commits infra.json. */
+  async putInfra(projectId, file) {
+    const res = await api.put(`/api/projects/${projectId}/infra`, { file });
     return res.data;
   },
 };

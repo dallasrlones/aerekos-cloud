@@ -61,6 +61,7 @@ export class AerekosClient {
   baseUrl: string;
   token: string | null;
   auth: AuthApi;
+  users: UsersApi;
   workers: WorkersApi;
   services: ServicesApi;
   keys: KeyManagerApi;
@@ -118,6 +119,14 @@ export class AuthApi {
   me(): Promise<any>;
   getAppToken(opts: { clientId: string; clientSecret: string; projectId: string; scope?: string }): Promise<any>;
   createCredential(projectId: string, body?: Record<string, unknown>): Promise<any>;
+}
+export class UsersApi {
+  list(projectId: string): Promise<{ items: any[]; users: any[] }>;
+  create(projectId: string, body: { username: string; password: string; name?: string; display_color?: string; enabled?: boolean }): Promise<{ user: any }>;
+  get(projectId: string, id: string): Promise<{ user: any }>;
+  update(projectId: string, id: string, body?: { name?: string; display_color?: string; password?: string; enabled?: boolean }): Promise<{ user: any }>;
+  remove(projectId: string, id: string): Promise<{ deleted: boolean; id: string }>;
+  login(opts: { username: string; password: string; projectId?: string }): Promise<{ token: string; user: any; expires_in: number }>;
 }
 export class WorkersApi {
   list(): Promise<any>;
@@ -273,10 +282,30 @@ export class RealtimeApi {
 }
 export class DownloadApi {
   lists(projectId: string): Promise<any>;
+  createList(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  getList(projectId: string, id: string): Promise<any>;
+  updateList(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  deleteList(projectId: string, id: string): Promise<any>;
   windows(projectId: string): Promise<any>;
+  createWindow(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  indexers(projectId: string): Promise<any>;
+  createIndexer(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  // Torrent search (Jackett or scrapers): { query, category? }
   search(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  // YouTube search (yt-dlp): { query, max? } -> { results: [{id,url,title,duration,channel,view_count,thumbnail}], source:'youtube', engine:'yt-dlp' }
+  searchYouTube(projectId: string, body?: Record<string, unknown>): Promise<any>;
   addItems(projectId: string, body?: Record<string, unknown>): Promise<any>;
-  quickAdd(opts: { projectId: string; urls: string[]; window?: string; list?: string; format?: string }): Promise<any>;
+  quickAdd(opts: { projectId: string; urls: string[]; window?: string; list?: string; format?: string; bucket?: string; prefix?: string }): Promise<any>;
+  addItemsToList(projectId: string, listId: string, body?: Record<string, unknown>): Promise<any>;
+  listItems(projectId: string, listId: string): Promise<any>;
+  items(projectId: string, query?: Record<string, unknown>): Promise<any>;
+  getItem(projectId: string, id: string): Promise<any>;
+  updateItem(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  removeItem(projectId: string, id: string): Promise<any>;
+  pauseItem(projectId: string, id: string): Promise<any>;
+  resumeItem(projectId: string, id: string): Promise<any>;
+  retryItem(projectId: string, id: string): Promise<any>;
+  tick(projectId: string, body?: Record<string, unknown>): Promise<any>;
 }
 export class FunctionsApi {
   deploy(projectId: string | Record<string, unknown>, body?: Record<string, unknown>): Promise<any>;

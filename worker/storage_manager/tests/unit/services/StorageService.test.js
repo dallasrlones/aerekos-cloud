@@ -4,6 +4,7 @@ const BucketRepository = require('../../../api/repos/BucketRepository');
 const EncryptionService = require('../../../api/services/EncryptionService');
 const fsp = require('fs').promises;
 const { Readable, PassThrough } = require('stream');
+const actual = jest.requireActual('fs');
 
 jest.mock('../../../api/repos/FileRepository');
 jest.mock('../../../api/repos/BucketRepository');
@@ -26,7 +27,9 @@ jest.mock('fs', () => {
       mkdir: jest.fn().mockResolvedValue(undefined),
       writeFile: jest.fn().mockResolvedValue(undefined),
       readFile: jest.fn(),
-      unlink: jest.fn().mockResolvedValue(undefined)
+      unlink: jest.fn().mockResolvedValue(undefined),
+      stat: jest.fn(),
+      open: jest.fn()
     }
   };
 });
@@ -56,12 +59,17 @@ describe('StorageService', () => {
     mockEncryptionService = {
       encryptStream: jest.fn(),
       decryptBuffer: jest.fn(),
+      getKeyBuffer: jest.fn(),
       generateETag: jest.fn()
     };
     
     FileRepository.mockImplementation(() => mockFileRepo);
     BucketRepository.mockImplementation(() => mockBucketRepo);
     EncryptionService.mockImplementation(() => mockEncryptionService);
+    
+    // Download tests use real temp files: delegate stat/open to the real fs.
+    fsp.stat.mockImplementation((...a) => actual.promises.stat(...a));
+    fsp.open.mockImplementation((...a) => actual.promises.open(...a));
     
     storageService = new StorageService('http://localhost:3000', 'test-token');
   });
@@ -123,33 +131,120 @@ describe('StorageService', () => {
   });
 
   describe('downloadFile', () => {
-    it('should download and decrypt file', async () => {
-      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
-      const file = {
+    const os = require('os');
+    const path = require('path');
+    const realFsp = jest.requireActual('fs').promises;
+    const RealEncryptionService = jest.requireActual('../../../api/services/EncryptionService');
+    const MOCK_HEX = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+    // Build a real on-disk object ([IV][ciphertext][tag]) with the real
+    // encryption code so the download path is exercised end to end.
+    async function makeEncryptedTempFile(plain) {
+      process.env.MOCK_KEY_MANAGER = 'true';
+      process.env.MOCK_KEY_MATERIAL = MOCK_HEX;
+      const svc = new RealEncryptionService('http://localhost:1', 'tok');
+      const enc = await svc.encryptBuffer(plain, 'test-key', 'project1');
+      const dir = await realFsp.mkdtemp(path.join(os.tmpdir(), 'st-'));
+      const file = path.join(dir, 'obj.bin');
+      await realFsp.writeFile(file, enc);
+      return { file, enc };
+    }
+
+    function recordFor(file, plain) {
+      return {
         id: 'file1',
         bucket_id: 'bucket1',
         key: 'test-file.txt',
-        size: 9,
+        size: plain.length,
         content_type: 'text/plain',
         etag: 'test-etag',
-        storage_path: '/test/path',
-        encryption_key_version: 1
+        storage_path: file,
+        encryption_key_version: 1,
+        metadata: null
       };
-      const encryptedData = Buffer.from('encrypted data');
-      const decryptedData = Buffer.from('test data');
-      
+    }
+
+    function wireDownload(bucket, fileRec) {
       mockBucketRepo.findByProjectAndName.mockResolvedValue(bucket);
-      mockFileRepo.findByBucketAndKey.mockResolvedValue(file);
-      fsp.readFile.mockResolvedValue(encryptedData);
-      mockEncryptionService.decryptBuffer.mockResolvedValue(decryptedData);
+      mockFileRepo.findByBucketAndKey.mockResolvedValue(fileRec);
+      mockEncryptionService.getKeyBuffer.mockResolvedValue(
+        Buffer['from'](MOCK_HEX, 'hex')
+      );
       mockFileRepo.logAccess.mockResolvedValue();
+    }
+
+    async function drain(stream) {
+      const chunks = [];
+      for await (const c of stream) chunks.push(c);
+      return Buffer.concat(chunks);
+    }
+
+    it('should stream and decrypt the whole object', async () => {
+      const plain = Buffer['from']('hello world, this is a stored object');
+      const { file } = await makeEncryptedTempFile(plain);
+      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
+      wireDownload(bucket, recordFor(file, plain));
 
       const result = await storageService.downloadFile('project1', 'test-bucket', 'test-file.txt');
 
-      expect(result).toHaveProperty('stream');
-      expect(result.size).toBe(9);
+      expect(result.size).toBe(plain.length);
+      expect(result.totalSize).toBe(plain.length);
       expect(result.content_type).toBe('text/plain');
-      expect(mockEncryptionService.decryptBuffer).toHaveBeenCalled();
+      expect(result.contentRange).toBeNull();
+      expect(await drain(result.stream)).toEqual(plain);
+      expect(mockEncryptionService.getKeyBuffer).toHaveBeenCalled();
+    });
+
+    it('should serve a byte range (206 semantics)', async () => {
+      const plain = Buffer['from']('0123456789ABCDEF');
+      const { file } = await makeEncryptedTempFile(plain);
+      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
+      wireDownload(bucket, recordFor(file, plain));
+
+      const result = await storageService.downloadFile(
+        'project1', 'test-bucket', 'test-file.txt', null, 'bytes=2-5'
+      );
+
+      expect(result.contentRange).toBe('bytes 2-5/16');
+      expect(result.size).toBe(4);
+      expect(result.totalSize).toBe(16);
+      expect(await drain(result.stream)).toEqual(plain.subarray(2, 6));
+    });
+
+    it('should serve a suffix range (bytes=-N)', async () => {
+      const plain = Buffer['from']('0123456789ABCDEF');
+      const { file } = await makeEncryptedTempFile(plain);
+      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
+      wireDownload(bucket, recordFor(file, plain));
+
+      const result = await storageService.downloadFile(
+        'project1', 'test-bucket', 'test-file.txt', null, 'bytes=-5'
+      );
+
+      expect(result.contentRange).toBe('bytes 11-15/16');
+      expect(await drain(result.stream)).toEqual(plain.subarray(11, 16));
+    });
+
+    it('should reject an unsatisfiable range with status 416', async () => {
+      const plain = Buffer['from']('0123456789ABCDEF');
+      const { file } = await makeEncryptedTempFile(plain);
+      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
+      wireDownload(bucket, recordFor(file, plain));
+
+      await expect(
+        storageService.downloadFile('project1', 'test-bucket', 'test-file.txt', null, 'bytes=99-')
+      ).rejects.toMatchObject({ status: 416 });
+    });
+
+    it('should throw when the stored object is missing on disk', async () => {
+      const plain = Buffer['from']('whatever');
+      const bucket = { id: 'bucket1', name: 'test-bucket', encryption_key_name: 'test-key' };
+      const rec = recordFor('/nonexistent/path/xyz.bin', plain);
+      wireDownload(bucket, rec);
+
+      await expect(
+        storageService.downloadFile('project1', 'test-bucket', 'test-file.txt')
+      ).rejects.toThrow(/Stored object missing/);
     });
 
     it('should throw error if file not found', async () => {
@@ -202,6 +297,43 @@ describe('StorageService', () => {
 
       expect(result.files).toHaveLength(2);
       expect(result.files[0]).toHaveProperty('key', 'file1.txt');
+    });
+
+    it('paginates a large bucket without dropping rows (regression: double offset)', async () => {
+      const bucket = { id: 'bucket1', name: 'test-bucket' };
+      // Mirror the production incident: 2365 rows in one bucket, where the
+      // 1000 rows at offset 1000-1999 vanished under the old double-offset
+      // (SQL OFFSET + a second JS slice by offset).
+      const all = Array.from({ length: 2365 }, (_, i) => ({
+        id: 'f' + i,
+        key: i < 1000
+          ? 'movies/m' + String(i).padStart(4, '0') + '.mp4'
+          : 'tv-shows/lost-in-space/s01e' + String(i - 1000).padStart(2, '0') + '.avi',
+        size: 100,
+        metadata: '{}'
+      }));
+
+      mockBucketRepo.findByProjectAndName.mockResolvedValue(bucket);
+      // Emulate the repo's SQL LIMIT/OFFSET semantics.
+      mockFileRepo.findByBucket.mockImplementation((_id, { maxKeys, offset = 0 } = {}) =>
+        Promise.resolve(all.slice(offset, offset + maxKeys))
+      );
+
+      // Walk the list exactly like the TV app does.
+      let offset = 0;
+      const seen = [];
+      let result;
+      for (let page = 0; page < 20; page++) {
+        result = await storageService.listFiles('project1', 'test-bucket', '', 1000, '', offset);
+        seen.push(...result.files.map((f) => f.key));
+        if (!result.hasMore) break;
+        offset += result.files.length;
+      }
+
+      expect(result.hasMore).toBe(false);
+      expect(seen).toHaveLength(2365);
+      expect(new Set(seen).size).toBe(2365);
+      expect(seen).toEqual(all.map((f) => f.key)); // same order, no gaps
     });
   });
 });

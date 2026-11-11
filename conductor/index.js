@@ -46,10 +46,30 @@ app.use(requestIdMiddleware);
 const { setupPrometheus } = require('./api/utils/simplePrometheusMetrics');
 setupPrometheus(app, { serviceName: 'conductor' });
 
-// Request logging middleware
+// Request logging middleware — full trail: request line (+JSON body), then
+// response status + duration. High-volume telemetry endpoints log one line.
+const NOISY_PATHS = /^\/(health|metrics)(\/|$)/;
+const NOISY_SERVICES = /^\/api\/services\/(metrics_manager|logs_manager)\b/;
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${req.id}] ${req.method} ${req.path}`);
+  const start = Date.now();
+  const now = () => new Date().toISOString();
+  const noisy = NOISY_PATHS.test(req.path) || NOISY_SERVICES.test(req.path);
+  if (!noisy) {
+    let bodyLog = '';
+    if (req.method !== 'GET' && req.body && typeof req.body === 'object') {
+      try {
+        const s = JSON.stringify(req.body);
+        bodyLog = ' body=' + (s.length > 2000 ? s.slice(0, 2000) + `…(+${s.length - 2000})` : s);
+      } catch (e) {
+        bodyLog = ' body=<unserializable>';
+      }
+    }
+    console.log(`[${now()}] [${req.id}] --> ${req.method} ${req.path}${req.search || ''}${bodyLog}`);
+  }
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(`[${now()}] [${req.id}] <-- ${req.method} ${req.path} ${res.statusCode} ${ms}ms`);
+  });
   next();
 });
 

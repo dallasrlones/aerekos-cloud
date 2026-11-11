@@ -122,4 +122,82 @@ function runYtdlp({ url, format = 'mp4', quality, outputDir, timeoutMs = 2 * 60 
   });
 }
 
-module.exports = { runYtdlp, buildArgs, YTDLP_BIN };
+/**
+ * Search YouTube via yt-dlp (no API key needed).
+ *
+ * Runs `yt-dlp -J --flat-playlist "ytsearchN:query"` and returns the flat
+ * result entries. This is the "own YouTube" search path — it is deliberately
+ * separate from the torrent search so callers can treat the two engines
+ * independently.
+ *
+ * @param {object} opts
+ * @param {string} opts.query        search string
+ * @param {number} [opts.max=10]     max results (clamped 1..50)
+ * @param {number} [opts.timeoutMs=60000] overall timeout
+ * @returns {Promise<{results: Array, source: 'youtube', engine: 'yt-dlp'}>}
+ */
+function searchYtdlp({ query, max = 10, timeoutMs = 60000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const safe = String(query || '').replace(/[\r\n]/g, ' ').trim();
+    if (!safe) return reject(new Error('search query is required'));
+    const n = Math.max(1, Math.min(50, parseInt(max, 10) || 10));
+    const args = ['-J', '--flat-playlist', `ytsearch${n}:${safe}`];
+
+    let child;
+    try {
+      child = spawn(YTDLP_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (err) {
+      return reject(new Error(`failed to spawn ${YTDLP_BIN}: ${err.message}`));
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) {
+        try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        reject(err);
+      }
+    };
+    const timer = setTimeout(() => {
+      finish(new Error(`yt-dlp search timed out after ${Math.round(timeoutMs / 1000)}s for "${safe}"`));
+    }, timeoutMs);
+
+    child.stdout.on('data', (d) => { stdout += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('error', (err) => {
+      if (err.code === 'ENOENT') {
+        finish(new Error(`${YTDLP_BIN} not found in container — rebuild the download_manager image (yt-dlp binary missing)`));
+      } else {
+        finish(err);
+      }
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        let j;
+        try {
+          j = JSON.parse(stdout);
+        } catch {
+          return finish(new Error(`yt-dlp search returned non-JSON: ${stdout.slice(0, 160)} ${stderr.slice(-160)}`));
+        }
+        const results = (j.entries || []).filter(Boolean).map((e) => ({
+          id: e.id || null,
+          url: e.url || (e.id ? `https://www.youtube.com/watch?v=${e.id}` : ''),
+          title: e.title || '',
+          duration: e.duration != null ? e.duration : null,
+          channel: e.channel || e.channel_id || '',
+          view_count: e.view_count != null ? e.view_count : null,
+          thumbnail: e.thumbnail || null,
+        }));
+        resolve({ results, source: 'youtube', engine: 'yt-dlp' });
+      } else {
+        finish(new Error(`yt-dlp search exited ${code}: ${(stderr || stdout).slice(-300)}`));
+      }
+    });
+  });
+}
+
+module.exports = { runYtdlp, searchYtdlp, buildArgs, YTDLP_BIN };

@@ -51,6 +51,37 @@ export const authManagerService = {
   async deleteProvider(projectId, id) {
     await api.delete(`${BASE}/providers/${id}`, { params: { project_id: projectId } });
   },
+
+  // --- Users (password-grant user system, e.g. aerekos-tv accounts) ---------
+  async listUsers(projectId) {
+    const response = await api.get(`${BASE}/users`, { params: { project_id: projectId } });
+    return response.data?.items || [];
+  },
+
+  async getUser(projectId, id) {
+    const response = await api.get(`${BASE}/users/${id}`, { params: { project_id: projectId } });
+    return response.data?.user;
+  },
+
+  /**
+   * @param {object} data - { username, password, name?, display_color? }
+   */
+  async createUser(projectId, data) {
+    const response = await api.post(`${BASE}/users`, { ...data, project_id: projectId });
+    return response.data?.user;
+  },
+
+  /**
+   * @param {object} data - { name?, display_color?, enabled?, password? } (password blank keeps the current one)
+   */
+  async updateUser(projectId, id, data) {
+    const response = await api.patch(`${BASE}/users/${id}`, { ...data, project_id: projectId });
+    return response.data?.user;
+  },
+
+  async deleteUser(projectId, id) {
+    await api.delete(`${BASE}/users/${id}`, { params: { project_id: projectId } });
+  },
 };
 
 export default authManagerService;

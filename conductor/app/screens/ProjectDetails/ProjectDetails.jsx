@@ -11,7 +11,7 @@ import { ServiceConfigModal } from '../../components/ServiceConfigModal/ServiceC
 import { ScalingPolicyModal } from '../../components/ScalingPolicyModal/ScalingPolicyModal';
 import { AddServiceModal } from '../../components/AddServiceModal/AddServiceModal';
 import { AddWorkerModal } from '../../components/AddWorkerModal/AddWorkerModal';
-import { StackJsonPanel } from '../../components/StackJsonPanel';
+import { InfraTab } from '../../components/InfraTab/InfraTab';
 import { getServiceMeta } from '../../services/serviceCatalog';
 import { ProjectDetailsStyles } from './ProjectDetails.styles';
 import { colors } from '../../styles/theme';
@@ -308,6 +308,7 @@ export const ProjectDetails = ({ navigation, route }) => {
       <ScreenTabs
         tabs={[
           { id: 'info', label: 'Info' },
+          { id: 'infra', label: 'Infra' },
           { id: 'services', label: 'Services' },
           { id: 'workers', label: 'Workers' },
           { id: 'deployments', label: 'Deployments' },
@@ -434,7 +435,13 @@ export const ProjectDetails = ({ navigation, route }) => {
         onWorkerAdded={loadProject}
       />
 
-      <StackJsonPanel />
+      {tab === 'infra' ? (
+        <InfraTab
+          projectId={project.id}
+          placements={placements}
+          onRefresh={loadProject}
+        />
+      ) : null}
 
       {tab === 'deployments' ? <Box title={`Deployments (${project.deployments?.length || 0})`}>
         {project.deployments && project.deployments.length > 0 ? (

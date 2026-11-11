@@ -98,6 +98,12 @@ function getScreenFromPath(pathname, options = {}) {
     if (parts[1] === 'providers' && parts.length > 2) {
       return { screen: 'providerForm', params: { providerId: parts[2] } };
     }
+    if (parts[1] === 'users' && parts[2] === 'new') {
+      return 'userForm';
+    }
+    if (parts[1] === 'users' && parts.length > 2) {
+      return { screen: 'userForm', params: { userId: parts[2] } };
+    }
     return 'authManager';
   }
 
@@ -322,6 +328,10 @@ function getPathFromScreen(screen, params = {}) {
     return `/auth-manager/providers/${params.providerId}`;
   }
   if (screen === 'providerForm') return '/auth-manager/providers/new';
+  if (screen === 'userForm' && params.userId) {
+    return `/auth-manager/users/${params.userId}`;
+  }
+  if (screen === 'userForm') return '/auth-manager/users/new';
   if (screen === 'deviceDetails' && params.deviceId) {
     return `/devices/${params.deviceId}`;
   }

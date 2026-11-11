@@ -133,6 +133,7 @@ class IacHookupService {
   }
 
   async hookup(projectId, { mode = 'conductor', repo = 'infra' } = {}, bearerToken) {
+    console.log(`[iac] hookup project=${projectId} mode=${mode} repo=${repo}`);
     const project = await ProjectRepository.findById(projectId);
     if (!project) {
       const e = new Error('Project not found');
@@ -210,7 +211,7 @@ class IacHookupService {
       }
       const stack = await StackService.current(projectId);
       if (found?.id) {
-        await sm().proxyServiceRequest(
+        const committed = await sm().proxyServiceRequest(
           'git_manager',
           'POST',
           `/api/v1/repos/${found.id}/commit-file`,
@@ -224,6 +225,7 @@ class IacHookupService {
           projectId,
           authHeader(bearerToken),
         ).catch((err) => console.warn('[iac] commit stack.json:', err.message));
+        console.log(`[iac] project=${projectId} git repo=${found.name}(${found.id}) stack.json committed=${!!committed && committed.status < 400}`);
       }
     }
 
@@ -233,6 +235,7 @@ class IacHookupService {
       hooked_up_at: new Date().toISOString(),
     };
     await ProjectRepository.update(projectId, { config: JSON.stringify(cfg) });
+    console.log(`[iac] project=${projectId} hookup saved mode=${mode} repo=${mode === 'git' ? repoName : null}`);
     return this.status(projectId, bearerToken);
   }
 

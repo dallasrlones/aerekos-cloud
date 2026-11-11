@@ -139,7 +139,15 @@ class WorkerSocketService {
               },
               timestamp: resources.timestamp || new Date().toISOString()
             };
-            console.log(`[Socket] Emitting worker:live:update to worker:${workerId} room in /frontend namespace`);
+            // Log at most once per 60s per worker — heartbeats arrive every
+            // few seconds and the repeats drown the rest of the log. The
+            // socket emit below still fires on every heartbeat.
+            if (!this._liveLogTs) this._liveLogTs = new Map();
+            const _lastLive = this._liveLogTs.get(workerId) || 0;
+            if (Date.now() - _lastLive > 60000) {
+              this._liveLogTs.set(workerId, Date.now());
+              console.log(`[Socket] Emitting worker:live:update to worker:${workerId} room in /frontend namespace`);
+            }
             this.io.of('/frontend').to(`worker:${workerId}`).emit('worker:live:update', liveUpdateData);
           }
           

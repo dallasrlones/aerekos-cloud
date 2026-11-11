@@ -22,6 +22,26 @@ const PORT = process.env.PORT || 3003;
 // Middleware
 app.use(cors());
 
+// Full request trail: request line, then status + duration (+JSON body).
+app.use((req, res, next) => {
+  const start = Date.now();
+  const now = () => new Date().toISOString();
+  const quiet = req.path.startsWith('/health') || req.path.startsWith('/metrics');
+  if (!quiet) console.log(`[${now()}] --> ${req.method} ${req.path}${req.search || ''}`);
+  res.on('finish', () => {
+    let bodyLog = '';
+    if (req.method !== 'GET' && req.body && typeof req.body === 'object') {
+      try {
+        let s = JSON.stringify(req.body);
+        if (s.length > 2000) s = s.slice(0, 2000) + '…';
+        bodyLog = ' body=' + s;
+      } catch (e) { bodyLog = ' body=<unserializable>'; }
+    }
+    if (!quiet) console.log(`[${now()}] <-- ${req.method} ${req.originalUrl || req.path} ${res.statusCode} ${Date.now() - start}ms${bodyLog}`);
+  });
+  next();
+});
+
 const { setupPrometheus } = require('../shared/simplePrometheusMetrics');
 setupPrometheus(app, { serviceName: 'storage_manager' });
 

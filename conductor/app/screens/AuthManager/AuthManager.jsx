@@ -21,6 +21,7 @@ export const AuthManager = ({ navigation }) => {
 
   const [status, setStatus] = useState(null);
   const [providers, setProviders] = useState([]);
+  const [users, setUsers] = useState([]);
   const [toggling, setToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
@@ -46,8 +47,22 @@ export const AuthManager = ({ navigation }) => {
     }
   }, [projectId]);
 
+  const loadUsers = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setUsers(await authManagerService.listUsers(projectId));
+    } catch (err) {
+      setUsers([]);
+    }
+  }, [projectId]);
+
   useEffect(() => { loadStatus(); }, [loadStatus]);
-  useEffect(() => { if (status?.enabled) loadProviders(); }, [status?.enabled, loadProviders]);
+  useEffect(() => {
+    if (status?.enabled) {
+      loadProviders();
+      loadUsers();
+    }
+  }, [status?.enabled, loadProviders, loadUsers]);
 
   const handleToggle = async (enabled) => {
     setToggling(true);
@@ -66,7 +81,10 @@ export const AuthManager = ({ navigation }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadStatus();
-    if (status?.enabled) await loadProviders();
+    if (status?.enabled) {
+      await loadProviders();
+      await loadUsers();
+    }
     setRefreshing(false);
   };
 
@@ -139,7 +157,51 @@ export const AuthManager = ({ navigation }) => {
         </Box>
       )}
 
-      <ResourceCrud serviceName="auth_manager" enabled={!!status?.enabled && !!projectId} onChanged={loadProviders} />
+      {status?.enabled && (
+        <Box title="Users">
+          {!projectId ? (
+            <Text style={S.hintText}>Select a project to manage users.</Text>
+          ) : (
+            <>
+              <View style={S.listHeader}>
+                <Text style={S.hintText}>
+                  {users.length} user{users.length === 1 ? '' : 's'} in {currentProject?.name || 'this project'}
+                </Text>
+                <Button title="Add user" onPress={() => navigation.navigate('userForm', {})} style={S.addButton} />
+              </View>
+
+              {users.length === 0 ? (
+                <View style={S.emptyState}>
+                  <Ionicons name="person-outline" size={40} color={colors.textMuted} />
+                  <Text style={S.emptyText}>No users yet. Add one to let people sign in to apps like aerekos tv.</Text>
+                </View>
+              ) : (
+                users.map((u) => (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={S.row}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('userForm', { userId: u.id })}
+                  >
+                    {u.display_color ? (
+                      <View style={[S.colorDot, { backgroundColor: u.display_color }]} />
+                    ) : null}
+                    <View style={S.rowMain}>
+                      <Text style={S.rowName} numberOfLines={1}>{u.name || u.username}</Text>
+                      <Text style={S.rowSub} numberOfLines={1}>
+                        {u.username}{u.enabled === false ? ' · disabled' : ''}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ))
+              )}
+            </>
+          )}
+        </Box>
+      )}
+
+      <ResourceCrud serviceName="auth_manager" enabled={!!status?.enabled && !!projectId} onChanged={() => { loadProviders(); loadUsers(); }} />
 
       {status && !status.enabled && (
         <Box title="Getting started">

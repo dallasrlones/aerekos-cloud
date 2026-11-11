@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl ca-
 RUN curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp
 COPY download_manager/package*.json ./
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install --omit=dev && npm cache clean --force
 COPY download_manager/ ./
 # shared/ holds simplePrometheusMetrics + logOutbox used via require('../shared/..')

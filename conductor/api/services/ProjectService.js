@@ -409,6 +409,14 @@ class ProjectService {
     const serviceManager = ServiceManager.getInstance(WorkerRepository);
     const deploymentResult = await serviceManager.enableService(service.name, workerId || null, projectId);
 
+    // Single writer: mirror the enable into the stack record + infra.json.
+    try {
+      const InfraService = require('./InfraService');
+      await InfraService.recordServiceChange(projectId, { changed: service.name });
+    } catch (err) {
+      console.warn(`[projects] stack record after enable of ${service.name}:`, err.message);
+    }
+
     return {
       success: true,
       projectId,
@@ -506,6 +514,14 @@ class ProjectService {
       } catch (error) {
         console.error(`[ProjectService] Error stopping deployment ${deployment.id}:`, error);
       }
+    }
+
+    // Single writer: mirror the disable into the stack record + infra.json.
+    try {
+      const InfraService = require('./InfraService');
+      await InfraService.recordServiceChange(projectId, { changed: service.name });
+    } catch (err) {
+      console.warn(`[projects] stack record after disable of ${service.name}:`, err.message);
     }
 
     return {

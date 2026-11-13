@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { aiManagerService } from '../../services/aiManagerService';
+import { managerService } from '../../services/managerService';
 import websocketService from '../../services/websocketService';
 import { toggleMic, subscribe, isListening } from '../../utils/icarusMic';
 
@@ -24,6 +25,7 @@ export function useIcarusSession(projectId) {
   const [skills, setSkills] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [hydrating, setHydrating] = useState(false);
   const [error, setError] = useState(null);
   const [brainOffline, setBrainOffline] = useState(false);
   const [pulseLive, setPulseLive] = useState(null);
@@ -51,64 +53,70 @@ export function useIcarusSession(projectId) {
 
   const reloadAgent = useCallback(async (id) => {
     if (!projectId || !id) return;
-    const [item, msgs, askRows, workRows, workerRows, pinRows, rollMap, cronRows, tl] = await Promise.all([
+    // Chat-critical first — don't stall the thread on pins/cron/fleet extras.
+    const [itemSettled, msgsSettled] = await Promise.allSettled([
       aiManagerService.getAgent(projectId, id),
       aiManagerService.agentMessages(projectId, id),
+    ]);
+    if (itemSettled.status === 'fulfilled') setAgent(itemSettled.value);
+    if (msgsSettled.status === 'fulfilled') setMessages(msgsSettled.value || []);
+
+    const extras = await Promise.allSettled([
       aiManagerService.agentAsks(projectId, id),
       aiManagerService.agentWork(projectId, id),
       aiManagerService.agentWorkers(projectId, id),
       aiManagerService.agentPins(projectId, id),
       aiManagerService.agentRolls(projectId, id),
       aiManagerService.agentCron(projectId, id),
-      aiManagerService.agentTimeline(projectId, id).catch(() => []),
+      aiManagerService.agentTimeline(projectId, id),
+      aiManagerService.agentSkills?.(projectId, id),
     ]);
-    setAgent(item);
-    setMessages(msgs);
-    setAsks(askRows);
-    setWork(workRows);
-    setWorkers(workerRows);
-    setPins(pinRows);
-    setRolls(rollMap);
-    setCrons(cronRows);
-    setTimeline(tl || []);
+    const v = (i, fb = null) => (extras[i].status === 'fulfilled' ? extras[i].value : fb);
+    setAsks(v(0, []) || []);
+    setWork(v(1, []) || []);
+    setWorkers(v(2, []) || []);
+    setPins(v(3, []) || []);
+    setRolls(v(4, {}) || {});
+    setCrons(v(5, []) || []);
+    setTimeline(v(6, []) || []);
+    const sk = v(7);
+    if (sk) setSkills(Array.isArray(sk) ? sk : (sk.items || sk.skills || []));
+  }, [projectId]);
+
+  const ensureAiManager = useCallback(async () => {
+    if (!projectId) return false;
     try {
-      const sk = await aiManagerService.agentSkills?.(projectId, id);
-      if (sk) setSkills(Array.isArray(sk) ? sk : (sk.items || sk.skills || []));
-    } catch { /* optional */ }
+      await managerService.enable('ai_manager', null, projectId);
+      return true;
+    } catch {
+      return false;
+    }
   }, [projectId]);
 
   const load = useCallback(async () => {
     if (!projectId) return;
-    try {
-      const [list, st, set, fl, kindsRows, connRows] = await Promise.all([
-        aiManagerService.listAgents(projectId),
-        aiManagerService.agentSetupStatus(projectId),
-        aiManagerService.getAgentSettings(projectId),
-        aiManagerService.agentFleet(projectId),
-        aiManagerService.listConnectorKinds(projectId),
-        aiManagerService.listConnectors(projectId),
-      ]);
-      setAgents(list);
-      setSetup(st);
-      setSettings(set);
-      setFleet(fl);
-      setKinds(kindsRows);
-      setConnectors(connRows);
-      let llmReachable = null;
+    setHydrating(true);
+    const run = async () => {
+      // Paint chat ASAP: agents → messages. Setup/fleet/connectors fill in after.
+      let list;
       try {
-        const llm = await aiManagerService.llmStatus({ projectId });
-        llmReachable = llm?.reachable;
-      } catch { llmReachable = false; }
-      const gw = fl?.gateway || st?.gateway || st?.brain;
-      const offline = st?.ok === false
-        || llmReachable === false
-        || gw?.reachable === false
-        || gw?.status === 'offline';
-      setBrainOffline(Boolean(offline));
-      const next = list.find((a) => a.id === agent?.id) || list.find((a) => /icarus/i.test(a.name)) || list[0];
+        list = await aiManagerService.listAgents(projectId);
+      } catch (e) {
+        const msg = String(e?.message || e?.response?.data?.error?.message || '');
+        if (/not enabled for this project/i.test(msg) || e?.response?.status === 503) {
+          const ok = await ensureAiManager();
+          if (ok) list = await aiManagerService.listAgents(projectId);
+          else throw e;
+        } else throw e;
+      }
+      list = list || [];
+      setAgents(list);
+      const next = list.find((a) => a.id === agent?.id)
+        || list.find((a) => String(a.name || '').toLowerCase().includes('icarus'))
+        || list[0];
       if (next) {
         await reloadAgent(next.id);
-        // Once per project session: land Chat in Ask so "hi" is friend talk, not shop.
+        setHydrating(false);
         if (!defaultedAsk.current && next.mode && next.mode !== 'ask') {
           defaultedAsk.current = true;
           try {
@@ -118,9 +126,45 @@ export function useIcarusSession(projectId) {
         } else {
           defaultedAsk.current = true;
         }
-      } else setAgent(null);
-    } catch (e) { err(e); }
-  }, [projectId, agent?.id, reloadAgent]);
+      } else {
+        setAgent(null);
+        setHydrating(false);
+      }
+
+      // Background — never block the thread on these.
+      Promise.allSettled([
+        aiManagerService.agentSetupStatus(projectId),
+        aiManagerService.getAgentSettings(projectId),
+        aiManagerService.agentFleet(projectId),
+        aiManagerService.listConnectorKinds(projectId),
+        aiManagerService.listConnectors(projectId),
+        aiManagerService.llmStatus({ projectId }),
+      ]).then((settled) => {
+        const val = (i, fb = null) => (settled[i].status === 'fulfilled' ? settled[i].value : fb);
+        const st = val(0);
+        const set = val(1);
+        const fl = val(2);
+        setSetup(st);
+        setSettings(set);
+        setFleet(fl);
+        setKinds(val(3, []) || []);
+        setConnectors(val(4, []) || []);
+        const llmReachable = val(5)?.reachable;
+        const gw = fl?.gateway || st?.gateway || st?.brain;
+        const offline = st?.ok === false
+          || llmReachable === false
+          || gw?.reachable === false
+          || gw?.status === 'offline';
+        setBrainOffline(Boolean(offline));
+      });
+    };
+    try {
+      await run();
+    } catch (e) {
+      err(e);
+      setHydrating(false);
+    }
+  }, [projectId, agent?.id, reloadAgent, ensureAiManager]);
 
   useEffect(() => {
     defaultedAsk.current = false;
@@ -290,12 +334,39 @@ export function useIcarusSession(projectId) {
     setBusy(true); setError(null);
     setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: 'user', content, layer: 'user' }]);
     setStream({ jobId: 'pending', status: 'queued', phase: 'called', partial: '' });
+    const isQueueFail = (e, out) => {
+      if (out?.queue_recovering || out?.error === 'queue_unavailable') return true;
+      const st = e?.response?.status || e?.status;
+      const msg = String(e?.message || e?.response?.data?.error?.message || out?.reply || '');
+      return st === 502 || st === 503 || st === 504
+        || msg.includes('queue_manager')
+        || msg.includes('Queue recovering')
+        || msg.includes('ECONNREFUSED');
+    };
     try {
-      const out = await aiManagerService.agentChat(projectId, agent.id, { content });
+      let out;
+      try {
+        out = await aiManagerService.agentChat(projectId, agent.id, { content });
+      } catch (e) {
+        if (!isQueueFail(e)) throw e;
+        setError('queue recovering…');
+        setStream({ jobId: 'pending', status: 'queued', phase: 'waiting', partial: 'queue recovering…' });
+        try { await aiManagerService.recoverPlatformService('queue_manager'); } catch (_) { /* best-effort */ }
+        await new Promise((r) => setTimeout(r, 2500));
+        out = await aiManagerService.agentChat(projectId, agent.id, { content });
+      }
+      if (out && !out.job_id && isQueueFail(null, out)) {
+        setError('queue recovering…');
+        setStream({ jobId: 'pending', status: 'queued', phase: 'waiting', partial: 'queue recovering…' });
+        try { await aiManagerService.recoverPlatformService('queue_manager'); } catch (_) { /* best-effort */ }
+        await new Promise((r) => setTimeout(r, 2500));
+        out = await aiManagerService.agentChat(projectId, agent.id, { content });
+      }
       if (out?.handed_off || out?.route === 'MANAGER' || out?.gate === 'MANAGER') {
         setHandoff({ at: Date.now(), label: 'talking to manager…', ...(out || {}) });
       }
       if (out?.job_id) {
+        setError(null);
         setStream({
           jobId: out.job_id,
           status: 'queued',
@@ -378,16 +449,52 @@ export function useIcarusSession(projectId) {
   };
 
   const selectAgent = async (a) => {
-    if (!a?.id) return;
-    await reloadAgent(a.id);
+    const id = a?.id || a?.agent_id;
+    if (!id) return;
+    await reloadAgent(id);
   };
 
-  const focusGraphNode = (nodeOrLink) => {
+  const focusGraphNode = async (nodeOrLink) => {
     if (!nodeOrLink) return;
+    // Flow node → open that agent's live chat on the left
+    const agentRef = nodeOrLink.agent_id || nodeOrLink.agentId
+      || (nodeOrLink.kind === 'agent' || nodeOrLink.kind === 'specialist' || nodeOrLink.kind === 'icarus'
+        ? nodeOrLink.id : null);
+    if (agentRef) {
+      const asAgent = (agents || []).find((a) => a.id === agentRef || a.name === agentRef);
+      if (asAgent?.id) {
+        await reloadAgent(asAgent.id);
+        setSelectedNode({ ...nodeOrLink, kind: nodeOrLink.kind || 'agent' });
+        return;
+      }
+      if (typeof agentRef === 'string' && agentRef.length > 8) {
+        try {
+          await reloadAgent(agentRef);
+          setSelectedNode({ ...nodeOrLink, kind: nodeOrLink.kind || 'agent' });
+          return;
+        } catch { /* fall through */ }
+      }
+    }
+    // Worker pulse rows often lack a chat agent — select node + open linked agent when present
+    if (nodeOrLink.kind === 'worker') {
+      const w = (workers || []).find((row) => row.id === nodeOrLink.id || row.agent_id === nodeOrLink.agent_id)
+        || nodeOrLink;
+      const linked = w.agent_id || w.parent_agent_id || w.owner_agent_id;
+      if (linked) {
+        try {
+          await reloadAgent(linked);
+        } catch { /* keep selection even if chat load fails */ }
+      }
+      setSelectedNode({ ...nodeOrLink, ...w, kind: 'worker' });
+      return;
+    }
     if (nodeOrLink.task_id || nodeOrLink.plan_id) {
       const task = (liveGraph?.tasks || []).find((t) => t.id === nodeOrLink.task_id);
       if (task) {
         setSelectedNode({ ...task, kind: 'task' });
+        if (task.agent_id) {
+          try { await reloadAgent(task.agent_id); } catch { /* */ }
+        }
         return;
       }
       if (nodeOrLink.plan_id) {
@@ -430,6 +537,7 @@ export function useIcarusSession(projectId) {
     chatInput,
     setChatInput,
     busy,
+    hydrating,
     error,
     brainOffline,
     pulseLive,

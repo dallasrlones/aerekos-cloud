@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, useWindowDimensions,
+  View, Text, ScrollView, TouchableOpacity, useWindowDimensions, Platform,
 } from 'react-native';
 import { Button } from '../../components/Button/Button';
+import { IcarusMascot } from '../../components/IcarusMascot/IcarusMascot';
+import { useMascotEvents, dispatchMascotEvent } from '../../hooks/useMascotEvents';
 import { useProject } from '../../contexts/ProjectContext';
 import { AgentChat } from '../AIManager/AgentChat';
 import { AIManagerStudio } from '../AIManager/AIManagerStudio';
-import { IcarusGraph3D } from './IcarusGraph3D';
+import { IcarusLivePane } from './IcarusLivePane';
 import { IcarusNodeDetail } from './IcarusNodeDetail';
 import {
   IcarusSkillsDrawer,
@@ -16,8 +18,8 @@ import {
   IcarusAdvancedDrawer,
 } from './IcarusDrawers';
 import { useIcarusSession } from './useIcarusSession';
-import { IcarusStyles as S } from './Icarus.styles';
-import { colors, typography } from '../../styles/theme';
+import { IcarusStyles as S, ICARUS_TRON as T } from './Icarus.styles';
+import { typography } from '../../styles/theme';
 
 const PRIMARY = [
   { id: 'chat', label: 'Chat', screen: 'icarus' },
@@ -70,6 +72,8 @@ export function IcarusShell({ navigation, route }) {
   const { width } = useWindowDimensions();
   const compact = width < 900;
   const session = useIcarusSession(projectId);
+  const { state: mascotState, setState: setMascotState } = useMascotEvents('idle');
+  const [flowOpen, setFlowOpen] = useState(!compact);
 
   const brainLabel = useMemo(() => {
     const g = session.gateway;
@@ -77,9 +81,48 @@ export function IcarusShell({ navigation, route }) {
     return g.model || g.name || g.endpoint || g.host || null;
   }, [session.gateway]);
 
+  // Stream / handoff / error → mascot FSM (think → on_fire → heal)
+  useEffect(() => {
+    if (session.error) {
+      dispatchMascotEvent('error');
+      return;
+    }
+    if (session.handoff) {
+      dispatchMascotEvent('on_fire');
+      return;
+    }
+    if (session.stream?.jobId || session.busy) {
+      dispatchMascotEvent('think');
+      return;
+    }
+    if (session.openAsks?.length) {
+      dispatchMascotEvent('listen');
+      return;
+    }
+    dispatchMascotEvent('heal');
+    const t = setTimeout(() => dispatchMascotEvent('idle'), 900);
+    return () => clearTimeout(t);
+  }, [session.stream?.jobId, session.busy, session.handoff, session.error, session.openAsks?.length]);
+
+  // Walk toward selected flow node on desktop
+  useEffect(() => {
+    if (compact || !session.selectedNode) return;
+    const kind = session.selectedNode.kind || 'icarus';
+    const title = session.selectedNode.title || session.selectedNode.name || kind;
+    dispatchMascotEvent('walk', {
+      anchorId: `flow-${kind}-${String(title).slice(0, 24)}`,
+    });
+  }, [session.selectedNode?.id, compact]);
+
+  useEffect(() => {
+    setFlowOpen(!compact);
+  }, [compact]);
+
   const go = (screen, params = {}) => {
     navigation?.navigate(screen, params);
   };
+
+  const mascotSize = compact ? 44 : 64;
 
   const rail = (
     <View style={[S.rail, compact && { width: 112 }]}>
@@ -121,6 +164,27 @@ export function IcarusShell({ navigation, route }) {
     </View>
   );
 
+  const headerBar = section === 'chat' ? (
+    <View style={S.headerBar} {...(Platform.OS === 'web' ? { 'data-icarus-anchor': 'icarus-header' } : {})}>
+      <Text style={S.liveMark}>Live</Text>
+      <View style={[S.mascotSlot, compact && S.mascotSlotCompact]}>
+        <IcarusMascot
+          state={mascotState}
+          size={mascotSize}
+          showStage={false}
+          label=""
+          onStateChange={setMascotState}
+          targetAnchorId={session.selectedNode ? undefined : 'icarus-header'}
+        />
+      </View>
+      {brainLabel ? (
+        <Text style={{ fontFamily: T.fontBody, fontSize: 11, color: T.muted, maxWidth: 160 }} numberOfLines={1}>
+          {brainLabel}
+        </Text>
+      ) : <View style={{ width: 8 }} />}
+    </View>
+  ) : null;
+
   const banners = (
     <View>
       {!projectId && !loading ? (
@@ -135,7 +199,12 @@ export function IcarusShell({ navigation, route }) {
           </Text>
         </View>
       ) : null}
-      {session.needsSetup || (!session.agent && projectId && !loading) ? (
+      {session.hydrating && projectId ? (
+        <View style={S.banner}>
+          <Text style={S.bannerText}>Loading chat…</Text>
+        </View>
+      ) : null}
+      {!session.hydrating && (session.needsSetup || (!session.agent && projectId && !loading)) ? (
         <View style={S.banner}>
           <Text style={S.bannerText}>No Icarus agent in this project yet.</Text>
           <Button
@@ -156,17 +225,26 @@ export function IcarusShell({ navigation, route }) {
           <Text style={[S.bannerText, S.bannerDangerText]}>{session.error}</Text>
         </View>
       ) : null}
-      {brainLabel && section === 'chat' ? (
-        <View style={[S.banner, { backgroundColor: colors.surface }]}>
-          <Text style={[S.bannerText, { color: colors.textMuted }]}>Brain: {brainLabel}</Text>
-        </View>
-      ) : null}
     </View>
   );
 
+  const livePane = (
+    <IcarusLivePane
+      session={session}
+      compact={compact}
+      onSelectNode={(n) => {
+        session.setSelectedNode(n);
+        if (n?.id || n?.agent_id) {
+          const hit = (session.agents || []).find((a) => a.id === (n.id || n.agent_id));
+          if (hit) session.selectAgent(hit);
+        }
+      }}
+    />
+  );
+
   const chatView = session.agent ? (
-    <View style={S.chatSplit}>
-      <View style={S.chatCol}>
+    <View style={[S.chatSplit, compact && S.chatSplitCompact]}>
+      <View style={[S.chatCol, compact && S.chatColCompact]}>
         {(session.agents || []).length > 0 ? (
           <ScrollView horizontal style={S.threadList} showsHorizontalScrollIndicator={false}>
             {session.agents.map((a) => (
@@ -177,11 +255,13 @@ export function IcarusShell({ navigation, route }) {
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   marginRight: 6,
-                  borderRadius: 8,
-                  backgroundColor: session.agent?.id === a.id ? colors.border : 'transparent',
+                  borderRadius: 2,
+                  borderWidth: 1,
+                  borderColor: session.agent?.id === a.id ? T.line : 'transparent',
+                  backgroundColor: session.agent?.id === a.id ? 'rgba(0,195,255,0.1)' : 'transparent',
                 }}
               >
-                <Text style={typography.caption}>{a.display_name || a.name}</Text>
+                <Text style={{ ...typography.caption, color: T.text }}>{a.display_name || a.name}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -206,32 +286,43 @@ export function IcarusShell({ navigation, route }) {
           onOpenBoard={(link) => session.setSelectedNode(link)}
         />
       </View>
-      <View style={S.graphCol}>
-        <IcarusGraph3D
-          subgraph={session.liveGraph}
-          workers={session.workers}
-          selectedId={session.selectedNode?.id}
-          onSelect={(n) => session.setSelectedNode(n)}
-        />
-        {session.selectedNode ? (
-          <IcarusNodeDetail
-            projectId={projectId}
-            node={session.selectedNode}
-            agents={session.agents}
-            workers={session.workers}
-            asks={session.asks}
-            messages={session.messages}
-            liveTools={session.liveTools}
-            liveGraph={session.liveGraph}
-            onClose={session.clearSelectedNode}
-            onSelectChild={(n) => session.setSelectedNode(n)}
-            onFocusChat={(n) => session.selectAgent(n)}
-            onShowRelatedChat={() => {
-              go('icarus');
-            }}
-          />
-        ) : null}
-      </View>
+      {compact ? (
+        <>
+          <TouchableOpacity style={S.flowSheetToggle} onPress={() => setFlowOpen((v) => !v)}>
+            <Text style={S.flowSheetToggleText}>{flowOpen ? 'Hide flow' : 'Show flow'}</Text>
+          </TouchableOpacity>
+          {flowOpen ? (
+            <View style={S.graphColCompact}>
+              {livePane}
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <View style={S.graphCol}>
+          {livePane}
+          {session.selectedNode && !['agent', 'specialist', 'icarus'].includes(session.selectedNode.kind) ? (
+            <IcarusNodeDetail
+              projectId={projectId}
+              node={session.selectedNode}
+              agents={session.agents}
+              workers={session.workers}
+              asks={session.asks}
+              messages={session.messages}
+              liveTools={session.liveTools}
+              liveGraph={session.liveGraph}
+              onClose={session.clearSelectedNode}
+              onSelectChild={(n) => session.setSelectedNode(n)}
+              onFocusChat={(n) => {
+                if (n?.id || n?.agent_id) session.selectAgent({ id: n.id || n.agent_id, ...n });
+                else session.setSelectedNode(n);
+              }}
+              onShowRelatedChat={() => {
+                go('icarus');
+              }}
+            />
+          ) : null}
+        </View>
+      )}
     </View>
   ) : (
     <View style={S.sectionBody}>
@@ -239,7 +330,9 @@ export function IcarusShell({ navigation, route }) {
       <Text style={S.sectionSub}>
         {loading || !projectId
           ? 'Pick a project to talk to Icarus.'
-          : 'Setup Icarus to start the sacred talk path (hey → friend, do-work → manager).'}
+          : session.hydrating
+            ? 'Loading agent…'
+            : 'Setup Icarus to start the sacred talk path (hey → friend, do-work → manager).'}
       </Text>
     </View>
   );
@@ -269,11 +362,13 @@ export function IcarusShell({ navigation, route }) {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 marginRight: 6,
-                borderRadius: 8,
-                backgroundColor: (tab || defaultSection) === t.id ? colors.border : 'transparent',
+                borderRadius: 2,
+                borderWidth: 1,
+                borderColor: (tab || defaultSection) === t.id ? T.line : 'transparent',
+                backgroundColor: (tab || defaultSection) === t.id ? 'rgba(0,195,255,0.1)' : 'transparent',
               }}
             >
-              <Text style={typography.caption}>{t.label}</Text>
+              <Text style={{ ...typography.caption, color: T.text }}>{t.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -326,6 +421,7 @@ export function IcarusShell({ navigation, route }) {
     <View style={S.root}>
       {rail}
       <View style={S.main}>
+        {headerBar}
         {banners}
         {body}
       </View>

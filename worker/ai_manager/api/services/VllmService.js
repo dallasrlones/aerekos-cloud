@@ -109,11 +109,12 @@ class VllmService {
     return want || fallback;
   }
 
-  static estimatePromptTokens(messages) {
+  static estimatePromptTokens(messages, tools) {
     const text = (Array.isArray(messages) ? messages : [])
       .map((m) => (typeof m?.content === 'string' ? m.content : JSON.stringify(m?.content || '')))
       .join('\n');
-    return Math.ceil(text.length / 2.8);
+    const toolText = tools ? JSON.stringify(tools) : '';
+    return Math.ceil((text.length + toolText.length) / 2.2);
   }
 
   static clampMaxTokens(requested, promptTokens, maxModelLen) {
@@ -126,18 +127,36 @@ class VllmService {
     return Math.min(want, room);
   }
 
-  static fitMessages(messages, maxModelLen, requestedMaxTokens) {
+  /**
+   * vLLM rejects mid-thread system roles ("System message must be at the beginning").
+   * Merge all system texts into one leading message; keep user/assistant/tool order.
+   */
+  static normalizeMessages(messages) {
+    const raw = Array.isArray(messages) ? messages : [];
+    const systems = [];
+    const rest = [];
+    for (const m of raw) {
+      if (!m || typeof m !== 'object') continue;
+      if (m.role === 'system') systems.push(String(m.content || ''));
+      else rest.push({ ...m, content: m.content });
+    }
+    const out = [];
+    if (systems.length) {
+      out.push({ role: 'system', content: systems.filter(Boolean).join('\n\n') });
+    }
+    for (const m of rest) out.push(m);
+    return out;
+  }
+
+    static fitMessages(messages, maxModelLen, requestedMaxTokens, tools) {
     const cap = Number(maxModelLen) > 0 ? Number(maxModelLen) : 0;
-    const msgs = (Array.isArray(messages) ? messages : []).map((m) => ({
-      ...m,
-      content: m?.content,
-    }));
+    let msgs = VllmService.normalizeMessages(messages);
     if (!cap) return { messages: msgs, max_tokens: VllmService.clampMaxTokens(requestedMaxTokens, 0, 0) };
     const wantOut = Number(requestedMaxTokens) > 0 ? Number(requestedMaxTokens) : 256;
-    const reserve = Math.min(wantOut, 256) + 32;
+    const reserve = Math.min(Math.max(wantOut, 192), 256) + 64;
     const budget = Math.max(256, cap - reserve);
     let guard = 0;
-    while (VllmService.estimatePromptTokens(msgs) > budget && guard < 40) {
+    while (VllmService.estimatePromptTokens(msgs, tools) > budget && guard < 40) {
       guard += 1;
       const sys = msgs.find((m) => m.role === 'system' && String(m.content || '').length > 400);
       if (sys) {
@@ -146,13 +165,33 @@ class VllmService {
         continue;
       }
       if (msgs.length > 3) {
-        msgs.splice(1, 1);
-        continue;
+        let idx = -1;
+        for (let i = 1; i < msgs.length - 1; i += 1) {
+          if (/CONTEXT SUMMARY:/.test(String(msgs[i].content || ''))) continue;
+          idx = i;
+          break;
+        }
+        if (idx > 0) {
+          msgs.splice(idx, 1);
+          continue;
+        }
       }
       break;
     }
-    const prompt = VllmService.estimatePromptTokens(msgs);
+    const prompt = VllmService.estimatePromptTokens(msgs, tools);
     return { messages: msgs, max_tokens: VllmService.clampMaxTokens(requestedMaxTokens, prompt, cap) };
+  }
+
+  /** Qwen/vLLM rejects tool-only follow-ups: "No user query found in messages." */
+  static ensureUserQuery(messages) {
+    const msgs = VllmService.normalizeMessages(messages).map((m) => ({ ...m }));
+    const hasUser = msgs.some((m) => m.role === 'user' && String(m.content || '').trim());
+    if (!hasUser) msgs.push({ role: 'user', content: 'Continue the same objective.' });
+    const last = msgs[msgs.length - 1];
+    if (last && last.role === 'tool') {
+      msgs.push({ role: 'user', content: 'Continue from the tool results. Stay on the same objective.' });
+    }
+    return msgs;
   }
 
   async resolveServedModel(requested) {
@@ -250,8 +289,10 @@ class VllmService {
       throw err;
     }
     const hit = served.find((m) => m.name === req.model || m.model === req.model) || served[0];
-    const fitted = VllmService.fitMessages(req.messages, hit?.max_model_len, req.max_tokens);
-    req.messages = fitted.messages;
+    const maxLen = Number(hit?.max_model_len) || 4096;
+    req.messages = VllmService.ensureUserQuery(req.messages);
+    const fitted = VllmService.fitMessages(req.messages, maxLen, req.max_tokens, req.tools);
+    req.messages = VllmService.normalizeMessages(fitted.messages);
     if (fitted.max_tokens) req.max_tokens = fitted.max_tokens;
     try {
       const { data } = await this.http.post('/v1/chat/completions', req);
@@ -259,10 +300,22 @@ class VllmService {
     } catch (e) {
       const status = e.response?.status;
       const msg = e.response?.data?.error?.message || e.response?.data?.message || e.message;
-      const over = status === 400 && /maximum context length/i.test(String(msg));
+      if (status === 400 && /enable-auto-tool-choice|tool-call-parser/i.test(String(msg)) && req.tool_choice) {
+        delete req.tool_choice;
+        try {
+          const { data } = await this.http.post('/v1/chat/completions', req);
+          return this._toOllamaChatResponse(data, req.model);
+        } catch (retryErr) {
+          const err = new Error(retryErr.response?.data?.error?.message || retryErr.message);
+          err.status = retryErr.response?.status && retryErr.response.status >= 400 ? retryErr.response.status : 502;
+          throw err;
+        }
+      }
+      const over = (status === 400 && /maximum context length/i.test(String(msg)))
+        || /socket hang up|ECONNRESET|context length/i.test(String(msg));
       if (over) {
-        const tighter = VllmService.fitMessages(req.messages, Math.min(hit?.max_model_len || 4096, 2048), 128);
-        req.messages = tighter.messages;
+        const tighter = VllmService.fitMessages(req.messages, Math.min(maxLen, 2048), 64, req.tools);
+        req.messages = VllmService.normalizeMessages(tighter.messages);
         req.max_tokens = tighter.max_tokens || 64;
         try {
           const { data } = await this.http.post('/v1/chat/completions', req);
@@ -291,8 +344,10 @@ class VllmService {
       throw err;
     }
     const hit = served.find((m) => m.name === req.model || m.model === req.model) || served[0];
-    const fitted = VllmService.fitMessages(req.messages, hit?.max_model_len, req.max_tokens);
-    req.messages = fitted.messages;
+    const maxLen = Number(hit?.max_model_len) || 4096;
+    req.messages = VllmService.ensureUserQuery(req.messages);
+    const fitted = VllmService.fitMessages(req.messages, maxLen, req.max_tokens, req.tools);
+    req.messages = VllmService.normalizeMessages(fitted.messages);
     if (fitted.max_tokens) req.max_tokens = fitted.max_tokens;
     req.stream = true;
     const res = await this.http.post('/v1/chat/completions', req, {

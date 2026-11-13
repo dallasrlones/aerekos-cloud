@@ -5,6 +5,7 @@ import { aiManagerService } from '../../services/aiManagerService';
 import { authService } from '../../services/authService';
 import { projectService } from '../../services/projectService';
 import websocketService from '../../services/websocketService';
+import api from '../../utils/api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { IcarusStyles as S } from './Icarus.styles';
 import { IcarusVisual } from '../AIManager/IcarusVisual';
@@ -58,6 +59,8 @@ export function IcarusFriendsDrawer({ projectId, initialTab = 'local' }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
+  const [rpgNote, setRpgNote] = useState('');
+  const [assistChapter, setAssistChapter] = useState('welcome');
 
   const myRole = (members || []).find((m) => String(m.user_id) === String(meId))?.role;
   const isOwner = myRole === 'owner' || (!members?.length); // open project → bootstrap as owner
@@ -201,6 +204,84 @@ export function IcarusFriendsDrawer({ projectId, initialTab = 'local' }) {
             <StatusChip status={p.status || 'active'} />
           </View>
         ))}
+      </View>
+
+      <View style={S.drawerCard}>
+        <Text style={typography.body}>Light RPG with friends</Text>
+        <Text style={typography.caption}>
+          Share a campaign milestone or open read-only assist for a friend (same conductor only).
+        </Text>
+        {(members || []).filter((m) => String(m.user_id) !== String(meId)).slice(0, 6).map((m) => (
+          <View key={`rpg-${m.user_id}`} style={{ marginTop: 8 }}>
+            <Text style={typography.body}>{m.username || m.email || m.user_id}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+              <Button
+                title="Share milestone"
+                variant="secondary"
+                loading={busy}
+                onPress={async () => {
+                  setBusy(true);
+                  setRpgNote('');
+                  try {
+                    const r = await api.post('/api/campaign/friends/share-milestone', {
+                      friendUserId: m.user_id,
+                      badge: { id: 'shared_setup', label: 'Shared a setup win' },
+                    });
+                    setRpgNote(r.data?.message || 'Milestone shared');
+                  } catch (err) {
+                    setError(err.response?.data?.error?.message || err.message || 'Share failed');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                style={{ alignSelf: 'flex-start' }}
+              />
+              <Button
+                title="Assist (read-only)"
+                variant="secondary"
+                loading={busy}
+                onPress={async () => {
+                  setBusy(true);
+                  setRpgNote('');
+                  try {
+                    const r = await api.post('/api/campaign/friends/assist', {
+                      friendUserId: m.user_id,
+                      chapterId: assistChapter || 'welcome',
+                    });
+                    setRpgNote(r.data?.hint || 'Assist opened');
+                  } catch (err) {
+                    setError(err.response?.data?.error?.message || err.message || 'Assist failed');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                style={{ alignSelf: 'flex-start' }}
+              />
+            </View>
+          </View>
+        ))}
+        {(members || []).filter((m) => String(m.user_id) !== String(meId)).length === 0 ? (
+          <Text style={{ ...typography.caption, marginTop: 6 }}>
+            Invite a friend first — RPG share needs another member on this project.
+          </Text>
+        ) : null}
+        <TextInput
+          value={assistChapter}
+          onChangeText={setAssistChapter}
+          placeholder="Chapter id for assist (e.g. welcome)"
+          placeholderTextColor={colors.textMuted}
+          style={{
+            marginTop: 8,
+            borderWidth: 1,
+            borderColor: colors.border || '#ddd',
+            borderRadius: 6,
+            padding: 8,
+            color: colors.textPrimary,
+          }}
+        />
+        {rpgNote ? (
+          <Text style={{ ...typography.caption, marginTop: 8, color: colors.textMuted }}>{rpgNote}</Text>
+        ) : null}
       </View>
 
       <View style={S.drawerCard}>
@@ -379,10 +460,84 @@ export function IcarusFriendsDrawer({ projectId, initialTab = 'local' }) {
 }
 
 export function IcarusSkillsDrawer({ projectId, agent, skills = [], onRefresh }) {
+  const [catalog, setCatalog] = useState([]);
+  const [marketplace, setMarketplace] = useState([]);
+  const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const loadCatalog = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const [cat, market] = await Promise.all([
+        aiManagerService.listSkillCatalog(projectId),
+        aiManagerService.icarusMarketplace(projectId).catch(() => []),
+      ]);
+      setCatalog(Array.isArray(cat) ? cat : []);
+      setMarketplace(Array.isArray(market) ? market : []);
+    } catch { /* optional */ }
+  }, [projectId]);
+
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
+
+  const ensureCatalog = async () => {
+    setBusy(true);
+    try {
+      await aiManagerService.ensureSkillCatalog(projectId);
+      await loadCatalog();
+    } finally { setBusy(false); }
+  };
+
+  const createCatalogSkill = async () => {
+    const name = String(newName || '').trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      await aiManagerService.createSkillCatalogItem(projectId, {
+        name,
+        display_name: name,
+        template: { kind: 'prompt', body: '', version: '1.0.0' },
+        source: 'user',
+      });
+      setNewName('');
+      await loadCatalog();
+    } finally { setBusy(false); }
+  };
+
+  const installListing = async (listingId) => {
+    setBusy(true);
+    try {
+      await aiManagerService.marketplaceInstall(projectId, listingId);
+      await loadCatalog();
+      await onRefresh?.();
+    } finally { setBusy(false); }
+  };
+
   return (
     <ScrollView style={S.sectionBody}>
       <Text style={S.sectionTitle}>Skills</Text>
       <Text style={S.sectionSub}>Agent skills and marketplace packs for this project friend.</Text>
+      <Text style={{ ...typography.caption, marginTop: spacing.sm }}>Project catalog</Text>
+      {(catalog || []).length === 0 ? (
+        <Text style={typography.caption}>No catalog skills yet — ensure built-ins or create one.</Text>
+      ) : catalog.map((sk) => (
+        <View key={sk.id || sk.name} style={S.drawerCard}>
+          <Text style={typography.body}>{sk.display_name || sk.name}</Text>
+          <Text style={typography.caption}>{sk.source || 'user'} · {sk.status || 'ready'}</Text>
+        </View>
+      ))}
+      <TextInput
+        style={{
+          borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 8, marginTop: 8, color: colors.textPrimary,
+        }}
+        value={newName}
+        onChangeText={setNewName}
+        placeholder="New skill name"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+      />
+      <Button title="Create catalog skill" variant="secondary" onPress={createCatalogSkill} loading={busy} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
+      <Button title="Ensure built-in catalog" variant="secondary" onPress={ensureCatalog} loading={busy} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
+      <Text style={{ ...typography.caption, marginTop: spacing.md }}>Attached to agent</Text>
       {(skills || []).length === 0 ? (
         <Text style={typography.caption}>No skills attached yet.</Text>
       ) : skills.map((sk) => (
@@ -391,14 +546,24 @@ export function IcarusSkillsDrawer({ projectId, agent, skills = [], onRefresh })
           <Text style={typography.caption}>{sk.description || sk.summary || ''}</Text>
         </View>
       ))}
-      <Button title="Refresh" variant="secondary" onPress={onRefresh} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
-      {agent?.id ? (
-        <Button
-          title="Open marketplace skills"
-          variant="secondary"
-          onPress={() => aiManagerService.icarusSkills?.(projectId).catch(() => {})}
-          style={{ alignSelf: 'flex-start', marginTop: 8 }}
-        />
+      <Button title="Refresh" variant="secondary" onPress={() => { onRefresh?.(); loadCatalog(); }} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
+      {(marketplace || []).length > 0 ? (
+        <>
+          <Text style={{ ...typography.caption, marginTop: spacing.md }}>Marketplace</Text>
+          {marketplace.map((row) => (
+            <View key={row.id} style={S.drawerCard}>
+              <Text style={typography.body}>{row.name}</Text>
+              <Text style={typography.caption}>{row.description || row.visibility || ''}</Text>
+              <Button
+                title="Install"
+                variant="secondary"
+                loading={busy}
+                onPress={() => installListing(row.id)}
+                style={{ alignSelf: 'flex-start', marginTop: 6 }}
+              />
+            </View>
+          ))}
+        </>
       ) : null}
     </ScrollView>
   );
@@ -533,6 +698,10 @@ export function IcarusAdvancedDrawer({
     agent, projectId, pulseLive, stream, timeline, fs, openFs, termOut, runTerm, pins, rolls, settings,
   } = session;
   const [cmd, setCmd] = useState('pwd');
+  const [specName, setSpecName] = useState('booking-icarus');
+  const [specSpecialty, setSpecSpecialty] = useState('booking');
+  const [specNote, setSpecNote] = useState('');
+  const [specBusy, setSpecBusy] = useState(false);
   if (!agent) {
     return (
       <View style={S.sectionBody}>
@@ -554,6 +723,48 @@ export function IcarusAdvancedDrawer({
         timeline={timeline}
         style={{ height: 180, marginBottom: spacing.md }}
       />
+      <View style={S.drawerCard}>
+        <Text style={typography.body}>Specialist agents (Want14)</Text>
+        <Text style={typography.caption}>
+          Create a parallel Icarus specialist (e.g. booking). Primary stays the companion; specialists talk via AgentBus.
+        </Text>
+        <TextInput
+          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 8, marginTop: 6, color: colors.textPrimary }}
+          value={specName}
+          onChangeText={setSpecName}
+          placeholder="agent name"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TextInput
+          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 8, marginTop: 6, color: colors.textPrimary }}
+          value={specSpecialty}
+          onChangeText={setSpecSpecialty}
+          placeholder="specialty (booking|general)"
+          placeholderTextColor={colors.textMuted}
+        />
+        <Button
+          title="Create specialist"
+          variant="secondary"
+          loading={specBusy}
+          onPress={async () => {
+            setSpecBusy(true);
+            setSpecNote('');
+            try {
+              const out = await aiManagerService.createSpecialist(projectId, {
+                name: specName.trim(),
+                specialty: specSpecialty.trim() || 'general',
+              });
+              setSpecNote(`Created ${out?.agent?.name || specName} (${out?.agent?.id || 'ok'})`);
+            } catch (err) {
+              setSpecNote(err.response?.data?.error?.message || err.message || 'Create failed');
+            } finally {
+              setSpecBusy(false);
+            }
+          }}
+          style={{ alignSelf: 'flex-start', marginTop: 8 }}
+        />
+        {specNote ? <Text style={{ ...typography.caption, marginTop: 6 }}>{specNote}</Text> : null}
+      </View>
       <View style={S.drawerCard}>
         <Text style={typography.body}>Friend memory</Text>
         <Text style={typography.caption}>{(pins || []).length} pins · rolls keys: {Object.keys(rolls || {}).join(', ') || 'none'}</Text>

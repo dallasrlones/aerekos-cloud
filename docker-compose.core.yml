@@ -127,8 +127,10 @@ services:
       dockerfile: Dockerfile
     container_name: aerekos-updater
     restart: unless-stopped
+    # Host network: host.docker.internal:3300 is unreachable from the aerekos bridge on this fleet.
+    network_mode: host
     environment:
-      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://127.0.0.1:3300}
       - AEREKOS_AGENT_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - HOST_DIR=${AEREKOS_HOST_DIR:-/home/aerekos/work/aerekos/aerekos-cloud}
       - ROLE=core
@@ -139,10 +141,6 @@ services:
     depends_on:
       conductor:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - aerekos
 
   key_manager:
     build:

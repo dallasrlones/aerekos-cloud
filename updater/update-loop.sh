@@ -59,20 +59,34 @@ c0_ok() {
 
 apply_core() {
   local version="$1"
-  log "Conductor-role apply $version (never full.yml, never --remove-orphans)"
-  docker restart aerekos-cloud-conductor aerekos-cloud-frontend aerekos-cloud-worker 2>/dev/null || true
+  log "Conductor-role apply $version fleet-apply-rebuild-v1 (never full.yml, never --remove-orphans)"
   local files=(-f "$HOST_DIR/docker-compose.core.yml")
   if [ -f "$HOST_DIR/docker-compose.platform.yml" ]; then
     files+=(-f "$HOST_DIR/docker-compose.platform.yml")
+  fi
+  # Rebuild conductor (API is image-baked, not bind-mounted). Real container names.
+  if ! APP_VERSION="$version" docker compose --project-directory "$HOST_DIR" "${files[@]}" \
+       up -d --no-deps --build conductor; then
+    log "WARN: --no-deps --build conductor failed; restarting aerekos-conductor"
+    docker restart aerekos-conductor 2>/dev/null || true
+  fi
+  docker restart aerekos-frontend aerekos-worker 2>/dev/null || true
+  # Icarus brain lives in aerekos-ai project — rebuild or tools stay stale
+  local ai_file=""
+  if [ -f "$HOST_DIR/worker/docker-compose.ai.yml" ]; then
+    ai_file="$HOST_DIR/worker/docker-compose.ai.yml"
+  elif [ -f "$HOST_DIR/docker-compose.ai.yml" ]; then
+    ai_file="$HOST_DIR/docker-compose.ai.yml"
+  fi
+  if [ -n "$ai_file" ]; then
+    log "Rebuilding aerekos-ai_manager (--no-deps --build)"
+    APP_VERSION="$version" docker compose --project-directory "$HOST_DIR/worker" -p aerekos-ai -f "$ai_file" \
+      up -d --no-deps --build ai_manager || log "WARN: ai_manager --no-deps --build failed"
   fi
   local svcs
   svcs=$(docker compose --project-directory "$HOST_DIR" "${files[@]}" config --services 2>/dev/null \
     | grep -vx "$UPDATER_SERVICE" | grep -vx "auth_manager" | grep -vx "aerekos-updater" \
     | grep -vx "conductor" | grep -vx "frontend" | grep -vx "worker" || true)
-  if [ -z "$svcs" ]; then
-    log "No manager services to rebuild; bind-mount restart only"
-    return 0
-  fi
   # One service at a time with --build. Mass --build OOMs the updater (exit 137).
   # Never --remove-orphans (mixed stack). Never rebuild auth_manager (C0 mint).
   local svc
@@ -112,6 +126,11 @@ apply_worker() {
     ai_file="$HOST_DIR/docker-compose.ai.yml"
   fi
   if [ -n "$ai_file" ]; then
+    if docker compose --project-directory "$HOST_DIR/worker" -p aerekos-ai -f "$ai_file" config --services 2>/dev/null | grep -qx 'ai_manager'; then
+      log "Rebuilding aerekos-ai_manager (--no-deps --build)"
+      APP_VERSION="$version" docker compose --project-directory "$HOST_DIR/worker" -p aerekos-ai -f "$ai_file" \
+        up -d --no-deps --build ai_manager || log "WARN: ai_manager --no-deps --build failed"
+    fi
     local vllm_state
     vllm_state=$(docker inspect -f '{{.State.Status}}' aerekos-vllm 2>/dev/null || echo missing)
     if [ "$vllm_state" = "running" ]; then

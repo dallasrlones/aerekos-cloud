@@ -323,7 +323,7 @@ class CicdPipelineService {
       const archive = await axios.get(
         `${gitBase}/api/v1/repos/${encodeURIComponent(repoId)}/bundle`,
         {
-          headers: { 'x-project-id': projectId, Authorization: authHeaders(projectId).Authorization || '' },
+          headers: authHeaders(projectId),
           timeout: 120000,
           responseType: 'arraybuffer',
           validateStatus: () => true,

@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY package*.json ./
 
-RUN npm install --omit=dev && npm cache clean --force
+# ignore-scripts: root package.json prepare runs husky (dev-only; missing in slim image)
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY . .
 

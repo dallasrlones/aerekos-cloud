@@ -12,9 +12,16 @@ function conductorBase() {
 }
 
 function authHeaders(projectId, extra = {}) {
-  const tok = process.env.CONDUCTOR_TOKEN || process.env.SERVICE_TOKEN || '';
+  const tok = process.env.CONDUCTOR_TOKEN
+    || process.env.SERVICE_TOKEN
+    || process.env.AEREKOS_AGENT_TOKEN
+    || '';
   return {
-    ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+    ...(tok ? {
+      Authorization: `Bearer ${tok}`,
+      // Releases + some managers accept agent token header (UUID bearer alone can 401)
+      'x-aerekos-agent-token': tok,
+    } : {}),
     ...(projectId ? { 'x-project-id': projectId } : {}),
     'Content-Type': 'application/json',
     ...extra,

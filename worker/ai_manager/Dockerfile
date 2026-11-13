@@ -4,7 +4,7 @@
 FROM node:20-bookworm-slim
 WORKDIR /app/ai_manager
 COPY ai_manager/package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 COPY ai_manager/ ./
 # shared/ holds simplePrometheusMetrics + logOutbox used via require('../shared/..')
 COPY shared /app/shared

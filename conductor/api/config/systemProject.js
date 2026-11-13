@@ -1,5 +1,7 @@
 'use strict';
 
+/** fleet-apply-rebuild-v1 — marker for Slice 0 live DoD (must appear in rebuilt conductor image) */
+const FLEET_APPLY_MARKER = 'fleet-apply-rebuild-v1';
 const SYSTEM_PROJECT_ID = '9d8bde11-6933-4732-b746-602dcf72eaa5';
 const SYSTEM_PROJECT_NAME = 'system';
 const AEREKOS_CLOUD_REPO = 'aerekos-cloud';
@@ -15,6 +17,7 @@ function isAerekosCloudFleet(projectId, repoName) {
 }
 
 module.exports = {
+  FLEET_APPLY_MARKER,
   SYSTEM_PROJECT_ID,
   SYSTEM_PROJECT_NAME,
   AEREKOS_CLOUD_REPO,

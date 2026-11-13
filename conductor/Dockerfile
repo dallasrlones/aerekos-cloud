@@ -1,3 +1,4 @@
+# Build context MUST be conductor/ (see docker-compose.core.yml).
 FROM node:20-bookworm-slim
 
 WORKDIR /app
@@ -8,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY package*.json ./
 
-# ignore-scripts: root package.json prepare runs husky (dev-only; missing in slim image)
+# ignore-scripts: safe if prepare hooks appear; slim image has no husky
 RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY . .

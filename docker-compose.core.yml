@@ -14,8 +14,8 @@
 services:
   conductor:
     build:
-      context: .
-      dockerfile: conductor/Dockerfile
+      context: ./conductor
+      dockerfile: Dockerfile
     container_name: aerekos-conductor
     restart: unless-stopped
     environment:

@@ -1587,7 +1587,9 @@
       "category": "AI",
       "port": 3126,
       "status": "needs-keys",
-      "summary": "Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / workers) and dynamic connectors. Poll + WS ai:live, ai:agent.ask, ai:agent.pulse, ai:agent.done.",
+      "summary": "Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:agent.*.",
+      "consolePath": "/icarus",
+      "docsGuide": "guides/icarus.md",
       "proxyBase": "/api/v1",
       "crud": {
         "segment": "intelligence"
@@ -1626,6 +1628,36 @@
           "method": "DELETE",
           "path": "/api/v1/intelligence/:id",
           "summary": "Delete a intelligence"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/plans",
+          "summary": "List Icarus plan graphs for a project"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/plans/:planId",
+          "summary": "Get one plan"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/plans/:planId/scrub",
+          "summary": "Time-travel subgraph scrub"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/ready",
+          "summary": "Ready tasks for a plan"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/tasks/:taskId/trace",
+          "summary": "Task tools + why/trace"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/icarus/status",
+          "summary": "Icarus graph/runtime status"
         },
         {
           "method": "GET",
@@ -1923,9 +1955,24 @@
           "summary": "Inter-agent message"
         },
         {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/plans",
+          "summary": "List plans (Current/History)"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/agents/:id/plans/:planId",
+          "summary": "Get one plan"
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/agents/:id/console-events",
+          "summary": "Playwright console ring from icarus-browser"
+        },
+        {
           "method": "POST",
           "path": "/api/v1/agents/:id/compact",
-          "summary": "Queued compact job (never pins/ASK/DoD)"
+          "summary": "Queued compact job (never pins/ASK/DoD). Intelligence options.compact: enabled, threshold_ratio, keep_recent, max_summary_chars"
         },
         {
           "method": "GET",

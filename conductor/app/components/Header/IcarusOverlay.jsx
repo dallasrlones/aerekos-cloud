@@ -82,8 +82,14 @@ export function IcarusOverlay({ visible, onClose, navigation }) {
         setReply(hit.anchor ? `Opening ${hit.screen}.` : `I'm there.`);
         return;
       }
-      if (hit.kind === 'unknown') {
-        setReply('I can open Agents, containers, or Settings. Which?');
+      if (hit.kind === 'chat' || hit.kind === 'unknown') {
+        if (hit.kind === 'chat' || hit.screen === 'icarus') {
+          navigation?.navigate('icarus', { section: 'chat', seed: hit.text || t, ...(hit.params || {}) });
+          setReply('Opening Icarus chat with that.');
+          onClose?.();
+          return;
+        }
+        setReply('I can open Agents, IDE, Functions, API, containers, or Settings. Which?');
         return;
       }
       if (hit.kind === 'mutate') {

@@ -1,8 +1,10 @@
 # Master todo registry
 
 > **Canonical list** — every Cursor todo ID mapped here. Check boxes as work completes.  
-> **Navigation:** [Index](./README.md) · [milestone_m1.md](./milestone_m1.md) · [enterprise_standards.md](./enterprise_standards.md)
+> **Navigation:** [Index](./README.md) · [milestone_m1.md](./milestone_m1.md) · [enterprise_standards.md](./enterprise_standards.md)  
+> **GA gate:** [`../GA_CHECKLIST.md`](../GA_CHECKLIST.md) · **STATUS:** [`../../STATUS.md`](../../STATUS.md) · **Compute ADR:** [`../adr/004-aerekos-compute-orchestrator.md`](../adr/004-aerekos-compute-orchestrator.md)
 
+**Progress (2026-11-13):** Full GA → `v0.1.0` in flight (W0–W19 + aerekos Compute orchestrator).  
 **Progress (2026-06-07):** Platform P0–P10 code ✅ · Setup wizards cc-wizard-1–4 ✅ · pro-edge-0/1 code ✅ (prod CF secrets + cloudflared deploy = ops) · NOT production-complete — edge hostname wizard, VPC, enterprise bulk still open.
 
 ---
@@ -345,7 +347,7 @@ Plan: [enterprise_standards.md](./enterprise_standards.md)
 | post-e47 | docs/adr/ architecture decision records |
 | post-e48 | SBOM + npm audit in CI on deploy |
 | post-e49 | Slug validation middleware on resource create |
-| post-e50 | Project membership — users scoped to projects (extends E43) |
+| post-e50 | Project membership — users scoped to projects (extends E43) — **done GA** (invites + Friends UI + viewer RBAC); federation Preview — see guides/icarus.md + friends_federation.md |
 | post-e51 | Per-project resource import/export (DR/migration) |
 | post-e52 | ~~Enablement wizard~~ → superseded by cc-wizard-* (cancelled) |
 | post-e53 | AI model governance — approved model allowlist per project |

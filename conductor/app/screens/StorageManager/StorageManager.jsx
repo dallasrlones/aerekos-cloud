@@ -9,9 +9,16 @@ import { storageManagerService } from '../../services/storageManagerService';
 import { StorageManagerStyles } from './StorageManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { AnimusPage } from '../../components/Animus';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { getDepsForService, resolveMissing } from '../../services/serviceDeps';
+import { setupService } from '../../services/setupService';
+import { getServiceMeta } from '../../services/serviceCatalog';
+import { useToast } from '../../components/Toast/ToastProvider';
 
 export const StorageManager = ({ navigation }) => {
   const { currentProject } = useProject();
+  const { showToast } = useToast();
+  const [guideDeps, setGuideDeps] = useState([]);
   const [status, setStatus] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -26,6 +33,60 @@ export const StorageManager = ({ navigation }) => {
     loadMetrics();
     loadStoragePath();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDeps() {
+      if (!currentProject?.id) {
+        setGuideDeps(resolveMissing(getDepsForService('storage_manager'), []));
+        return;
+      }
+      try {
+        const setup = await setupService.getServiceSetup('storage_manager', currentProject.id);
+        const enabled = new Set(
+          (setup.dependencies || [])
+            .filter((d) => d.status === 'connected' || d.enabled)
+            .map((d) => d.service),
+        );
+        if (setup.enabled) enabled.add('storage_manager');
+        const base = getDepsForService('storage_manager');
+        const merged = base.map((row) => {
+          const live = (setup.dependencies || []).find((d) => d.service === row.id);
+          return {
+            ...row,
+            status: live?.status === 'connected' ? 'satisfied' : live?.enabled ? 'ready' : row.status,
+            why: live?.reason || row.why,
+          };
+        });
+        if (!cancelled) setGuideDeps(resolveMissing(merged, enabled));
+      } catch {
+        if (!cancelled) setGuideDeps(resolveMissing(getDepsForService('storage_manager'), []));
+      }
+    }
+    loadDeps();
+    return () => { cancelled = true; };
+  }, [currentProject?.id, status?.enabled]);
+
+  const openDep = (dep) => {
+    const meta = getServiceMeta(dep?.id);
+    if (meta?.route) navigation.navigate(meta.route);
+    else navigation.navigate('managerConsole', { serviceName: dep.id });
+  };
+
+  const enableAllDeps = async () => {
+    if (!currentProject?.id) {
+      Alert.alert('Select a project', 'Pick a project to enable dependencies.');
+      return;
+    }
+    try {
+      const plan = await setupService.provisionDeps(currentProject.id, 'storage_manager', { dryRun: true });
+      showToast(plan.summary || 'Dependency plan ready');
+      await setupService.enable(currentProject.id, 'storage_manager', { withDependencies: true });
+      await loadStatus();
+    } catch (err) {
+      Alert.alert('Enable failed', err.response?.data?.error?.message || err.message);
+    }
+  };
 
   const loadStoragePath = async () => {
     try {
@@ -129,6 +190,38 @@ export const StorageManager = ({ navigation }) => {
           <Text style={StorageManagerStyles.errorText}>{error}</Text>
         </Box>
       )}
+
+      <ServiceGuide
+        title="Object storage guide"
+        analogue="Amazon S3"
+        blurb="Durable buckets, signed URLs, and per-bucket encryption. App credentials invoke storage APIs through the conductor proxy."
+        whenToUse={[
+          'Static assets, user uploads, and backups',
+          'LFS and git bare repos (with git_manager)',
+          'Encrypted PHI/PII when paired with key_manager',
+        ]}
+        prerequisites={[
+          'Select a project (all buckets are project-scoped)',
+          'Enable key_manager and auth_manager for the project',
+        ]}
+        examples={[
+          {
+            label: 'Create bucket (app credential)',
+            code: `POST /api/services/storage_manager/api/projects/{projectId}/buckets\n{ "name": "media", "encryption": "AES256" }`,
+          },
+          {
+            label: 'Signed upload URL',
+            code: `POST .../buckets/{bucketId}/files/{fileId}/signed-url\n{ "type": "upload", "expires_in": 3600 }`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={() => {
+          if (currentProject?.id) enableAllDeps();
+          else Alert.alert('Select a project', 'Pick a project to run setup.');
+        }}
+      />
 
       {/* Service Status */}
       <Box title="Service Status">

@@ -261,6 +261,31 @@ class PlanGraphStore {
     });
   }
 
+  async listPhases(planId) {
+    const sub = await this.subgraph(planId);
+    return sub.tasks.filter((t) => t.kind === 'phase');
+  }
+
+  async taskHierarchy(planId) {
+    const sub = await this.subgraph(planId);
+    return buildTaskHierarchy(sub.tasks, sub.edges);
+  }
+
+  async projectHierarchy() {
+    const plans = await this.listPlans();
+    const out = { project_id: this.projectId, plans: [] };
+    for (const plan of plans) {
+      const tree = await this.taskHierarchy(plan.id);
+      out.plans.push({
+        ...plan,
+        phases: tree.phases,
+        tasks: tree.tasks,
+        hierarchy: tree.roots,
+      });
+    }
+    return out;
+  }
+
   async subgraph(planId) {
     this.assertConfigured();
     return withSession(async (session) => {
@@ -415,6 +440,29 @@ function safeJson(v) {
   try { return JSON.parse(v); } catch { return {}; }
 }
 
+/** Nested task tree from PARENT edges (phase → task → subtask). */
+function buildTaskHierarchy(tasks, edges) {
+  const nodes = new Map();
+  for (const t of tasks) {
+    nodes.set(t.id, { ...t, children: [] });
+  }
+  const childIds = new Set();
+  for (const e of edges) {
+    if (e.type !== RELS.PARENT) continue;
+    const parent = nodes.get(e.from);
+    const child = nodes.get(e.to);
+    if (!parent || !child) continue;
+    parent.children.push(child);
+    childIds.add(e.to);
+  }
+  const roots = [...nodes.values()].filter((n) => !childIds.has(n.id));
+  return {
+    roots,
+    phases: roots.filter((n) => n.kind === 'phase'),
+    tasks: roots.filter((n) => n.kind !== 'phase'),
+  };
+}
+
 function neoVal(v) {
   if (v == null) return null;
   if (typeof v === 'object' && v.properties) return v.properties;
@@ -560,6 +608,31 @@ class MemoryPlanGraphStore {
     return out.sort((a, b) => b.priority - a.priority || a.created_at - b.created_at);
   }
 
+  async listPhases(planId) {
+    const sub = await this.subgraph(planId);
+    return sub.tasks.filter((t) => t.kind === 'phase');
+  }
+
+  async taskHierarchy(planId) {
+    const sub = await this.subgraph(planId);
+    return buildTaskHierarchy(sub.tasks, sub.edges);
+  }
+
+  async projectHierarchy() {
+    const plans = await this.listPlans();
+    const out = { project_id: this.projectId, plans: [] };
+    for (const plan of plans) {
+      const tree = await this.taskHierarchy(plan.id);
+      out.plans.push({
+        ...plan,
+        phases: tree.phases,
+        tasks: tree.tasks,
+        hierarchy: tree.roots,
+      });
+    }
+    return out;
+  }
+
   async subgraph(planId) {
     return {
       plan: this.plans.get(planId),
@@ -613,6 +686,7 @@ module.exports = {
   MemoryPlanGraphStore,
   createPlanGraphStore,
   ensureSchema,
+  buildTaskHierarchy,
   LABELS,
   RELS,
 };

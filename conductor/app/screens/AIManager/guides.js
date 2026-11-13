@@ -1,32 +1,32 @@
-/** In-console documentation for local ai_manager. */
+/** In-console documentation for Icarus (ai_manager). */
 
 export const AI_GUIDES = {
   overview: {
-    title: 'Getting started with AI Manager',
+    title: 'Getting started with Icarus',
     steps: [
       {
-        title: 'Seed local endpoints',
-        body: 'AI Manager hub → Endpoints → Setup local fleet. Creates orin-ollama, orin-vllm, orin-tts-cache, orin-stt, etc. from the GPU host env.',
+        title: 'Open /icarus',
+        body: 'Header sparkle opens Icarus for the current project. Old /services/ai_manager bookmarks redirect here.',
       },
       {
-        title: 'Confirm services are online',
-        body: 'Overview shows LLM, TTS, STT, Embeddings health. All run on your Orin GPU host via ai_manager.',
+        title: 'Seed fleet endpoints',
+        body: 'Icarus → Fleet → Endpoints → Setup local fleet. Creates orin-ollama, orin-vllm, orin-tts-cache, orin-stt, etc.',
+      },
+      {
+        title: 'Talk first',
+        body: 'Chat → Setup Icarus if needed → send “hey”. Friend CHAT streams tokens on ai:live. Do-work prompts hand off to the manager and the 3D graph.',
       },
       {
         title: 'Pull an LLM model',
-        body: 'LLM → pick the Ollama endpoint → Models → enter model name (e.g. llama3.2:3b) → Pull. vLLM does not pull; edit the endpoint Hugging Face id and restart the GPU container.',
+        body: 'Models → LLM → pick Ollama endpoint → Pull (e.g. llama3.2:3b). vLLM uses the endpoint Hugging Face id + restart.',
       },
       {
-        title: 'Pick an integration per capability',
-        body: 'Each Serve screen (LLM, TTS, STT, Embeddings) has an integration picker. Choose orin-ollama, orin-tts-cache, etc. or Host default.',
-      },
-      {
-        title: 'Intelligence endpoints',
-        body: 'AI Manager hub → Intelligence → Create intelligence. Bind an LLM, attach RAG collections and memory. Apps keep the same ARN when you swap the LLM.',
+        title: 'Intelligence + app memory',
+        body: 'Apps → Intelligence → create ARN, attach RAG and app memory stores. Friend memory (pins/rolls) lives under Advanced.',
       },
       {
         title: 'App access',
-        body: 'AI Manager hub → Access → create credential with endpoint ARNs + scopes → mint token → invoke with resource ARN.',
+        body: 'Apps → Access → credential + scopes → mint token → invoke with resource ARN.',
       },
     ],
   },

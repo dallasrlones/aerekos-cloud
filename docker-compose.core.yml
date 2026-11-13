@@ -228,6 +228,9 @@ services:
       # aerekos-tv media library: base_path for the 'tv-media' system bucket.
       # Bucket objects land under <base_path>/<bucketId>/ (encrypted).
       - /mnt/usb24tb/aerekos_storage/aerekos-tv:/mnt/usb24tb/aerekos_storage/aerekos-tv
+      # aerekos-tv posters/thumbs/previews on local NVMe (tv-posters system bucket).
+      # Without this bind, signed poster URLs 404 with "Stored object missing".
+      - /home/aerekos/work/aerekos-tv/data/tv-posters:/app/data/tv-posters
     depends_on:
       conductor:
         condition: service_healthy

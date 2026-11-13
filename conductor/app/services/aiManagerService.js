@@ -409,7 +409,9 @@ export const aiManagerService = {
     return res.data;
   },
   async agentMessages(projectId, id) {
-    const res = await api.get(`${ROOT}/agents/${id}/messages`, { params: { project_id: projectId } });
+    const res = await api.get(`${ROOT}/agents/${id}/messages`, {
+      params: { project_id: projectId, limit: 500 },
+    });
     return res.data?.items || [];
   },
   async agentPins(projectId, id) {

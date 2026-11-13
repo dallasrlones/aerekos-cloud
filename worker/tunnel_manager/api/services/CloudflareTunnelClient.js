@@ -1,3 +1,7 @@
+/**
+ * Cloudflare tunnel API adapter — default {@link TunnelProvider} implementation.
+ * @see worker/shared/edgeProviders.js · docs/architecture/edge-providers.md
+ */
 const axios = require('axios');
 
 const BASE = 'https://api.cloudflare.com/client/v4/accounts';

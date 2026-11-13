@@ -196,6 +196,52 @@ router.put('/profile', authenticate, async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/auth/users
+ * Admin-only: create a console user (friends e2e + ops).
+ * Body: { username, email, password, role? }
+ */
+router.post('/users', authenticate, async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        error: { message: 'admin only', code: 'ADMIN_REQUIRED', status: 403 },
+      });
+    }
+    const { username, email, password, role } = req.body || {};
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        error: { message: 'username, email, and password are required', status: 400 },
+      });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({
+        error: { message: 'password must be at least 6 characters', status: 400 },
+      });
+    }
+    const { hashPassword } = require('../utils/password');
+    const user = await UserService.createUser({
+      username: String(username).trim(),
+      email: String(email).trim(),
+      password_hash: await hashPassword(String(password)),
+      role: role === 'admin' ? 'admin' : 'user',
+    });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    if (error.message.includes('already exists')) {
+      return res.status(409).json({ error: { message: error.message, status: 409 } });
+    }
+    next(error);
+  }
+});
+
 router.post('/totp/enable', authenticate, async (req, res, next) => {
   try {
     const { generateSecret, verifyTotp } = require('../utils/totp');

@@ -10,7 +10,10 @@ const authenticate = require('../middleware/auth');
  */
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const projects = await ProjectService.listProjects();
+    const projects = await ProjectService.listProjects({
+      actorId: req.userId || req.user?.id,
+      actorRole: req.user?.role,
+    });
     
     res.json({
       projects: projects.map(p => ({
@@ -19,6 +22,7 @@ router.get('/', authenticate, async (req, res, next) => {
         description: p.description,
         enabled: p.enabled === 1,
         config: p.config,
+        created_by: p.created_by || null,
         workerCount: p.workerCount,
         serviceCount: p.serviceCount,
         deploymentCount: p.deploymentCount,
@@ -31,8 +35,29 @@ router.get('/', authenticate, async (req, res, next) => {
   }
 });
 
-const { requireProjectMember } = require('../middleware/requireProjectMember');
-router.use('/:id', authenticate, requireProjectMember);
+const { requireProjectMember, requireProjectRole } = require('../middleware/requireProjectMember');
+const { requireProjectCapability } = require('../middleware/requireProjectCapability');
+const ProjectFriendService = require('../services/ProjectFriendService');
+
+/**
+ * POST /api/projects/invites/accept
+ * Accept a friend invite by token (caller need not be a member yet).
+ */
+router.post('/invites/accept', authenticate, async (req, res, next) => {
+  try {
+    const token = req.body?.token || req.body?.invite_token;
+    const userId = req.userId || req.user?.id;
+    const result = await ProjectFriendService.acceptInvite(token, userId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+router.use('/:id', authenticate, requireProjectMember, requireProjectCapability);
 
 router.get('/:id/environments', authenticate, async (req, res, next) => {
   try {
@@ -158,7 +183,8 @@ router.post('/', authenticate, async (req, res, next) => {
       description: description || '',
       enabled: enabled !== undefined ? enabled : true,
       config: config || {},
-      default_environment
+      default_environment,
+      created_by: req.userId || req.user?.id || '',
     });
     try {
       const IacHookupService = require('../services/IacHookupService');
@@ -796,22 +822,146 @@ router.post('/:id/edge/hookup', authenticate, async (req, res, next) => {
 
 router.get('/:id/members', authenticate, async (req, res, next) => {
   try {
-    const { ProjectMember } = require('../models');
-    const members = await ProjectMember.findAll({ where: { project_id: req.params.id } });
-    res.json({ members });
+    const members = await ProjectFriendService.listMembers(req.params.id);
+    res.json({ members, maturity: ProjectFriendService.FRIENDS_MATURITY });
   } catch (err) { next(err); }
 });
 
-router.post('/:id/members', authenticate, async (req, res, next) => {
+router.post('/:id/members', authenticate, requireProjectRole('owner'), async (req, res, next) => {
   try {
-    const { ProjectMember } = require('../models');
-    const row = await ProjectMember.create({
-      project_id: req.params.id,
-      user_id: req.body.user_id,
-      role: req.body.role || 'member',
-    });
-    res.status(201).json({ member: row });
+    const can = await ProjectFriendService.actorCanManage(req, req.params.id);
+    if (!can) {
+      return res.status(403).json({
+        error: { message: 'only project creator or owner can bootstrap membership', code: 'PROJECT_BOOTSTRAP_DENIED', status: 403 },
+      });
+    }
+    const actorId = req.userId || req.user?.id;
+    const member = await ProjectFriendService.addMember(
+      req.params.id,
+      { user_id: req.body.user_id, role: req.body.role || 'member' },
+      actorId,
+    );
+    res.status(201).json({ member, maturity: ProjectFriendService.FRIENDS_MATURITY });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+router.patch('/:id/members/:userId', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const member = await ProjectFriendService.updateMemberRole(
+      req.params.id,
+      req.params.userId,
+      req.body?.role,
+    );
+    res.json({ member });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+router.delete('/:id/members/:userId', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const result = await ProjectFriendService.revokeMember(req.params.id, req.params.userId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+/** POST /api/projects/:id/members/leave — current user leaves the project */
+router.post('/:id/members/leave', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const result = await ProjectFriendService.leaveProject(req.params.id, userId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+/** POST /api/projects/:id/members/clear — owner clears ACL (project becomes open) */
+router.post('/:id/members/clear', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const result = await ProjectFriendService.clearMembership(req.params.id);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+const federationRoutes = require('./federation');
+
+/** POST /api/projects/:id/federation/grants — home mints signed federation grant */
+router.post(
+  '/:id/federation/grants',
+  authenticate,
+  requireProjectRole('owner'),
+  federationRoutes.mintProjectGrant,
+);
+
+router.get(
+  '/:id/federation/grants',
+  authenticate,
+  requireProjectRole('owner'),
+  federationRoutes.listProjectGrants,
+);
+
+router.get('/:id/invites', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const invites = await ProjectFriendService.listInvites(req.params.id);
+    res.json({ invites, maturity: ProjectFriendService.FRIENDS_MATURITY });
   } catch (err) { next(err); }
+});
+
+router.post('/:id/invites', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const can = await ProjectFriendService.actorCanManage(req, req.params.id);
+    if (!can) {
+      return res.status(403).json({
+        error: { message: 'only project creator or owner can bootstrap invites', code: 'PROJECT_BOOTSTRAP_DENIED', status: 403 },
+      });
+    }
+    const actorId = req.userId || req.user?.id;
+    const invite = await ProjectFriendService.createInvite(
+      req.params.id,
+      { role: req.body?.role, ttl_ms: req.body?.ttl_ms, email: req.body?.email },
+      actorId,
+    );
+    res.status(201).json({ invite, maturity: ProjectFriendService.FRIENDS_MATURITY });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
+});
+
+router.delete('/:id/invites/:inviteId', authenticate, requireProjectRole('owner'), async (req, res, next) => {
+  try {
+    const invite = await ProjectFriendService.revokeInvite(req.params.id, req.params.inviteId);
+    res.json({ invite });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message, status: err.status } });
+    }
+    next(err);
+  }
 });
 
 router.get('/:id/export', authenticate, async (req, res, next) => {

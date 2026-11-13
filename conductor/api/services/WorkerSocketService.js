@@ -255,23 +255,75 @@ class WorkerSocketService {
         }
       });
 
-      socket.on('live:subscribe', (data) => {
-        const { canJoinLiveRoom } = require('./LiveRoom');
-        const room = data?.room;
-        const projectId = data?.project_id || data?.projectId || socket.handshake?.auth?.projectId || socket.handshake?.headers?.['x-project-id'];
-        if (canJoinLiveRoom(room, { projectId, subscribeProject: projectId, user: socket.user })) {
+      socket.on('live:subscribe', async (data) => {
+        try {
+          const { canJoinLiveRoom, projectIdFromRoom, isLiveEvent } = require('./LiveRoom');
+          const FriendPresence = require('./FriendPresence');
+          const { userIsProjectMember } = require('../middleware/requireProjectMember');
+          const room = data?.room;
+          const projectId = data?.project_id || data?.projectId
+            || projectIdFromRoom(room)
+            || socket.handshake?.auth?.projectId
+            || socket.handshake?.headers?.['x-project-id'];
+          if (!canJoinLiveRoom(room, { projectId, subscribeProject: projectId, user: socket.user })) {
+            return;
+          }
+          const uid = socket.user?.id || socket.user?.userId || socket.user?.sub;
+          if (projectId && uid && socket.user?.role !== 'admin') {
+            const allowed = await userIsProjectMember(uid, projectId);
+            if (!allowed) return;
+          }
           socket.join(room);
+          if (projectIdFromRoom(room) && isLiveEvent('ai:friend.presence')) {
+            const peers = FriendPresence.join(room, socket.id, {
+              userId: uid,
+              username: socket.user?.username || socket.user?.email || null,
+              projectId,
+            });
+            this.broadcastToRoom(room, 'ai:friend.presence', {
+              action: 'join',
+              user_id: uid || null,
+              username: socket.user?.username || null,
+              peers,
+              status: 'active',
+            });
+          }
+        } catch (err) {
+          console.warn('[Socket] live:subscribe failed:', err.message);
         }
       });
 
       socket.on('live:unsubscribe', (data) => {
-        const { isLiveRoom } = require('./LiveRoom');
+        const { isLiveRoom, projectIdFromRoom } = require('./LiveRoom');
+        const FriendPresence = require('./FriendPresence');
         const room = data?.room;
-        if (isLiveRoom(room)) socket.leave(room);
+        if (!isLiveRoom(room)) return;
+        socket.leave(room);
+        if (projectIdFromRoom(room)) {
+          const peers = FriendPresence.leave(room, socket.id);
+          this.broadcastToRoom(room, 'ai:friend.presence', {
+            action: 'leave',
+            user_id: socket.user?.id || null,
+            peers,
+            status: 'active',
+          });
+        }
       });
 
       socket.on('disconnect', () => {
         console.log(`[Socket] Frontend client disconnected: ${socket.id}`);
+        try {
+          const FriendPresence = require('./FriendPresence');
+          const rooms = FriendPresence.leaveAll(socket.id);
+          for (const room of rooms) {
+            this.broadcastToRoom(room, 'ai:friend.presence', {
+              action: 'leave',
+              user_id: socket.user?.id || null,
+              peers: FriendPresence.list(room),
+              status: 'active',
+            });
+          }
+        } catch (_) { /* ignore */ }
       });
     });
 

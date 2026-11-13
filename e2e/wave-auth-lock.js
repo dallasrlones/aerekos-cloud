@@ -1,6 +1,6 @@
 'use strict';
 
-const { skipLive, assert, runNamed, request, adminToken } = require('./lib/icarusLive');
+const { skipLive, assert, runNamed, request, adminToken, isPlaceholderToken } = require('./lib/icarusLive');
 const { withSandbox } = require('./lib/sandbox');
 const { assertNotProdProject } = require('./lib/prodGuard');
 
@@ -11,6 +11,14 @@ async function main() {
     process.exit(0);
   }
   let ok = true;
+  ok = await runNamed('placeholder env tokens are not used as admin JWT', async () => {
+    const samples = ['replace-with-real', 'changeme', 'your_token'];
+    for (const s of samples) {
+      assert(isPlaceholderToken(s), `expected placeholder: ${s}`);
+    }
+    return 'ok';
+  }) && ok;
+
   await withSandbox('auth', async (box) => {
     assertNotProdProject(box.projectId);
     ok = await runNamed('admin token works', async () => {

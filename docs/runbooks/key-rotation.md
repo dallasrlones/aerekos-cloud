@@ -31,3 +31,13 @@ Rotate in this order to avoid downtime:
 
 - Tunnel API token: `cloudflare.api_token` in secrets_manager
 - Zero Trust Access: separate token — see [edge_stack_pro.md](../plans/edge_stack_pro.md)
+
+---
+
+## GA drill log
+
+Record rotation exercises here (one line per run). Detailed steps stay in operator scratch notes under `scratch/docs/` — never commit secrets.
+
+| Date | Operator | Keys rotated | Evidence | Notes |
+|------|----------|--------------|----------|-------|
+| 2026-11-13 | _name_ | AUTH_MANAGER signing (dry-run) | `scratch/docs/key-rotation-2026-11-13.md` | GA Phase 1a stub — no prod secrets changed |

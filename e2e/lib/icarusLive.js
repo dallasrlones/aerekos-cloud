@@ -66,10 +66,24 @@ function request(method, pathname, { token, query, body, headers, timeoutMs } = 
   });
 }
 
+function isPlaceholderToken(tok) {
+  const t = String(tok || '').trim();
+  if (!t) return true;
+  if (/^replace-/i.test(t)) return true;
+  if (/^your[_-]?token/i.test(t)) return true;
+  if (t === 'changeme' || t === 'TODO' || t === 'xxx') return true;
+  return false;
+}
+
 async function adminToken() {
-  const existing = env('AEREKOS_C0_ADMIN_TOKEN') || env('TOKEN');
-  if (existing) return existing;
-  const r = await request('POST', '/api/auth/login', { body: { username: 'admin', password: 'admin' } });
+  const existing = env('AEREKOS_C0_ADMIN_TOKEN') || env('TOKEN') || env('ICARUS_API_TOKEN');
+  if (existing && !isPlaceholderToken(existing)) return existing;
+  if (existing && isPlaceholderToken(existing)) {
+    console.warn('[icarusLive] ignoring placeholder admin token; falling back to login');
+  }
+  const user = env('AEREKOS_ADMIN_USER') || 'admin';
+  const pass = env('AEREKOS_ADMIN_PASSWORD') || 'admin';
+  const r = await request('POST', '/api/auth/login', { body: { username: user, password: pass } });
   if (r.status !== 200 || !r.data?.token) throw new Error(`admin login HTTP ${r.status}`);
   return r.data.token;
 }
@@ -114,4 +128,5 @@ module.exports = {
   mintAppToken,
   assert,
   runNamed,
+  isPlaceholderToken,
 };

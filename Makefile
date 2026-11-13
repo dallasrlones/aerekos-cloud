@@ -11,7 +11,7 @@
 
 COMPOSE := docker compose -f docker-compose.full.yml
 
-.PHONY: help gen build up start down restart ps health logs clean dockerfiles e2e test docs docs-serve detect worker catalog-check
+.PHONY: help gen build up start down restart ps health logs clean dockerfiles e2e test docs docs-serve detect worker catalog-check e2e-icarus-wants e2e-icarus-wants-live
 
 help:
 	@echo "aerekos-cloud targets:"
@@ -53,6 +53,7 @@ dockerfiles:
 
 docs:
 	node scripts/gen-docs.mjs
+	node scripts/gen-platform-tools.mjs
 
 docs-serve: docs
 	@echo "Serving docs at http://localhost:$${DOCS_PORT:-8080} (Ctrl-C to stop)"
@@ -91,6 +92,13 @@ logs:
 #   CONDUCTOR_URL=http://host:port make e2e
 e2e:
 	CONDUCTOR_URL="$${CONDUCTOR_URL:-http://localhost:$${CONDUCTOR_PORT:-3000}}" node e2e/run.js
+
+# Icarus wants W1–W4 matrix (offline: CorpusStore + nav catalog mocks only)
+e2e-icarus-wants:
+	ICARUS_C0_SKIP_LIVE=1 node e2e/icarus-wants-matrix.js
+
+e2e-icarus-wants-live:
+	node e2e/icarus-wants-matrix.js
 
 # Run the worker + conductor Jest suites in a Node 20 container (matches CI).
 test:

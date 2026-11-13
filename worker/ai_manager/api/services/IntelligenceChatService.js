@@ -134,7 +134,34 @@ class IntelligenceChatService {
     if (typeof svc.listModels === 'function') {
       try { listedModels = await svc.listModels(); } catch { /* */ }
     }
-    const { model } = resolveOwnedChatModel({ endpoint, provider: llm, listedModels });
+    // Personality LoRA: Laya finetune_pick (or body.selected_lora) — never tools/code on vLLM.
+    let selectedLora = body.selected_lora || null;
+    if (!selectedLora && Array.isArray(endpoint.lora) && endpoint.lora.length) {
+      try {
+        const { layaDecision } = require('./LayaDecisionService');
+        const pick = await layaDecision.predict(
+          {
+            text: queryText,
+            adapters: endpoint.lora.map((a) => a.name || a.id).filter(Boolean),
+            wantPersonality: body.lane === 'user' || body.lane === 'talk' || !body.lane,
+          },
+          { finetune_pick: {} },
+        );
+        const choice = pick.answers?.finetune_pick?.choice;
+        if (choice && choice !== 'none') {
+          selectedLora = endpoint.lora.find((a) => /personality/i.test(a.name || '') || a.kind === 'personality')
+            || endpoint.lora.find((a) => a.attached || a.selected)
+            || endpoint.lora[0];
+        } else {
+          selectedLora = null; // explicit none — stay on base
+        }
+      } catch {
+        selectedLora = undefined; // fall through to resolveOwnedChatModel default
+      }
+    }
+    const { model } = resolveOwnedChatModel({
+      endpoint, provider: llm, listedModels, selectedLora,
+    });
     if (!model) {
       const e = new Error('model is required (set it on the intelligence endpoint)');
       e.status = 400;

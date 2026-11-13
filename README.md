@@ -9,7 +9,10 @@
 
 Icarus **agents** live in this repo (AI Manager → Agents). The sister `icarus-agent` tree is the older standalone beta — do not vendor it as a submodule. Runbook: [`docs/runbooks/icarus-agents.md`](docs/runbooks/icarus-agents.md). Fleet smokes: [`docs/runbooks/icarus-c0.md`](docs/runbooks/icarus-c0.md).
 
-## Status — v0.1.0 preview
+## Status — v0.1.0 (GA appliance)
+
+Tagged **`v0.1.0`**. Public mirrors: `scripts/oss/pack-mirror.sh`. Compute = **aerekos Compute** (our Kubernetes-class orchestrator; ADR 004). Checklist: [`docs/GA_CHECKLIST.md`](docs/GA_CHECKLIST.md).
+
 
 aerekos-cloud is **pre-release**. The control plane (conductor + worker agent) and the foundation
 services (`key_manager`, `storage_manager`, `db_manager`, `queue_manager`, `secrets_manager`,

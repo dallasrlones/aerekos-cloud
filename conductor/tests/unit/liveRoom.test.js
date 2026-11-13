@@ -25,6 +25,11 @@ describe('LiveRoom', () => {
     expect(isLiveEvent('ai:agent.ask')).toBe(true);
     expect(isLiveEvent('ai:agent.ask.answered')).toBe(true);
     expect(isLiveEvent('ai:agent.done')).toBe(true);
+    expect(isLiveEvent('ai:icarus.graph')).toBe(true);
+    expect(isLiveEvent('ai:icarus.task')).toBe(true);
+    expect(isLiveEvent('ai:icarus.tool')).toBe(true);
+    expect(isLiveEvent('ai:icarus.bench')).toBe(true);
+    expect(isLiveEvent('ai:friend.presence')).toBe(true);
     expect(isLiveEvent('log:appended')).toBe(true);
     expect(isLiveEvent('disconnect')).toBe(false);
   });

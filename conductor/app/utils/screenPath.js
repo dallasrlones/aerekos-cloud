@@ -3,6 +3,24 @@
  * /key-manager must resolve to camelCase screen names (not the kebab path).
  */
 
+/** Legacy AI Manager leaves → Icarus screens (hub retired). */
+const AI_SECTION_TO_ICARUS = {
+  agents: { screen: 'icarus', params: { section: 'chat' } },
+  engines: { screen: 'icarusFleet', params: { section: 'fleet', tab: 'engines' } },
+  endpoints: { screen: 'icarusFleet', params: { section: 'fleet', tab: 'endpoints' } },
+  llm: { screen: 'icarusModels', params: { section: 'models', tab: 'llm' } },
+  tts: { screen: 'icarusModels', params: { section: 'models', tab: 'tts' } },
+  stt: { screen: 'icarusModels', params: { section: 'models', tab: 'stt' } },
+  embeddings: { screen: 'icarusModels', params: { section: 'models', tab: 'embeddings' } },
+  benchmarks: { screen: 'icarusModels', params: { section: 'models', tab: 'benchmarks' } },
+  intelligence: { screen: 'icarusApps', params: { section: 'apps', tab: 'intelligence' } },
+  rag: { screen: 'icarusApps', params: { section: 'apps', tab: 'rag' } },
+  memory: { screen: 'icarusApps', params: { section: 'apps', tab: 'memory' } },
+  jobs: { screen: 'icarusApps', params: { section: 'apps', tab: 'jobs' } },
+  finetunes: { screen: 'icarusApps', params: { section: 'apps', tab: 'finetunes' } },
+  access: { screen: 'icarusApps', params: { section: 'apps', tab: 'appaccess' } },
+};
+
 const AI_SECTION_SCREENS = {
   agents: 'aiAgents',
   engines: 'aiEngines',
@@ -18,6 +36,18 @@ const AI_SECTION_SCREENS = {
   jobs: 'aiJobs',
   finetunes: 'aiFinetunes',
   access: 'aiAccess',
+};
+
+const ICARUS_PATH_SCREENS = {
+  fleet: { screen: 'icarusFleet', params: { section: 'fleet' } },
+  models: { screen: 'icarusModels', params: { section: 'models' } },
+  apps: { screen: 'icarusApps', params: { section: 'apps' } },
+  skills: { screen: 'icarusSkills', params: { section: 'skills' } },
+  friends: { screen: 'icarusFriends', params: { section: 'friends' } },
+  federation: { screen: 'icarusFriends', params: { section: 'friends', tab: 'federation' } },
+  connectors: { screen: 'icarusConnectors', params: { section: 'connectors' } },
+  cron: { screen: 'icarusCron', params: { section: 'cron' } },
+  advanced: { screen: 'icarusAdvanced', params: { section: 'advanced' } },
 };
 
 const BARE_SCREENS = {
@@ -57,6 +87,27 @@ function getScreenFromPath(pathname, options = {}) {
     return { screen: 'deviceDetails', params: { deviceId: parts[1] } };
   }
 
+  if (firstPart === 'icarus') {
+    const leaf = parts[1];
+    if (!leaf) return { screen: 'icarus', params: { section: 'chat' } };
+    // Icarus IDE (formerly Adonis)
+    if (leaf === 'ide') {
+      const params = {};
+      if (parts[2]) params.repoId = parts[2];
+      if (parts[3]) params.ref = parts[3];
+      return Object.keys(params).length ? { screen: 'adonis', params } : 'adonis';
+    }
+    const mapped = ICARUS_PATH_SCREENS[leaf];
+    if (mapped) {
+      const tab = parts[2] || queryParam(search, 'tab') || mapped.params.tab;
+      return {
+        screen: mapped.screen,
+        params: { ...mapped.params, ...(tab ? { tab } : {}) },
+      };
+    }
+    return { screen: 'icarus', params: { section: 'chat' } };
+  }
+
   if (firstPart === 'services') {
     if (parts.length > 1 && parts[1]) {
       const serviceName = parts[1].replace(/\/$/, '');
@@ -68,9 +119,10 @@ function getScreenFromPath(pathname, options = {}) {
           };
         }
         const leaf = parts[2];
-        const section = AI_SECTION_SCREENS[leaf];
-        if (section) return { screen: section, params: {} };
-        return { screen: 'aiManager', params: {} };
+        if (!leaf) return { screen: 'icarus', params: { section: 'chat' } };
+        const icarus = AI_SECTION_TO_ICARUS[leaf];
+        if (icarus) return icarus;
+        return { screen: 'icarus', params: { section: 'chat' } };
       }
       const meta = typeof getServiceMeta === 'function' ? getServiceMeta(serviceName) : null;
       if (meta?.route) {
@@ -153,10 +205,13 @@ function getScreenFromPath(pathname, options = {}) {
         params: { taskId: parts[3], agentId: queryParam(search, 'agent') || '' },
       };
     }
-    if (!parts[2] && AI_SECTION_SCREENS[parts[1]]) {
-      return AI_SECTION_SCREENS[parts[1]];
+    if (!parts[2] && AI_SECTION_TO_ICARUS[parts[1]]) {
+      return AI_SECTION_TO_ICARUS[parts[1]];
     }
-    return 'aiManager';
+    if (!parts[2] && AI_SECTION_SCREENS[parts[1]]) {
+      return AI_SECTION_TO_ICARUS[parts[1]] || { screen: 'icarus', params: { section: 'chat' } };
+    }
+    return { screen: 'icarus', params: { section: 'chat' } };
   }
 
   if (firstPart === 'api-gateway-manager') {
@@ -240,10 +295,13 @@ function getScreenFromPath(pathname, options = {}) {
   if (firstPart === 'queue-manager') return 'queueManager';
   if (firstPart === 'webhook-manager') return 'webhookManager';
   if (firstPart === 'git-manager') return 'gitManager';
-  if (firstPart === 'adonis') {
+  if (firstPart === 'adonis' || firstPart === 'icarus') {
+    // /icarus/ide/... redirects to Icarus IDE (formerly Adonis)
+    let idx = 1;
+    if (firstPart === 'icarus' && parts[1] === 'ide') idx = 2;
     const params = {};
-    if (parts[1]) params.repoId = parts[1];
-    if (parts[2]) params.ref = parts[2];
+    if (parts[idx]) params.repoId = parts[idx];
+    if (parts[idx + 1]) params.ref = parts[idx + 1];
     return Object.keys(params).length ? { screen: 'adonis', params } : 'adonis';
   }
   if (firstPart === 'cicd-manager') return 'cicdManager';
@@ -268,25 +326,42 @@ function getPathFromScreen(screen, params = {}) {
     return `/compute-manager/containers/${params.containerId || params.taskId}`;
   }
   if (screen === 'authManager') return '/auth-manager';
-  if (screen === 'aiManager') return '/services/ai_manager';
-  if (screen === 'aiAgents') return '/services/ai_manager/agents';
+  if (screen === 'icarus') return '/icarus';
+  if (screen === 'icarusFleet') {
+    return params.tab ? `/icarus/fleet/${params.tab}` : '/icarus/fleet';
+  }
+  if (screen === 'icarusModels') {
+    return params.tab ? `/icarus/models/${params.tab}` : '/icarus/models';
+  }
+  if (screen === 'icarusApps') {
+    return params.tab ? `/icarus/apps/${params.tab}` : '/icarus/apps';
+  }
+  if (screen === 'icarusSkills') return '/icarus/skills';
+  if (screen === 'icarusFriends') {
+    if (params?.tab === 'federation') return '/icarus/federation';
+    return '/icarus/friends';
+  }
+  if (screen === 'icarusConnectors') return '/icarus/connectors';
+  if (screen === 'icarusCron') return '/icarus/cron';
+  if (screen === 'icarusAdvanced') return '/icarus/advanced';
+  if (screen === 'aiManager' || screen === 'aiAgents') return '/icarus';
   if (screen === 'aiAgentTask' && params.taskId) {
     const q = params.agentId ? `?agent=${encodeURIComponent(params.agentId)}` : '';
     return `/services/ai_manager/agents/tasks/${params.taskId}${q}`;
   }
-  if (screen === 'aiEngines') return '/services/ai_manager/engines';
-  if (screen === 'aiEndpoints') return '/services/ai_manager/endpoints';
-  if (screen === 'aiLlm') return '/services/ai_manager/llm';
-  if (screen === 'aiTts') return '/services/ai_manager/tts';
-  if (screen === 'aiStt') return '/services/ai_manager/stt';
-  if (screen === 'aiEmbeddings') return '/services/ai_manager/embeddings';
-  if (screen === 'aiBenchmarks') return '/services/ai_manager/benchmarks';
-  if (screen === 'aiIntelligence') return '/services/ai_manager/intelligence';
-  if (screen === 'aiRag') return '/services/ai_manager/rag';
-  if (screen === 'aiMemory') return '/services/ai_manager/memory';
-  if (screen === 'aiJobs') return '/services/ai_manager/jobs';
-  if (screen === 'aiFinetunes') return '/services/ai_manager/finetunes';
-  if (screen === 'aiAccess') return '/services/ai_manager/access';
+  if (screen === 'aiEngines') return '/icarus/fleet/engines';
+  if (screen === 'aiEndpoints') return '/icarus/fleet/endpoints';
+  if (screen === 'aiLlm') return '/icarus/models/llm';
+  if (screen === 'aiTts') return '/icarus/models/tts';
+  if (screen === 'aiStt') return '/icarus/models/stt';
+  if (screen === 'aiEmbeddings') return '/icarus/models/embeddings';
+  if (screen === 'aiBenchmarks') return '/icarus/models/benchmarks';
+  if (screen === 'aiIntelligence') return '/icarus/apps/intelligence';
+  if (screen === 'aiRag') return '/icarus/apps/rag';
+  if (screen === 'aiMemory') return '/icarus/apps/memory';
+  if (screen === 'aiJobs') return '/icarus/apps/jobs';
+  if (screen === 'aiFinetunes') return '/icarus/apps/finetunes';
+  if (screen === 'aiAccess') return '/icarus/apps/appaccess';
   if (screen === 'aiDeploymentDetails') return '/ai-manager/deployments';
   if (screen === 'aiModelDetails' && params.modelName) {
     return `/ai-manager/models/${encodeURIComponent(params.modelName)}`;
@@ -299,9 +374,9 @@ function getPathFromScreen(screen, params = {}) {
   if (screen === 'webhookManager') return '/webhook-manager';
   if (screen === 'gitManager') return '/git-manager';
   if (screen === 'adonis') {
-    if (params.repoId && params.ref) return `/adonis/${params.repoId}/${encodeURIComponent(params.ref)}`;
-    if (params.repoId) return `/adonis/${params.repoId}`;
-    return '/adonis';
+    if (params.repoId && params.ref) return `/icarus/ide/${params.repoId}/${encodeURIComponent(params.ref)}`;
+    if (params.repoId) return `/icarus/ide/${params.repoId}`;
+    return '/icarus/ide';
   }
   if (screen === 'cicdManager') return '/cicd-manager';
   if (screen === 'opsTimeline') return '/ops';

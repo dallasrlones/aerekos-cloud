@@ -70,7 +70,7 @@ function AskChips({ ask, onApprove, agentId, onOpenBoard }) {
       )) : null}
       {board && onOpenBoard ? (
         <TouchableOpacity onPress={() => onOpenBoard(board)}>
-          <Text style={S.gptBoardLink}>Open on board</Text>
+          <Text style={S.gptBoardLink}>View in graph</Text>
         </TouchableOpacity>
       ) : null}
       <View style={S.gptAskRow}>
@@ -187,7 +187,7 @@ export function AgentChat({
                 </Text>
                 {!mine && parseBoardLink(m.content) && onOpenBoard ? (
                   <TouchableOpacity onPress={() => onOpenBoard(parseBoardLink(m.content))}>
-                    <Text style={S.gptBoardLink}>Open on board</Text>
+                    <Text style={S.gptBoardLink}>View in graph</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>

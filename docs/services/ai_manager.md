@@ -2,7 +2,7 @@
 
 > **AI** · Implemented · needs provider keys for live calls
 
-Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / workers) and dynamic connectors. Poll + WS ai:live, ai:agent.ask, ai:agent.pulse, ai:agent.done.
+Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:agent.*.
 
 - **Port:** `3126`
 - **AWS analog:** Bedrock
@@ -21,6 +21,12 @@ Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / worker
 | `GET` | `/api/v1/intelligence/:id` | Get one intelligence |
 | `PATCH` | `/api/v1/intelligence/:id` | Update a intelligence |
 | `DELETE` | `/api/v1/intelligence/:id` | Delete a intelligence |
+| `GET` | `/api/v1/icarus/plans` | List Icarus plan graphs for a project |
+| `GET` | `/api/v1/icarus/plans/:planId` | Get one plan |
+| `GET` | `/api/v1/icarus/plans/:planId/scrub` | Time-travel subgraph scrub |
+| `GET` | `/api/v1/icarus/ready` | Ready tasks for a plan |
+| `GET` | `/api/v1/icarus/tasks/:taskId/trace` | Task tools + why/trace |
+| `GET` | `/api/v1/icarus/status` | Icarus graph/runtime status |
 | `GET` | `/api/v1/engines` | Fleet AI engine placements + catalog |
 | `GET` | `/api/v1/engines/catalog` | Placeable engine kinds (vLLM, STT, Kokoro, XTTS, Ollama, cache) |
 | `POST` | `/api/v1/engines` | Place { kind, worker_id } on a GPU worker (no auto-start for vLLM/XTTS/Ollama) |
@@ -80,7 +86,10 @@ Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / worker
 | `POST` | `/api/v1/agents/:id/tools` | Execute a workspace tool (ASK on writes) |
 | `POST` | `/api/v1/agents/:id/claim` | Claim a worktree prefix |
 | `POST` | `/api/v1/agents/:id/message` | Inter-agent message |
-| `POST` | `/api/v1/agents/:id/compact` | Queued compact job (never pins/ASK/DoD) |
+| `GET` | `/api/v1/agents/:id/plans` | List plans (Current/History) |
+| `GET` | `/api/v1/agents/:id/plans/:planId` | Get one plan |
+| `POST` | `/api/v1/agents/:id/console-events` | Playwright console ring from icarus-browser |
+| `POST` | `/api/v1/agents/:id/compact` | Queued compact job (never pins/ASK/DoD). Intelligence options.compact: enabled, threshold_ratio, keep_recent, max_summary_chars |
 | `GET` | `/api/v1/connectors/kinds` | Dynamic connector kind catalog |
 | `POST` | `/api/v1/connectors` | Create a connector account (ARN connector:account/name) |
 | `GET` | `/api/v1/connectors` | List project connectors |

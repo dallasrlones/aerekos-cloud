@@ -1,6 +1,8 @@
 # Adonis IDE + GitHub-like git_manager
 
-**Status:** implemented 2026-11-11  
+> **Renamed:** product surface is now **Icarus IDE** — see [icarus_ide.md](./icarus_ide.md). Routes `/icarus/ide` (legacy `/adonis`).
+
+**Status:** implemented 2026-11-11 · extended for live agent sync + services map  
 **Goal:** Feel like **local GitHub + Cloud9** — browse/edit/branch/PR in git hosting, full IDE with terminal and **Deploy** into compute.
 
 ## Product split (locked)

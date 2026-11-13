@@ -1,0 +1,24 @@
+{
+  "packs": [
+    "lane",
+    "flow_pick",
+    "intake_next",
+    "hitl_risk",
+    "config_vs_code",
+    "finetune_pick",
+    "info_path",
+    "done_gate",
+    "plan_split",
+    "regroup"
+  ],
+  "flows": [
+    "new_project_app",
+    "new_worker_fleet",
+    "safe_self_update",
+    "safe_deps_upgrade",
+    "iac_spool",
+    "browse_learn_ingest",
+    "heal_computer_browser"
+  ],
+  "generated_at": "2026-11-13T03:33:37.355Z"
+}

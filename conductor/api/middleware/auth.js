@@ -2,13 +2,14 @@ const JWTService = require('../services/JWTService');
 
 /**
  * Authentication middleware
- * Verifies JWT token and attaches user to request
+ * Verifies JWT token and attaches user to request.
+ * On Invalid token, reload the KMS signing secret once and retry — covers the
+ * race where auth_manager adopted KMS before conductor finished boot retries.
  */
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   try {
-    // Get token from Authorization header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         error: {
@@ -18,12 +19,26 @@ function authenticate(req, res, next) {
       });
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeader.substring(7);
 
-    // Verify token
-    const decoded = JWTService.verifyToken(token);
+    let decoded;
+    try {
+      decoded = JWTService.verifyToken(token);
+    } catch (error) {
+      // Do not reload KMS in unit/integration tests — it rotates the signing
+      // secret underfoot and turns a valid login JWT into 401 on the next hop.
+      if (
+        error.message === 'Invalid token'
+        && typeof JWTService.loadKmsSecret === 'function'
+        && process.env.NODE_ENV !== 'test'
+      ) {
+        await JWTService.loadKmsSecret();
+        decoded = JWTService.verifyToken(token);
+      } else {
+        throw error;
+      }
+    }
 
-    // Attach user to request
     req.user = decoded;
     req.userId = decoded.id;
 

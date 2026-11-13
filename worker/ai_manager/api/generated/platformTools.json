@@ -1,0 +1,388 @@
+{
+  "generated_at": "2026-11-13T03:33:37.355Z",
+  "managers": [
+    "key_manager",
+    "storage_manager",
+    "db_manager",
+    "compute_manager",
+    "queue_manager",
+    "schedule_manager",
+    "network_manager",
+    "logs_manager",
+    "metrics_manager",
+    "security_manager",
+    "analytics_manager",
+    "iam_manager",
+    "secrets_manager",
+    "auth_manager",
+    "tunnel_manager",
+    "domain_manager",
+    "cdn_manager",
+    "balancer_manager",
+    "webhook_manager",
+    "email_manager",
+    "sms_manager",
+    "slack_manager",
+    "git_manager",
+    "registry_manager",
+    "cicd_manager",
+    "code_as_infra",
+    "api_manager",
+    "app_manager",
+    "mcp_manager",
+    "ai_manager",
+    "crawler_manager",
+    "host_manager",
+    "worker_manager",
+    "system_manager",
+    "websocket_manager",
+    "event_manager",
+    "download_manager",
+    "backup_manager",
+    "workflow_manager",
+    "config_manager",
+    "cert_manager",
+    "billing_manager",
+    "function_manager",
+    "iot_manager",
+    "graphql_manager",
+    "notebook_manager",
+    "trace_manager",
+    "search_manager",
+    "query_manager",
+    "waf_manager",
+    "vpn_manager",
+    "transfer_manager",
+    "audit_manager",
+    "status_manager",
+    "cluster_manager",
+    "vector_manager",
+    "push_manager"
+  ],
+  "tools": [
+    {
+      "name": "aerekos_status",
+      "lane": [
+        "user",
+        "manager"
+      ],
+      "mutating": false
+    },
+    {
+      "name": "aerekos_search_docs",
+      "lane": [
+        "user",
+        "manager"
+      ],
+      "mutating": false
+    },
+    {
+      "name": "aerekos_call",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "iac_schema",
+      "lane": [
+        "user",
+        "manager"
+      ],
+      "mutating": false
+    },
+    {
+      "name": "iac_put",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "iac_diff",
+      "lane": [
+        "user",
+        "manager"
+      ],
+      "mutating": false
+    },
+    {
+      "name": "iac_apply",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "iac_rollback",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "data_api_apply",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "project_services",
+      "lane": [
+        "user",
+        "manager"
+      ],
+      "mutating": false
+    },
+    {
+      "name": "update_work",
+      "lane": [
+        "manager"
+      ],
+      "mutating": true
+    },
+    {
+      "name": "rag_ingest",
+      "lane": [
+        "manager",
+        "user"
+      ],
+      "mutating": true
+    }
+  ],
+  "laya_packs": [
+    "lane",
+    "flow_pick",
+    "intake_next",
+    "hitl_risk",
+    "config_vs_code",
+    "finetune_pick",
+    "info_path",
+    "done_gate",
+    "plan_split",
+    "regroup"
+  ],
+  "flows": [
+    "new_project_app",
+    "new_worker_fleet",
+    "safe_self_update",
+    "safe_deps_upgrade",
+    "iac_spool",
+    "browse_learn_ingest",
+    "heal_computer_browser"
+  ],
+  "e2e_matrix": [
+    {
+      "id": "tool_aerekos_status",
+      "kind": "platform_tool",
+      "tool": "aerekos_status"
+    },
+    {
+      "id": "tool_aerekos_search_docs",
+      "kind": "platform_tool",
+      "tool": "aerekos_search_docs"
+    },
+    {
+      "id": "tool_aerekos_call",
+      "kind": "platform_tool",
+      "tool": "aerekos_call"
+    },
+    {
+      "id": "tool_iac_schema",
+      "kind": "platform_tool",
+      "tool": "iac_schema"
+    },
+    {
+      "id": "tool_iac_put",
+      "kind": "platform_tool",
+      "tool": "iac_put"
+    },
+    {
+      "id": "tool_iac_diff",
+      "kind": "platform_tool",
+      "tool": "iac_diff"
+    },
+    {
+      "id": "tool_iac_apply",
+      "kind": "platform_tool",
+      "tool": "iac_apply"
+    },
+    {
+      "id": "tool_iac_rollback",
+      "kind": "platform_tool",
+      "tool": "iac_rollback"
+    },
+    {
+      "id": "tool_data_api_apply",
+      "kind": "platform_tool",
+      "tool": "data_api_apply"
+    },
+    {
+      "id": "tool_project_services",
+      "kind": "platform_tool",
+      "tool": "project_services"
+    },
+    {
+      "id": "tool_update_work",
+      "kind": "platform_tool",
+      "tool": "update_work"
+    },
+    {
+      "id": "tool_rag_ingest",
+      "kind": "platform_tool",
+      "tool": "rag_ingest"
+    },
+    {
+      "id": "laya_lane",
+      "kind": "laya",
+      "pack": "lane"
+    },
+    {
+      "id": "laya_flow_pick",
+      "kind": "laya",
+      "pack": "flow_pick"
+    },
+    {
+      "id": "laya_intake_next",
+      "kind": "laya",
+      "pack": "intake_next"
+    },
+    {
+      "id": "laya_hitl_risk",
+      "kind": "laya",
+      "pack": "hitl_risk"
+    },
+    {
+      "id": "laya_config_vs_code",
+      "kind": "laya",
+      "pack": "config_vs_code"
+    },
+    {
+      "id": "laya_finetune_pick",
+      "kind": "laya",
+      "pack": "finetune_pick"
+    },
+    {
+      "id": "laya_info_path",
+      "kind": "laya",
+      "pack": "info_path"
+    },
+    {
+      "id": "laya_done_gate",
+      "kind": "laya",
+      "pack": "done_gate"
+    },
+    {
+      "id": "laya_plan_split",
+      "kind": "laya",
+      "pack": "plan_split"
+    },
+    {
+      "id": "laya_regroup",
+      "kind": "laya",
+      "pack": "regroup"
+    },
+    {
+      "id": "flow_new_project_app",
+      "kind": "flow",
+      "flow": "new_project_app"
+    },
+    {
+      "id": "flow_new_worker_fleet",
+      "kind": "flow",
+      "flow": "new_worker_fleet"
+    },
+    {
+      "id": "flow_safe_self_update",
+      "kind": "flow",
+      "flow": "safe_self_update"
+    },
+    {
+      "id": "flow_safe_deps_upgrade",
+      "kind": "flow",
+      "flow": "safe_deps_upgrade"
+    },
+    {
+      "id": "flow_iac_spool",
+      "kind": "flow",
+      "flow": "iac_spool"
+    },
+    {
+      "id": "flow_browse_learn_ingest",
+      "kind": "flow",
+      "flow": "browse_learn_ingest"
+    },
+    {
+      "id": "flow_heal_computer_browser",
+      "kind": "flow",
+      "flow": "heal_computer_browser"
+    },
+    {
+      "id": "ide_live_file",
+      "kind": "ide",
+      "script": "e2e/icarus-platform-matrix.js"
+    },
+    {
+      "id": "services_map",
+      "kind": "ide",
+      "script": "e2e/icarus-platform-matrix.js"
+    },
+    {
+      "id": "pr_review_path",
+      "kind": "spine",
+      "script": "worker/ai_manager/tests/unit/icarus.e2e.test.js"
+    },
+    {
+      "id": "layer_spine",
+      "kind": "spine"
+    },
+    {
+      "id": "hitl_prod_deny",
+      "kind": "hitl"
+    },
+    {
+      "id": "info_rag",
+      "kind": "rag"
+    },
+    {
+      "id": "steer_neo4j",
+      "kind": "spine"
+    },
+    {
+      "id": "safe_self_update_live",
+      "kind": "flow"
+    },
+    {
+      "id": "safe_deps_upgrade_live",
+      "kind": "flow"
+    },
+    {
+      "id": "queue_worker_live",
+      "kind": "ootb"
+    },
+    {
+      "id": "iac_rollback",
+      "kind": "iac"
+    },
+    {
+      "id": "heal_resume",
+      "kind": "ops"
+    },
+    {
+      "id": "docs_sdk_drift",
+      "kind": "docs",
+      "script": "make docs"
+    }
+  ],
+  "stack_keys": [
+    "wanted",
+    "data_apis",
+    "routes",
+    "functions",
+    "queues",
+    "tunnels",
+    "compute",
+    "defaults"
+  ]
+}

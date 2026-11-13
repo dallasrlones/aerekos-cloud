@@ -5,14 +5,30 @@ const { Service } = require('../models');
 
 const AUTH_ISSUER = 'aerekos-auth_manager';
 
+function authError(res, status, code, message, extra = {}) {
+  return res.status(status).json({
+    error: { code, message, status, ...extra },
+  });
+}
+
 async function verifyAppToken(token) {
   const base = (process.env.AUTH_MANAGER_URL || '').replace(/\/$/, '');
-  if (!base) return null;
+  if (!base) {
+    return { claims: null, reason: 'AUTH_MANAGER_URL not configured on conductor' };
+  }
   try {
     const { data } = await axios.post(`${base}/api/v1/auth/verify`, { token }, { timeout: 5000 });
-    if (data && data.active && data.claims) return data.claims;
-  } catch (_) { /* auth_manager down */ }
-  return null;
+    if (data && data.active && data.claims) {
+      return { claims: data.claims, reason: null };
+    }
+    const inactive = data && data.active === false;
+    return {
+      claims: null,
+      reason: inactive ? 'app credential inactive or revoked' : 'auth_manager verify rejected token',
+    };
+  } catch (_) {
+    return { claims: null, reason: 'auth_manager verify unreachable' };
+  }
 }
 
 function normalizeAppClaims(claims) {
@@ -37,6 +53,25 @@ function peekPayload(token) {
   } catch (_) {
     return null;
   }
+}
+
+/**
+ * Human JWT path: conductor login JWTs also use iss AUTH_ISSUER (shared signing
+ * secret with auth_manager). Only reject typ=app tokens that somehow skipped
+ * the app-verify branch above, or typ=app with the wrong issuer.
+ */
+function userPathTokenMismatch(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.typ === 'app') {
+    return {
+      code: 'WrongTokenType',
+      message: 'app credential JWT must be verified via auth_manager',
+      hint: `Expected iss "${AUTH_ISSUER}" + typ app via client_credentials; use POST /api/auth/login for console JWTs`,
+      expectedTokenType: 'user',
+      receivedTokenType: 'app',
+    };
+  }
+  return null;
 }
 
 /**
@@ -76,17 +111,33 @@ async function appProxyAuth(req, res, next) {
 
   const payload = peekPayload(token);
   if (payload && payload.iss === AUTH_ISSUER && payload.typ === 'app') {
-    const claims = await verifyAppToken(token);
+    const { claims, reason } = await verifyAppToken(token);
     if (!claims) {
-      return res.status(401).json({
-        error: { message: 'invalid app credential token', status: 401, code: 'InvalidAppToken' },
-      });
+      return authError(
+        res,
+        401,
+        'InvalidAppToken',
+        reason ? `app credential not accepted: ${reason}` : 'app credential not accepted',
+        {
+          hint: 'Mint via auth_manager client_credentials; conductor console JWTs cannot replace app tokens',
+          tokenType: 'app',
+        },
+      );
     }
     req.auth = normalizeAppClaims(claims);
     req.tokenType = 'app';
     req.isAppCredential = true;
     req.appCredential = true;
     return next();
+  }
+
+  const mismatch = userPathTokenMismatch(payload);
+  if (mismatch) {
+    return authError(res, 401, mismatch.code, mismatch.message, {
+      hint: mismatch.hint,
+      expectedTokenType: mismatch.expectedTokenType,
+      receivedTokenType: mismatch.receivedTokenType,
+    });
   }
 
   return authenticate(req, res, (err) => {

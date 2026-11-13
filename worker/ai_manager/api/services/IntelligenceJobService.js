@@ -3,7 +3,7 @@
 const { IntelligenceJob } = require('../models');
 const { IntelligenceService } = require('./IntelligenceService');
 const { IntelligenceChatService } = require('./IntelligenceChatService');
-const { emitJob, emitJobToken } = require('../utils/aiLive');
+const { emitJob, emitJobToken, emitAgentDone } = require('../utils/aiLive');
 const { proxy } = require('../../../shared/conductorProxy');
 
 function fail(status, message) {
@@ -26,15 +26,18 @@ class IntelligenceJobService {
   }
 
   serialize(row) {
+    const request = parseJson(row.request, {});
     return {
       id: row.id,
       project_id: row.project_id,
       intelligence: row.intelligence,
       status: row.status,
-      request: parseJson(row.request, {}),
+      request,
       result: parseJson(row.result, null),
       partial: row.partial || '',
       error: row.error || '',
+      agent_id: request.agent_id || '',
+      lane: request.lane || '',
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
@@ -150,20 +153,32 @@ class IntelligenceJobService {
         await this.Job.update(jobId, { status: 'cancelled', partial, error: 'cancelled' });
         return { cancelled: true };
       }
-      await this.Job.update(jobId, {
-        status: 'succeeded',
-        result: JSON.stringify(finished),
-        partial: finished?.message?.content || partial,
-        error: '',
-      });
-      const done = await this.get(jobId, projectId);
-      emitJob(done, projectId);
       const spoken = finished?.message?.content || finished?.response || partial;
+      // Persist assistant chat BEFORE emitting succeeded — UI reloads on ai:job
+      // and would otherwise wipe the live stream before history has the reply.
       if (req.agent_id && req.lane === 'user' && spoken) {
         try {
           const { AgentService } = require('./AgentService');
           await new AgentService().completeJobMessage(projectId, req.agent_id, jobId, spoken);
-        } catch { /* chat UI still has job tokens */ }
+        } catch (persistErr) {
+          console.warn('[IntelligenceJob] completeJobMessage failed:', persistErr.message || persistErr);
+        }
+      }
+      await this.Job.update(jobId, {
+        status: 'succeeded',
+        result: JSON.stringify(finished),
+        partial: spoken || partial,
+        error: '',
+      });
+      const done = await this.get(jobId, projectId);
+      emitJob(done, projectId);
+      if (req.agent_id) {
+        emitAgentDone({
+          agent_id: req.agent_id,
+          job_id: jobId,
+          status: 'succeeded',
+          content: spoken || '',
+        }, projectId);
       }
       return { ok: true, job: done };
     } catch (e) {

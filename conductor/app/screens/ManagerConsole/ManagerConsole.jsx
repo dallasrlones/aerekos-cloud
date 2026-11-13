@@ -18,8 +18,86 @@ import { useProject } from '../../contexts/ProjectContext';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 import { ObservabilityPanel } from '../../components/ObservabilityPanel/ObservabilityPanel';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 const ALWAYS_ON = new Set(['code_as_infra', 'system_manager']);
+
+/** ServiceGuide copy for managers without dedicated screen folders (managerConsole route). */
+const CONSOLE_GUIDES = {
+  logs_manager: {
+    title: 'Logs guide',
+    analogue: 'Amazon CloudWatch Logs',
+    blurb: 'Centralized log ingestion, search, and retention for manager and worker output — query by level, source, or free text.',
+    whenToUse: [
+      'Debug compute_manager and function_manager rollouts',
+      'Tail ai_manager and cicd_manager pipeline output',
+      'Audit retention before shipping to object storage',
+    ],
+    prerequisites: [
+      'Select a project for scoped search',
+      'Enable logs_manager on a worker',
+    ],
+    examples: [
+      {
+        label: 'Search logs',
+        code: 'GET /api/services/logs_manager/api/v1/logs?project_id={projectId}&q=error&level=error',
+      },
+      {
+        label: 'Ingest batch',
+        code: 'POST /api/services/logs_manager/api/v1/logs/batch\n{ "project_id": "{projectId}", "entries": […] }',
+      },
+    ],
+  },
+  metrics_manager: {
+    title: 'Metrics guide',
+    analogue: 'Amazon CloudWatch Metrics',
+    blurb: 'Time-series metrics and scrape targets for SLO dashboards — filter series by name and chart recent samples in the Monitoring tab.',
+    whenToUse: [
+      'CPU and memory signals from compute_manager containers',
+      'Queue depth and handler latency alarms',
+      'GA SLO targets wired in docs/slo',
+    ],
+    prerequisites: [
+      'Select a project when series are project-scoped',
+      'Enable metrics_manager on a worker',
+    ],
+    examples: [
+      {
+        label: 'List series',
+        code: 'GET /api/services/metrics_manager/api/v1/series?project_id={projectId}&metric_name=cpu',
+      },
+      {
+        label: 'Prometheus scrape',
+        code: 'GET /api/services/metrics_manager/metrics',
+      },
+    ],
+  },
+  iam_manager: {
+    title: 'Identity & access guide',
+    analogue: 'AWS IAM',
+    blurb: 'Roles, policies, and evaluate API for human JWT access at the conductor edge — complements app credentials from auth_manager.',
+    whenToUse: [
+      'Fine-grained Allow/Deny on manager proxy routes',
+      'Role attachments for project operators',
+      'Break-glass admin policies (audited separately)',
+    ],
+    prerequisites: [
+      'Select a project — policies are project-scoped',
+      'Enable auth_manager before iam_manager',
+    ],
+    examples: [
+      {
+        label: 'Create policy',
+        code: 'POST /api/services/iam_manager/api/v1/policies\n{ "project_id": "{projectId}", "document": { … } }',
+      },
+      {
+        label: 'Evaluate',
+        code: 'POST /api/services/iam_manager/api/v1/evaluate\n{ "project_id": "{projectId}", "action": "storage:GetObject", "resource": "arn:…" }',
+      },
+    ],
+  },
+};
 
 export const ManagerConsole = ({ navigation, route }) => {
   const serviceName = route?.params?.serviceName;
@@ -37,6 +115,12 @@ export const ManagerConsole = ({ navigation, route }) => {
   const [error, setError] = useState(null);
   const [backingUp, setBackingUp] = useState(false);
   const [tab, setTab] = useState('overview');
+  const guideSpec = CONSOLE_GUIDES[serviceName];
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    serviceName,
+    navigation,
+    status?.enabled,
+  );
 
   const loadAll = useCallback(async () => {
     try {
@@ -131,6 +215,21 @@ export const ManagerConsole = ({ navigation, route }) => {
       )}
     >
       <AnimusNextSteps navigation={navigation} />
+
+      {guideSpec ? (
+        <ServiceGuide
+          title={guideSpec.title}
+          analogue={guideSpec.analogue}
+          blurb={guideSpec.blurb}
+          whenToUse={guideSpec.whenToUse}
+          prerequisites={guideSpec.prerequisites}
+          examples={guideSpec.examples}
+          deps={guideDeps}
+          onSetupDep={openDep}
+          onEnableAllDeps={enableAllDeps}
+          onSetup={onSetup}
+        />
+      ) : null}
 
       {error ? (
         <AnimusState state="error" error={error} onRetry={loadAll} />

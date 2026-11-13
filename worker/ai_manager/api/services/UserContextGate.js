@@ -1,9 +1,11 @@
 'use strict';
 
 /**
- * Dual-stream Context-Gate: classify user turns into CHAT | WEB | DIG | CLARIFY | MANAGER
- * without blocking the manager loop. Steer/nudge attach to the live plan graph.
+ * Dual-stream Context-Gate: classify user turns.
+ * Classifier prefers LayaDecisionService; falls back to heuristics.
  */
+
+const { layaDecision } = require('./LayaDecisionService');
 
 const ROUTES = ['CHAT', 'WEB', 'DIG', 'CLARIFY', 'MANAGER', 'STEER'];
 
@@ -34,7 +36,7 @@ function classify(text, { hasLivePlan = false } = {}) {
     reasons.push('manager_pattern');
     return { route: 'MANAGER', confidence: 0.8, reasons };
   }
-  if (CLARIFY_RE.test(t) || t.endsWith('?') && t.split(/\s+/).length < 6) {
+  if (CLARIFY_RE.test(t) || (t.endsWith('?') && t.split(/\s+/).length < 6)) {
     reasons.push('clarify_pattern');
     return { route: 'CLARIFY', confidence: 0.55, reasons };
   }
@@ -42,37 +44,63 @@ function classify(text, { hasLivePlan = false } = {}) {
   return { route: 'CHAT', confidence: 0.6, reasons };
 }
 
-/**
- * Decide whether manager stream should continue while user is handled.
- * Anti-deadlock: never await manager for CHAT/WEB/DIG/STEER.
- */
-function dualStreamPolicy(route) {
+function dualStreamPolicy(route, laneChoice) {
   const userLane = ['CHAT', 'WEB', 'DIG', 'CLARIFY', 'STEER'].includes(route);
   const wakeManager = route === 'MANAGER' || route === 'STEER';
   return {
     user_immediate: userLane || route === 'MANAGER',
-    manager_continues: route !== 'MANAGER', // manager keeps working unless new brief
+    manager_continues: route !== 'MANAGER',
     wake_manager: wakeManager,
     ask_manager_tool: route === 'CLARIFY' || route === 'MANAGER',
+    lane_choice: laneChoice || null,
+    info_lane: laneChoice === 'info',
   };
 }
 
 class UserContextGate {
-  constructor({ llmClassify } = {}) {
+  constructor({ llmClassify, laya } = {}) {
     this.llmClassify = llmClassify || null;
+    this.laya = laya || layaDecision;
   }
 
   async route(message, ctx = {}) {
-    let hit = classify(message, ctx);
-    if (this.llmClassify && hit.confidence < 0.55) {
+    let hit;
+    let laneChoice = null;
+    const text = String(message || '').trim();
+    // Empty turns stay on heuristic CLARIFY (low confidence) so llmClassify can escalate.
+    if (!text) {
+      hit = { ...classify(message, ctx), source: 'heuristic_empty' };
+    } else {
+      try {
+        const layaHit = await this.laya.routeLane(message, ctx);
+        laneChoice = layaHit.lane_choice;
+        hit = {
+          route: layaHit.route,
+          confidence: layaHit.confidence,
+          reasons: layaHit.reasons,
+          source: layaHit.source,
+          laya: layaHit.laya,
+        };
+        // DIG stays useful for code peeks on hangout
+        if (laneChoice === 'talk' && DIG_RE.test(text)) {
+          hit = { ...classify(message, ctx), source: 'heuristic_dig_override' };
+        }
+      } catch {
+        hit = classify(message, ctx);
+      }
+    }
+
+    if (this.llmClassify && hit.confidence < 0.45) {
       try {
         const llm = await this.llmClassify(message, ctx);
         if (llm && ROUTES.includes(llm.route)) hit = { ...hit, ...llm, source: 'llm' };
-      } catch { /* heuristic stands */ }
+      } catch { /* heuristic/laya stands */ }
     }
+
     return {
       ...hit,
-      policy: dualStreamPolicy(hit.route),
+      lane_choice: laneChoice || (hit.route === 'WEB' ? 'browser' : hit.route === 'MANAGER' ? 'manager' : 'talk'),
+      policy: dualStreamPolicy(hit.route, laneChoice),
       at: Date.now(),
     };
   }

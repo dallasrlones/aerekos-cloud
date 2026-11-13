@@ -166,7 +166,7 @@ Start when P0–P10, L1–L11, E1–E45, CC*, edge/storage pro, release-fleet, a
 | post-e47 | docs/adr/ |
 | post-e48 | SBOM + npm audit in CI |
 | post-e49 | Slug validation middleware |
-| post-e50 | Project membership |
+| post-e50 | Project membership (GA — Friends invites; federation Preview) |
 | post-e51 | Resource import/export |
 | post-e52 | ~~Wizard~~ → cc-wizard-* (cancelled) |
 | post-e53 | AI model governance |

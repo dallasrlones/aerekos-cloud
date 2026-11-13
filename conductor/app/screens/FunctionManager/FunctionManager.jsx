@@ -12,6 +12,8 @@ import { useToast } from '../../components/Toast/ToastProvider';
 import { stackService } from '../../services/stackService';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 import { colors } from '../../styles/theme';
 
 const BASE = '/api/services/function_manager/api/v1';
@@ -37,6 +39,11 @@ export const FunctionManager = ({ navigation }) => {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'function_manager',
+    navigation,
+    status?.enabled,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -136,6 +143,34 @@ export const FunctionManager = ({ navigation }) => {
 
   return (
     <ScrollView refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}>
+      <ServiceGuide
+        title="Functions guide"
+        analogue="AWS Lambda"
+        blurb="Zip and container workloads with sync invoke, async inbox queues, and DLQ fan-out through compute and storage."
+        whenToUse={[
+          'Event-driven handlers behind queue_manager',
+          'HTTP hooks from api_manager routes',
+          'Short batch jobs on project workers',
+        ]}
+        prerequisites={[
+          'Select a project — functions are project-scoped',
+          'Enable auth_manager, compute_manager, storage_manager, and queue_manager',
+        ]}
+        examples={[
+          {
+            label: 'Create function',
+            code: `POST /api/services/function_manager/api/v1/functions\n{ "project_id": "{projectId}", "name": "hello", "trigger": { "queue": true } }`,
+          },
+          {
+            label: 'Sync invoke',
+            code: `POST .../functions/hello/invoke\n{ "project_id": "{projectId}", "invocation_type": "RequestResponse" }`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
       <Box title="Functions">
         <Text style={{ color: colors.textMuted, marginBottom: 8 }}>Lambda analog. Creating a function also creates {`{name}-inbox`} (standard engine) and a DLQ unless you opt out.</Text>
         <ServiceToggle enabled={!!status?.enabled} onToggle={handleToggle} loading={busy} />

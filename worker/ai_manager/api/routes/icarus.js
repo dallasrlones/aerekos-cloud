@@ -375,4 +375,46 @@ r.get('/nightly', async (req, res, next) => {
   } catch (e) { err(res, e, next); }
 });
 
+r.post('/laya/predict', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const out = await f.laya.predict(req.body?.state || {}, req.body?.questions || {});
+    res.json(out);
+  } catch (e) { err(res, e, next); }
+});
+
+r.get('/laya/packs', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    res.json({ packs: f.laya.packs(), flows: f.laya.flowSlots() });
+  } catch (e) { err(res, e, next); }
+});
+
+r.post('/flows/advance', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const agent = await agents.resolve(f.projectId, req.body?.agent_id || req.query.agent_id);
+    const out = await f.flowIntake.advance(f.projectId, agent, req.body?.text || '', {
+      flowId: req.body?.flow_id,
+    });
+    res.json(out);
+  } catch (e) { err(res, e, next); }
+});
+
+r.get('/flows/state', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const agent = await agents.resolve(f.projectId, req.query.agent_id);
+    res.json({ intake: await f.flowIntake.getState(agent) });
+  } catch (e) { err(res, e, next); }
+});
+
+r.get('/project-services', async (req, res, next) => {
+  try {
+    const f = await facade(req);
+    const { ProjectServicesMap } = require('../services/ProjectServicesMap');
+    res.json(await ProjectServicesMap.snapshot(f.projectId));
+  } catch (e) { err(res, e, next); }
+});
+
 module.exports = r;

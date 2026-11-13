@@ -17,8 +17,10 @@ describe('icarusNavCatalog', () => {
     expect(hit.anchor).toBe('compute-list');
   });
 
-  it('unknown go-to asks, does not guess', () => {
-    expect(matchNav('take me to the secret vault').kind).toBe('unknown');
+  it('unknown go-to docks chat with seed, does not blind-nav', () => {
+    const hit = matchNav('take me to the secret vault');
+    expect(hit.kind).toBe('chat');
+    expect(hit.params?.seed).toMatch(/secret vault/i);
   });
 
   it('denies vLLM mutate', () => {
@@ -27,6 +29,17 @@ describe('icarusNavCatalog', () => {
 
   it('shop phrases stay shop', () => {
     expect(matchNav('learn React latest syntax').kind).toBe('shop');
+  });
+
+  test('opens friends / share project', () => {
+    expect(matchNav('open friends').screen).toBe('icarusFriends');
+    expect(matchNav('take me to share project').screen).toBe('icarusFriends');
+  });
+
+  test('opens federation tab', () => {
+    const hit = matchNav('open federation');
+    expect(hit.screen).toBe('icarusFriends');
+    expect(hit.params?.tab).toBe('federation');
   });
 
   it('resolveProject by name', () => {

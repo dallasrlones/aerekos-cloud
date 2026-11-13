@@ -27,5 +27,34 @@ class AppProjectService {
     return this.get(id, projectId);
   }
   async del(id, projectId) { await this.get(id, projectId); await this.M.delete(id); return { deleted:true, id }; }
+
+  /**
+   * FE scaffold metadata — returns files to write via git_manager / Icarus IDE.
+   * Full deploy remains compute/cicd; this is the OOTB starter.
+   */
+  async scaffold(projectId, body = {}) {
+    this.assertP(projectId);
+    const name = String(body.name || 'app').replace(/\W+/g, '-').slice(0, 40) || 'app';
+    const pages = body.pages || ['admin'];
+    const files = {
+      'README.md': `# ${name}\n\nScaffolded by Icarus / app_manager. Open in Icarus IDE.\n`,
+      'package.json': JSON.stringify({
+        name, private: true, scripts: { start: 'node server.js', build: 'echo ok' },
+      }, null, 2),
+      'server.js': `const http=require('http');\nhttp.createServer((q,s)=>{s.end('${name} ok');}).listen(process.env.PORT||3080);\n`,
+      'src/Admin.jsx': `export default function Admin(){return <main><h1>${name} admin CRUD</h1><p>Wire to Data API.</p></main>;}\n`,
+    };
+    if (pages.includes('custom') || body.fe === 'Custom pages') {
+      files['src/App.jsx'] = `export default function App(){return <main><h1>${name}</h1></main>;}\n`;
+    }
+    const app = await this.create({
+      project_id: projectId,
+      name,
+      repo_url: body.repo_url || '',
+      build_command: body.build_command || 'npm run build',
+      meta: { scaffold: true, pages, files: Object.keys(files) },
+    });
+    return { item: app, files, open_in_ide: true };
+  }
 }
 module.exports = { AppProjectService };

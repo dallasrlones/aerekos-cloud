@@ -1,0 +1,413 @@
+openapi: 3.0.3
+info:
+  title: aerekos-cloud GA managers (catalog-generated)
+  version: 0.1.0
+  description: |
+    Generated from docs/catalog.js — conductor proxy paths for core GA managers.
+    Regenerate: node scripts/oss/gen-openapi-from-catalog.mjs
+servers:
+  - url: http://{conductor}/
+    variables:
+      conductor:
+        default: localhost:3000
+paths:
+  /api/auth/login:
+    post:
+      summary: "Login -> { token } (JWT)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/auth/me:
+    get:
+      summary: Current identity
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/edge/hookup:
+    post:
+      summary: Hook up edge using existing Cloudflare secrets
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/edge/status:
+    get:
+      summary: Edge (tunnel/DNS) hookup status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/iac/hookup:
+    post:
+      summary: "Hook up IaC ({ mode, repo })"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/iac/status:
+    get:
+      summary: IaC hookup status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/stack:
+    get:
+      summary: Get project-stack JSON
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    put:
+      summary: Put project-stack JSON draft
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/stack/apply:
+    post:
+      summary: "Enable wanted[] then provision resources (never prod UUID)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/stack/diff:
+    post:
+      summary: Diff draft vs applied stack
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/projects/{id}/stack/rollback:
+    post:
+      summary: Roll back last applied stack revision
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/resources:
+    get:
+      summary: Fleet resource snapshot
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services:
+    get:
+      summary: List all registered manager services
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/{name}:
+    get:
+      summary: Get one service
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/{name}/disable:
+    post:
+      summary: Disable a service
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/{name}/enable:
+    post:
+      summary: Enable/deploy a service for a project
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/deployments/{id}:
+    put:
+      summary: Apply declarative Deployment
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: Get Deployment + status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/deployments/{id}/pause:
+    post:
+      summary: Pause rollout
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/deployments/{id}/reconcile:
+    post:
+      summary: Reconcile once (abort on deadline)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/deployments/{id}/resume:
+    post:
+      summary: Resume rollout
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/deployments/{id}/rollback:
+    post:
+      summary: Rollback to revision
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/tasks:
+    post:
+      summary: Create a task (legacy)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List tasks
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/tasks/{id}:
+    get:
+      summary: Get a task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/api/v1/tasks/{id}/stop:
+    post:
+      summary: Stop a task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/compute_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/keys:
+    post:
+      summary: "Create a key ({ name, type, algorithm })"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List keys
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/keys/{name}:
+    get:
+      summary: Get a key (no secret material)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/keys/{name}/rotate:
+    post:
+      summary: Rotate a key
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues:
+    post:
+      summary: Create a queue
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List queues
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues/{name}:
+    get:
+      summary: Get a queue
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a queue
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues/{name}/messages:
+    post:
+      summary: Send a message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues/{name}/messages/{messageId}:
+    delete:
+      summary: Delete (ack) a message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues/{name}/messages/{messageId}/visibility:
+    post:
+      summary: Change visibility
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/api/v1/queues/{name}/messages/receive:
+    post:
+      summary: Receive messages
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/queue_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/register:
+    post:
+      summary: Manager self-registration (service token issued)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/api/v1/secrets:
+    post:
+      summary: "Create a secret ({ name, value })"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List secrets (no values)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/api/v1/secrets/{id}:
+    get:
+      summary: "Get a secret (?reveal=1 for value)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a secret
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a secret
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/projects/{projectId}/buckets:
+    post:
+      summary: Create a bucket
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List buckets
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/projects/{projectId}/buckets/{bucket}:
+    get:
+      summary: Get a bucket
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a bucket
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/projects/{projectId}/buckets/{bucket}/files:
+    get:
+      summary: List objects
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/projects/{projectId}/buckets/{bucket}/files/{key}:
+    post:
+      summary: Upload an object
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: Download an object
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/api/projects/{projectId}/buckets/{bucket}/files/{key}/signed-url/download:
+    post:
+      summary: Create a signed download URL
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/workers:
+    get:
+      summary: List workers
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/workers/{id}/host/check:
+    get:
+      summary: Host OS/Docker freshness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Re-probe host OS/Docker
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/workers/{id}/host/update:
+    post:
+      summary: "Update host OS or Docker ({ target })"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Success (shape varies by manager)

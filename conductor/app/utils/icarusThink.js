@@ -46,7 +46,8 @@ function llmPhase(stream, gateway) {
 function livePrompt(phase, partial) {
   if (phase === 'called') return 'Called the brain…';
   if (phase === 'waiting') return String(partial || '').trim() || 'Waiting on the brain…';
-  if (phase === 'done') return '';
+  // Keep final tokens visible until chat history reload lands the assistant row.
+  if (phase === 'done') return String(partial || '').trim();
   return '';
 }
 

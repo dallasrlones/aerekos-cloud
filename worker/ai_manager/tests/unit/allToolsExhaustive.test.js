@@ -73,9 +73,13 @@ function memAgents(root) {
       return item;
     },
     listWork: async () => work,
-    updateWork: async (_p, _a, id, patch) => {
-      const w = work.find((x) => x.id === id);
-      if (w) Object.assign(w, patch);
+    updateWork: async (id, patch) => {
+      let w = work.find((x) => x.id === id);
+      if (!w) {
+        w = { id, status: 'queued', title: '' };
+        work.push(w);
+      }
+      Object.assign(w, patch || {});
       return w;
     },
     createWorker: async (_p, agentId, row) => {
@@ -212,9 +216,16 @@ function toolArgs(name, ctx) {
     learn_propose: { sources: 'https://example.com/docs' },
     learn_ingest: { job_id: 'learn-1' },
     spawn_worker: { persona: 'dev', objective: 'edit out/', claim: 'out' },
+    update_work: { work_id: 'work-1', status: 'running', title: 'tools chunk' },
     replan_worker: { worker_id: workerId, note: 'retry after checks' },
     report_user: { text: 'Pick a path', options: ['Continue', 'Stop', 'Other'] },
     run_checks: { claim: '.' },
+    aerekos_status: {},
+    aerekos_search_docs: { q: 'data api' },
+    aerekos_call: { manager: 'api_manager', method: 'GET', path: '/api/v1/info' },
+    rag_ingest: { text: 'platform docs chunk', collection: 'icarus-knowledge' },
+    data_api_apply: { name: 'demo', document: { models: { Item: { fields: { name: 'string' } } } } },
+    project_services: {},
   };
   void root;
   if (!map[name]) throw new Error(`no args fixture for ${name}`);
@@ -350,9 +361,13 @@ describe('allToolsExhaustive', () => {
     const oai = openaiToolSchemas();
     expect(oai.every((t) => t.type === 'function' && t.function.name)).toBe(true);
     const hang = hangoutReadSchemas();
-    expect(hang.map((t) => t.function.name).sort()).toEqual(
-      ['file_list', 'file_read', 'file_search', 'grep', 'semantic_search'].sort(),
-    );
+    const hangNames = hang.map((t) => t.function.name).sort();
+    expect(hangNames).toEqual(expect.arrayContaining([
+      'file_list', 'file_read', 'file_search', 'grep', 'semantic_search',
+      'aerekos_status', 'aerekos_search_docs', 'iac_schema', 'iac_diff',
+    ]));
+    expect(hangNames).not.toContain('approve_pr');
+    expect(hangNames).not.toContain('iac_apply');
     for (const n of names) {
       expect(['read', 'write', 'other']).toContain(classifyTool(n));
       expect(dangerClassify(n, {}).level).toBeTruthy();

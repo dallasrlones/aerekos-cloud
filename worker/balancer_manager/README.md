@@ -43,7 +43,7 @@ docker compose -f docker-compose.yml up --build
 |--------|------|-------------|
 | GET | /health | Liveness |
 | GET | /ready | Readiness |
-| GET | /api/v1/info | Metadata (`status: "stub"` until product API exists) |
+| GET | /api/v1/info | Metadata (`status: "active"` — see live `/api/v1/info`) |
 
 ## Related services
 

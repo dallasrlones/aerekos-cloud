@@ -64,7 +64,7 @@ export const SERVICE_CATALOG = [
   { name: 'cicd_manager', label: 'CI / CD Pipelines', category: 'devtools', icon: 'sync-outline', description: 'Build, test and deploy automatically.', route: 'cicdManager' },
   { name: 'code_as_infra', label: 'Infrastructure as Code', category: 'devtools', icon: 'construct-outline', description: 'Declarative, versioned infrastructure.' },
   { name: 'git_manager', label: 'Source Repositories', category: 'devtools', icon: 'git-branch-outline', description: 'Host and manage Git repositories.', route: 'gitManager' },
-  { name: 'adonis', label: 'Adonis IDE', category: 'devtools', icon: 'code-slash-outline', description: 'Edit, terminal, and deploy against your repos.', route: 'adonis' },
+  { name: 'adonis', label: 'Icarus IDE', category: 'devtools', icon: 'code-slash-outline', description: 'Live coding with Icarus — edit, terminal, services map, deploy.', route: 'adonis' },
   { name: 'mcp_manager', label: 'MCP Servers', category: 'devtools', icon: 'extension-puzzle-outline', description: 'Model Context Protocol server fleet.' },
 
   // --- Application Integration ---
@@ -81,7 +81,7 @@ export const SERVICE_CATALOG = [
   { name: 'analytics_manager', label: 'Analytics', category: 'management', icon: 'analytics-outline', description: 'Dashboards and usage analytics.' },
 
   // --- Machine Learning & AI ---
-  { name: 'ai_manager', label: 'AI Manager', category: 'ai', icon: 'sparkles-outline', description: 'LLM, embeddings, speech, memory/RAG, and Icarus agents on GPU workers.', route: 'aiManager' },
+  { name: 'ai_manager', label: 'Icarus', category: 'ai', icon: 'sparkles-outline', description: 'Talk, live plan graph, fleet, models, and apps — AI Manager APIs behind /icarus.', route: 'icarus' },
   { name: 'crawler_manager', label: 'Web Crawler', category: 'ai', icon: 'scan-outline', description: 'Crawl and index web content for data pipelines.' },
   { name: 'websocket_manager', label: 'WebSockets', category: 'integration', icon: 'pulse-outline', description: 'WebSocket channels.' },
   { name: 'event_manager', label: 'Event Bus', category: 'integration', icon: 'git-compare-outline', description: 'Event buses.' },

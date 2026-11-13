@@ -1,11 +1,11 @@
 const axios = require('axios');
-const detectAvailablePort = require('./portDetection');
-async function registerWithConductor() {
+async function registerWithConductor(listenPort) {
   const conductorUrl = process.env.CONDUCTOR_URL;
   const name = process.env.SERVICE_NAME || 'auth_manager';
   const serviceVersion = process.env.SERVICE_VERSION || '1.0.0';
-  const basePort = parseInt(process.env.PORT || '3116', 10);
-  const port = await detectAvailablePort(basePort);
+  // Register the port we are actually listening on — never re-detect a free port
+  // after listen (that caused wrong-port registration / proxy quirks).
+  const port = parseInt(listenPort != null ? listenPort : (process.env.PORT || '3116'), 10);
   try {
     console.log(`[${name}] Registering with conductor at ${conductorUrl}...`);
     const response = await axios.post(`${conductorUrl}/api/services/register`, {

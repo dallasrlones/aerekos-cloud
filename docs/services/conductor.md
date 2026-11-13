@@ -26,6 +26,25 @@ Master orchestrator: authentication, the service registry + proxy, worker fleet 
 | `GET` | `/api/workers/:id/host/check` | Host OS/Docker freshness |
 | `POST` | `/api/workers/:id/host/check` | Re-probe host OS/Docker |
 | `POST` | `/api/workers/:id/host/update` | Update host OS or Docker ({ target }) |
+| `GET` | `/api/projects/:id/members` | List project friends/members (GA) |
+| `POST` | `/api/projects/:id/members` | Add member (`user_id`, role); owner+ |
+| `PATCH` | `/api/projects/:id/members/:userId` | Update member role; owner+ |
+| `DELETE` | `/api/projects/:id/members/:userId` | Revoke member; owner+ |
+| `POST` | `/api/projects/:id/members/leave` | Current user leaves project |
+| `POST` | `/api/projects/:id/members/clear` | Owner clears membership (open project) |
+| `GET` | `/api/projects/:id/invites` | List friend invites; owner+ |
+| `POST` | `/api/projects/:id/invites` | Create invite token; owner+ |
+| `DELETE` | `/api/projects/:id/invites/:inviteId` | Revoke invite; owner+ |
+| `POST` | `/api/projects/invites/accept` | Accept invite `{ token }` |
+| `GET` | `/api/federation/peer` | This conductor peer card (federation Preview) |
+| `POST` | `/api/federation/peers` | Trust remote peer card |
+| `GET` | `/api/federation/peers` | List trusted peers |
+| `POST` | `/api/projects/:id/federation/grants` | Mint signed federation grant; owner+ |
+| `POST` | `/api/federation/attach` | Accept grant → attach remote project |
+| `GET` | `/api/federation/attaches` | List attached remote projects |
+| `GET` | `/api/federation/attaches/:id/status` | `connecting` \| `active` \| `degraded` \| `disconnected` |
+| `GET` | `/api/federation/attaches/:id/project` | Proxy GET home project |
+| `DELETE` | `/api/federation/attaches/:id` | Detach |
 | `GET` | `/api/projects/:id/iac/status` | IaC hookup status |
 | `POST` | `/api/projects/:id/iac/hookup` | Hook up IaC ({ mode, repo }) |
 | `GET` | `/api/projects/:id/stack` | Get project-stack JSON |

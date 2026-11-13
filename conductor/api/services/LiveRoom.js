@@ -3,6 +3,10 @@
 const LIVE_EVENTS = new Set([
   'ai:pull', 'ai:bench', 'ai:job', 'ai:job.token',
   'ai:agent.pulse', 'ai:agent.ask', 'ai:agent.ask.answered', 'ai:agent.done',
+  'ai:icarus.graph', 'ai:icarus.task', 'ai:icarus.tool', 'ai:icarus.bench',
+  'ai:friend.presence',
+  'ai:ide.file', 'ai:ide.presence', 'ai:ide.conflict', 'ai:ide.terminal',
+  'ai:stack.update', 'ai:stack.highlight',
   'log:appended',
 ]);
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';

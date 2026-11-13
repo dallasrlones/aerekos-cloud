@@ -31,6 +31,24 @@ const ProjectMember = db.model('ProjectMember', {
   indexes: ['project_id', 'user_id']
 });
 
+const ProjectInvite = db.model('ProjectInvite', {
+  project_id: 'string',
+  token: 'string',
+  role: 'string',
+  invited_by: 'string',
+  status: 'string',
+  expires_at: 'string',
+  accepted_by: 'string',
+  email: 'string'
+}, {
+  required: ['project_id', 'token'],
+  unique: ['token'],
+  timestamps: true,
+  indexes: ['project_id', 'token', 'status']
+});
+
+try { db.db.exec("ALTER TABLE projectinvites ADD COLUMN email TEXT DEFAULT ''"); } catch (_) { /* present */ }
+
 // Worker Model
 const Worker = db.model('Worker', {
   hostname: 'string',
@@ -76,12 +94,15 @@ const Project = db.model('Project', {
   name: 'string',
   description: 'string',
   enabled: 'number', // 0 = false, 1 = true
-  config: 'string' // JSON string
+  config: 'string', // JSON string
+  created_by: 'string'
 }, {
   required: ['name'],
   unique: ['name'],
   timestamps: true
 });
+
+try { db.db.exec("ALTER TABLE projects ADD COLUMN created_by TEXT DEFAULT ''"); } catch (_) { /* present */ }
 
 // Join tables: use explicit *_id columns. aerekos-record's SQLite ensureTable maps belongsTo: [A,B]
 // to a single broken FK name (e.g. project,service_id), not two columns. Recreate DB if upgrading from that schema.
@@ -186,6 +207,52 @@ const ProjectEnvironment = db.model('ProjectEnvironment', {
 try { db.db.exec('ALTER TABLE projectenvironments ADD COLUMN git_ref TEXT DEFAULT \'main\''); } catch (_) { /* present */ }
 try { db.db.exec('ALTER TABLE projectenvironments ADD COLUMN protected INTEGER DEFAULT 0'); } catch (_) { /* present */ }
 
+const ConductorPeer = db.model('ConductorPeer', {
+  peer_id: 'string',
+  public_key: 'string',
+  base_url: 'string',
+  label: 'string',
+  status: 'string'
+}, {
+  required: ['peer_id', 'public_key'],
+  unique: ['peer_id'],
+  timestamps: true,
+  indexes: ['peer_id', 'status']
+});
+
+const FederationGrant = db.model('FederationGrant', {
+  token: 'string',
+  jti: 'string',
+  home_peer_id: 'string',
+  project_id: 'string',
+  role: 'string',
+  status: 'string',
+  expires_at: 'string',
+  created_by: 'string'
+}, {
+  required: ['jti', 'home_peer_id', 'project_id'],
+  unique: ['jti'],
+  timestamps: true,
+  indexes: ['project_id', 'home_peer_id', 'status', 'jti']
+});
+
+const ProjectFederationAttach = db.model('ProjectFederationAttach', {
+  home_peer_id: 'string',
+  home_project_id: 'string',
+  home_base_url: 'string',
+  grant_token: 'string',
+  grant_jti: 'string',
+  role: 'string',
+  status: 'string',
+  label: 'string',
+  last_error: 'string',
+  attached_by: 'string'
+}, {
+  required: ['home_peer_id', 'home_project_id'],
+  timestamps: true,
+  indexes: ['home_peer_id', 'home_project_id', 'status']
+});
+
 module.exports = {
   User,
   Worker,
@@ -194,11 +261,15 @@ module.exports = {
   ProjectWorker,
   ProjectService,
   ProjectMember,
+  ProjectInvite,
   ServiceDeployment,
   Token,
   Resource,
   PlatformJob,
   ProjectStack,
   ProjectEnvironment,
+  ConductorPeer,
+  FederationGrant,
+  ProjectFederationAttach,
   db
 };

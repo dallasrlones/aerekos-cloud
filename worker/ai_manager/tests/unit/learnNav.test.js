@@ -85,6 +85,18 @@ function memAgents() {
       return c;
     },
     shopBoard: async () => ({ locks: {} }),
+    // Match AgentService.get(id, projectId) / update(id, projectId, body)
+    get: async (id) => agents.find((a) => a.id === id || a.name === id) || null,
+    update: async (id, _projectId, patch) => {
+      const a = agents.find((x) => x.id === id || x.name === id);
+      if (!a) {
+        const e = new Error('agent not found');
+        e.status = 404;
+        throw e;
+      }
+      Object.assign(a, patch || {});
+      return a;
+    },
     _seed(a) { agents.push(a); return a; },
     _asks: asks,
     _workers: workers,

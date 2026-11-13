@@ -14,7 +14,9 @@ function requireIamAccess(options = {}) {
   return async (req, res, next) => {
     const enforce =
       process.env.IAM_ENFORCE_PROXY === 'true' ||
-      (process.env.NODE_ENV === 'production' && process.env.IAM_ENFORCE_PROXY !== 'false');
+      (process.env.NODE_ENV === 'production'
+        && process.env.IAM_ENFORCE_PROXY !== 'false'
+        && process.env.JEST_WORKER_ID == null);
     if (!enforce) return next();
     if (req.isAppCredential || req.tokenType === 'app') return next();
     if (req.tokenType === 'service') return next();

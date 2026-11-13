@@ -108,17 +108,49 @@ async function sweepManager(token, projectId) {
   }
 }
 
-async function cleanupProject({ token, projectId, created } = {}) {
+const PROD_UUID = 'ea370977-3aff-4c76-95a6-a0c50fd2bce7';
+const KEEPER_NAME_RE = /aerekos-tv|\btv\b|friends|storage|prod/i;
+const { KEEPER_MARKERS = [] } = require('../worker/ai_manager/api/services/SafeDepsUpgradeService');
+
+function matchesKeeperMarker(id, name) {
+  const hay = `${id}\0${name}`;
+  return KEEPER_MARKERS.some((k) => k && hay.includes(String(k)));
+}
+
+function isKeeperProject(p = {}) {
+  const id = String(p.id || p.projectId || '');
+  const name = String(p.name || '');
+  if (id === PROD_UUID) return true;
+  if (matchesKeeperMarker(id, name)) return true;
+  if (KEEPER_NAME_RE.test(name)) return true;
+  const longLived = new Set([
+    env('AEREKOS_PROJECT_ID'),
+    env('AEREKOS_STORAGE_PROJECT_ID'),
+  ].filter(Boolean));
+  if (longLived.has(id)) return true;
+  // Only e2e sandboxes are deletable by default
+  if (name && !/^e2e(-platform)?-/.test(name)) return true;
+  return false;
+}
+
+async function cleanupProject({ token, projectId, created, name } = {}) {
   const t = token || await adminToken();
   let pid = projectId;
+  let pname = name || '';
   if (!pid && created) {
     const proj = created.find((c) => c.kind === 'project');
     pid = proj?.id;
+    pname = proj?.name || pname;
   }
   if (pid) {
+    if (isKeeperProject({ id: pid, name: pname })) {
+      console.log(`SKIP cleanup keeper project ${pname || pid}`);
+      return { skipped: true, projectId: pid, name: pname };
+    }
     await sweepManager(t, pid);
     await tryDel(t, 'DELETE', `/api/projects/${pid}`);
   }
+  return { ok: true, projectId: pid };
 }
 
 async function sweepNamedProjects() {
@@ -127,10 +159,13 @@ async function sweepNamedProjects() {
   const projects = r.data?.projects || r.data || [];
   const list = Array.isArray(projects) ? projects : [];
   for (const p of list) {
-    if (String(p.name || '').startsWith('e2e-platform-')) {
-      console.log(`sweep ${p.name} ${p.id}`);
-      await cleanupProject({ token, projectId: p.id });
+    if (!String(p.name || '').startsWith('e2e-platform-')) continue;
+    if (isKeeperProject(p)) {
+      console.log(`SKIP keeper ${p.name} ${p.id}`);
+      continue;
     }
+    console.log(`sweep ${p.name} ${p.id}`);
+    await cleanupProject({ token, projectId: p.id, name: p.name });
   }
 }
 
@@ -152,4 +187,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { cleanupProject, sweepManager, sweepNamedProjects };
+module.exports = {
+  cleanupProject, sweepManager, sweepNamedProjects, isKeeperProject, PROD_UUID, KEEPER_MARKERS,
+};

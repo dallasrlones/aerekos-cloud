@@ -1,0 +1,28 @@
+aerekos-cloud
+Copyright (c) 2026 aerekos-cloud contributors
+
+Licensed under the MIT License — see LICENSE for the full text.
+
+This product includes software developed by third parties. Dependency names and
+SPDX license identifiers appear in package.json, per-manager package.json files,
+and package-lock.json. Release artifacts may also ship a CycloneDX SBOM under
+artifacts/sbom.json (see scripts/oss/generate-sbom.sh).
+
+Notices required by bundled dependencies (Apache-2.0 NOTICE fragments, etc.) should
+be appended below before a public tag. Until then, run:
+
+  npm ls --all
+  node scripts/oss/gen-openapi-from-catalog.mjs   # API docs only; not license data
+
+Container images built from this repository may include base OS packages
+(Debian/Alpine) subject to their own licenses.
+
+Third-party attribution stub (non-exhaustive — expand at release):
+
+- Express, Node.js ecosystem packages — MIT and BSD licenses per npm metadata
+- better-sqlite3 — MIT
+- axios — MIT
+- jest (dev) — MIT
+
+For questions about licensing, open an issue or contact the maintainers listed in
+the repository.

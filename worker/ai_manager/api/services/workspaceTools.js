@@ -239,8 +239,18 @@ function openaiToolSchemas() {
 }
 
 function hangoutReadSchemas() {
-  const allow = new Set(['file_read', 'file_list', 'grep', 'file_search', 'semantic_search']);
+  const allow = new Set([
+    'file_read', 'file_list', 'grep', 'file_search', 'semantic_search',
+    'web_search', 'web_fetch', 'iac_schema', 'iac_diff', 'plan_query', 'plan_ready',
+    'plan_subgraph', 'explain_why', 'aerekos_status', 'aerekos_search_docs',
+  ]);
   return openaiToolSchemas().filter((t) => allow.has(t.function?.name));
+}
+
+/** Coding workers: open_pr yes; never approve_pr / merge / push-default. */
+function workerToolSchemas() {
+  const deny = new Set(['approve_pr', 'git_merge', 'spawn_worker', 'replan_worker']);
+  return openaiToolSchemas().filter((t) => !deny.has(t.function?.name));
 }
 
 function extractToolCalls(result) {
@@ -321,14 +331,22 @@ function toolSchemas() {
     { name: 'revise_plan', description: 'Revise the open plan from user feedback', parameters: { note: 'string' } },
     { name: 'learn_propose', description: 'List sources to learn; ASK before ingest', parameters: { sources: 'string' } },
     { name: 'learn_ingest', description: 'Ingest approved sources into skills RAG', parameters: { job_id: 'string' } },
-    { name: 'spawn_worker', description: 'Manager: spawn a worker after preview Yes', parameters: { persona: 'string', objective: 'string' } },
+    { name: 'spawn_worker', description: 'Manager: spawn a worker after preview Yes', parameters: { persona: 'string', objective: 'string', claim_prefix: 'string' } },
+    { name: 'update_work', description: 'Manager: update goal/task status or priority on the board', parameters: { work_id: 'string', status: 'string', title: 'string', priority: 'string' } },
     { name: 'replan_worker', description: 'Manager: replan a stuck worker', parameters: { worker_id: 'string', note: 'string' } },
     { name: 'report_user', description: 'Manager: options-out or preview to the user layer', parameters: { text: 'string', options: 'string' } },
     { name: 'run_checks', description: 'Run unit tests for the claimed path. No npm install.', parameters: { claim: 'string' } },
+    { name: 'aerekos_status', description: 'Read platform/manager health or status (user lane GET-safe)', parameters: { manager: 'string', path: 'string' } },
+    { name: 'aerekos_search_docs', description: 'Search platform docs / catalog RAG', parameters: { query: 'string' } },
+    { name: 'aerekos_call', description: 'Call an aerekos manager via SDK (manager lane; mutating needs ASK)', parameters: { manager: 'string', method: 'string', path: 'string', body: 'object' } },
+    { name: 'rag_ingest', description: 'Ingest text/URL into knowledge RAG (ASK)', parameters: { collection: 'string', title: 'string', content: 'string', url: 'string' } },
+    { name: 'data_api_apply', description: 'Apply Data API schema (models→CRUD) via api_manager / stack', parameters: { name: 'string', schema: 'object', engine: 'string' } },
+    { name: 'project_services', description: 'List live services attached to this project stack', parameters: {} },
   ];
 }
 
 module.exports = {
   WRITE_TOOLS, READ_TOOLS, classifyTool, dangerClassify, resolveInWorkspace,
   executeTool, snapshotFile, toolSchemas, openaiToolSchemas, extractToolCalls, hangoutReadSchemas,
+  workerToolSchemas,
 };

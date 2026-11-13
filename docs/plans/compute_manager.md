@@ -1,8 +1,9 @@
-# compute_manager — production plan
+# compute_manager — aerekos Compute (our Kubernetes)
 
-**Port:** 3100 · **AWS analog:** ECS / Fargate · **Category:** Compute · **Tier:** production-ready
+**Port:** 3100 · **Peer:** Kubernetes control plane (not ECS) · **Category:** Compute · **Tier:** GA (orchestrator)
 
 **Navigation:** [← db_manager](./db_manager.md) · [Index](./README.md) · [queue_manager →](./queue_manager.md)  
+**ADR:** [004-aerekos-compute-orchestrator.md](../adr/004-aerekos-compute-orchestrator.md)  
 **Platform auth:** [platform_app_access.md](./platform_app_access.md)  
 **Standards:** [enterprise_standards.md](./enterprise_standards.md)
 
@@ -10,23 +11,25 @@
 
 ## Summary
 
-Docker task runner: create/stop/delete project-scoped containers.
+**aerekos Compute** is our Kubernetes-class orchestrator: declarative `Deployment` resources, continuous reconcile, RollingUpdate/Recreate with progress-deadline abort, pause/resume/rollback by revision. Docker is the v0.1.0 **node agent** only (pluggable later). Project ≈ namespace; stack revisions are the IaC view.
+
+APIs: `/api/v1/deployments/*` (primary), `/api/v1/tasks/*` (legacy task CRUD + workload helpers).
 
 ## Current state
 
 | Area | Status |
 |------|--------|
-| Implementation | production-ready |
-| Console UI | ComputeManager (bespoke) |
-| Tests | api.test.js |
-| Direct-port auth | Mostly none — see [platform_app_access.md](./platform_app_access.md) P1 |
+| Implementation | DeploymentController + deploymentSpec |
+| Console UI | ComputeManager + ServiceGuide |
+| Tests | deploymentController.test.js, desiredState.test.js |
+| Direct-port auth | AUTH_REQUIRED — see [auth-required.md](../runbooks/auth-required.md) |
 | Project scoping | Yes |
 
-### Known gaps
+### Known gaps (honest)
 
-- No manager-edge auth
-- SKIP_DOCKER metadata-only mode
-- No fleet placement
+- No kubectl-compat / CRDs / multi-cluster
+- `COMPUTE_E2E_DOCKER=1` required for live dockerode apply; default unit path uses `SKIP_DOCKER`
+- Fleet placement across workers is still thin
 
 ## App access
 

@@ -1,5 +1,6 @@
 const { Queue, Message } = require('../models');
 const brokers = require('./brokers');
+const { createQueueProvider, usesQueueProvider } = require('../../../shared/queueProvider');
 
 const MAX_BODY_BYTES = 256 * 1024;
 const DEFAULT_VISIBILITY = 30;
@@ -23,6 +24,14 @@ class QueueService {
   constructor(models = { Queue, Message }) {
     this.Queue = models.Queue;
     this.Message = models.Message;
+    this._queueProvider = usesQueueProvider() ? createQueueProvider() : null;
+  }
+
+  useProvider(q) {
+    return (
+      Boolean(this._queueProvider) &&
+      (q.engine === 'standard' || q.engine === 'fifo')
+    );
   }
 
   assertQueueName(name) {
@@ -108,6 +117,9 @@ class QueueService {
   }
 
   async depthFor(q) {
+    if (this.useProvider(q)) {
+      return this._queueProvider.depth(q.project_id, q.name);
+    }
     if (!this.useBroker(q)) {
       const msgs = await this.Message.findAll({ where: { queue_id: q.id } });
       return msgs.length;
@@ -168,6 +180,9 @@ class QueueService {
     this.assertBody(body);
     const q = await this.getQueueByName(queueName, projectId);
     const text = typeof body === 'string' ? body : JSON.stringify(body);
+    if (this.useProvider(q)) {
+      return this._queueProvider.publish(q.project_id, queueName, text, extras);
+    }
     if (this.useBroker(q)) {
       const id = q.engine === 'rabbitmq'
         ? await brokers.rabbitPublish(projectId, queueName, text, extras)
@@ -202,6 +217,14 @@ class QueueService {
       ? this.parseVisibility(visibilityOverride)
       : this.parseVisibility(q.visibility_timeout_seconds);
 
+    if (this.useProvider(q)) {
+      return this._queueProvider.receive(q.project_id, queueName, max, {
+        visibilitySeconds: vis,
+        maxReceive: q.max_receive || 3,
+        dlqName: q.dlq || '',
+        fifo: q.engine === 'fifo',
+      });
+    }
     if (this.useBroker(q)) {
       const maxReceive = q.max_receive || 3;
       const raw = q.engine === 'rabbitmq'
@@ -271,6 +294,9 @@ class QueueService {
       throw e;
     }
     const q = await this.getQueueByName(queueName, projectId);
+    if (this.useProvider(q)) {
+      return this._queueProvider.ack(q.project_id, queueName, messageId);
+    }
     if (this.useBroker(q)) {
       if (q.engine === 'rabbitmq') await brokers.rabbitAck(messageId);
       else await brokers.redisAck(messageId);
@@ -294,6 +320,14 @@ class QueueService {
     this.assertProjectId(projectId);
     const vis = this.parseVisibility(visibilitySeconds);
     const q = await this.getQueueByName(queueName, projectId);
+    if (this.useProvider(q)) {
+      return this._queueProvider.changeVisibility(
+        q.project_id,
+        queueName,
+        messageId,
+        vis
+      );
+    }
     const rows = await this.Message.findAll({ where: { id: messageId, queue_id: q.id, project_id: projectId } });
     if (!rows.length) {
       const e = new Error('Message not found');

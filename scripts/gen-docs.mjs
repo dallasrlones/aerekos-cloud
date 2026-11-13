@@ -343,3 +343,15 @@ console.log(`  - ${servicesDir}/<name>.md (+ README.md index)`);
 console.log(`  - ${siteDir}/index.html (web docs) + catalog.json`);
 console.log(`  - aerekos-sdk/managers.generated.js (${sdkTable.length} managers)`);
 console.log(`  - docs/agents/prompts/<name>.md (${all.length} agent prompts)`);
+
+// Keep platform tools / Laya corpus / e2e matrix in sync whenever docs regen.
+try {
+  const { spawnSync } = await import('child_process');
+  const r = spawnSync(process.execPath, [path.join(__dirname, 'gen-platform-tools.mjs')], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+  if (r.status) process.exit(r.status || 1);
+} catch (e) {
+  console.warn('gen-platform-tools skipped:', e.message || e);
+}

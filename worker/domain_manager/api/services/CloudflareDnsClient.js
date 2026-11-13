@@ -1,3 +1,7 @@
+/**
+ * Cloudflare DNS API adapter — default {@link DnsProvider} implementation.
+ * @see worker/shared/edgeProviders.js · docs/architecture/edge-providers.md
+ */
 const axios = require('axios');
 
 const BASE = 'https://api.cloudflare.com/client/v4';

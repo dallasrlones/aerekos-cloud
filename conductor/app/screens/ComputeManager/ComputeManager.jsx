@@ -12,6 +12,8 @@ import { ComputeManagerStyles as S } from './ComputeManager.styles';
 import { EnvSwitcher } from '../../components/EnvSwitcher/EnvSwitcher';
 import { AnimusPage, AnimusNextSteps } from '../../components/Animus';
 import { formatBytes, formatCpu } from '../../utils/formatBytes';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 const statusColor = (status) => {
   switch (status) {
@@ -24,7 +26,7 @@ const statusColor = (status) => {
 };
 
 /**
- * Container Hosting hub: this project's compute_manager containers only.
+ * aerekos Compute hub (ADR 004): Deployments + legacy task containers for this project.
  */
 export const ComputeManager = ({ navigation }) => {
   const { currentProject, currentEnvironment } = useProject();
@@ -37,6 +39,11 @@ export const ComputeManager = ({ navigation }) => {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [error, setError] = useState(null);
   const [taskStats, setTaskStats] = useState({});
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'compute_manager',
+    navigation,
+    status?.enabled,
+  );
 
   const loadStatus = useCallback(async () => {
     try {
@@ -126,8 +133,8 @@ export const ComputeManager = ({ navigation }) => {
 
   return (
     <AnimusPage
-      title="Container Hosting"
-      job="Launch and manage this project’s containers from the hangar bay."
+      title="aerekos Compute"
+      job="Declarative Deployments and containers — our Kubernetes-class orchestrator per project namespace."
       metaphor="hangar"
       scroll={false}
       primaryAction={<Button title="Launch" onPress={() => navigation.navigate('launchContainer')} />}
@@ -143,6 +150,39 @@ export const ComputeManager = ({ navigation }) => {
       {error && (
         <Box style={S.errorBox}><Text style={S.errorText}>{error}</Text></Box>
       )}
+
+      <ServiceGuide
+        title="aerekos Compute guide"
+        analogue="Kubernetes (aerekos Compute, ADR 004)"
+        blurb="Declarative Deployments reconcile on workers (Docker v0.1.0 node agent). Project ≈ namespace — apply specs, roll out, pause, resume, or rollback by revision. Tasks API remains for imperative launches."
+        whenToUse={[
+          'Long-running APIs and workers via Deployment desired state',
+          'Rolling updates and rollbacks on registered workers',
+          'Imperative containers from images, git, or zip (tasks API)',
+        ]}
+        prerequisites={[
+          'Select a project and environment (namespace)',
+          'Enable auth_manager for invoke credentials',
+        ]}
+        examples={[
+          {
+            label: 'Apply Deployment',
+            code: `PUT /api/services/compute_manager/api/v1/deployments/api?project_id={projectId}\n{ "spec": { "replicas": 2, "template": { "image": "nginx:alpine" } } }`,
+          },
+          {
+            label: 'Reconcile rollout',
+            code: `POST /api/services/compute_manager/api/v1/deployments/api/reconcile?project_id={projectId}`,
+          },
+          {
+            label: 'List tasks (legacy)',
+            code: `GET /api/services/compute_manager/api/v1/projects/{projectId}/tasks?env=prod`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
 
       <Box title="Service status">
         {status ? (
@@ -224,8 +264,8 @@ export const ComputeManager = ({ navigation }) => {
       {status && !status.enabled && (
         <Box title="Getting started">
           <Text style={S.hintText}>
-            Enable Container Hosting above to deploy it to a worker. Once running you can launch
-            containers from an image, a source repository, or an uploaded zip.
+            Enable aerekos Compute above to deploy controllers to a worker. Once running you can apply
+            Deployments or launch containers from an image, a source repository, or an uploaded zip.
           </Text>
         </Box>
       )}

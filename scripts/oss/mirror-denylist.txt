@@ -1,0 +1,23 @@
+# Paths and patterns that must NOT appear in a public OSS mirror of aerekos-cloud.
+# One entry per line. Lines starting with # are comments.
+# Used by scripts/oss/check-mirror-scrub.sh (run from repository root).
+
+# Personal / product apps (not part of the platform OSS bundle)
+aerekos-tv
+aerekos-music
+aerekos-drive
+forged-lumen
+
+# Secrets and local env (never ship)
+.env
+**/.env
+**/.env.local
+**/.env.production
+
+# Object-store / bucket dumps and offline backups (may contain user media or PII)
+**/bucket-dump/**
+**/bucket_dumps/**
+**/bucket-dumps/**
+**/*-bucket-dump.*
+**/bucket_dump/**
+**/storage-dump/**

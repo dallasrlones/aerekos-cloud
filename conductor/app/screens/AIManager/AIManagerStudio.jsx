@@ -27,6 +27,8 @@ import websocketService from '../../services/websocketService';
 import { applyPullEvent, applyBenchEvent } from '../../utils/liveEvents';
 import { ScreenTabs } from '../../components/ScreenTabs/ScreenTabs';
 import { AgentsWorkspace } from './AgentsWorkspace';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 function formatBytes(n) {
   if (!n || n <= 0) return '—';
@@ -67,20 +69,37 @@ const WebAudio = ({ src }) => {
 };
 
 const SECTION_SCREENS = {
-  engines: 'aiEngines',
-  endpoints: 'aiEndpoints',
-  llm: 'aiLlm',
-  tts: 'aiTts',
-  stt: 'aiStt',
-  embeddings: 'aiEmbeddings',
-  benchmarks: 'aiBenchmarks',
-  intelligence: 'aiIntelligence',
-  rag: 'aiRag',
-  memory: 'aiMemory',
-  jobs: 'aiJobs',
-  finetunes: 'aiFinetunes',
-  appaccess: 'aiAccess',
-  agents: 'aiAgents',
+  engines: 'icarusFleet',
+  endpoints: 'icarusFleet',
+  llm: 'icarusModels',
+  tts: 'icarusModels',
+  stt: 'icarusModels',
+  embeddings: 'icarusModels',
+  benchmarks: 'icarusModels',
+  intelligence: 'icarusApps',
+  rag: 'icarusApps',
+  memory: 'icarusApps',
+  jobs: 'icarusApps',
+  finetunes: 'icarusApps',
+  appaccess: 'icarusApps',
+  agents: 'icarus',
+};
+
+const SECTION_PARAMS = {
+  engines: { section: 'fleet', tab: 'engines' },
+  endpoints: { section: 'fleet', tab: 'endpoints' },
+  llm: { section: 'models', tab: 'llm' },
+  tts: { section: 'models', tab: 'tts' },
+  stt: { section: 'models', tab: 'stt' },
+  embeddings: { section: 'models', tab: 'embeddings' },
+  benchmarks: { section: 'models', tab: 'benchmarks' },
+  intelligence: { section: 'apps', tab: 'intelligence' },
+  rag: { section: 'apps', tab: 'rag' },
+  memory: { section: 'apps', tab: 'memory' },
+  jobs: { section: 'apps', tab: 'jobs' },
+  finetunes: { section: 'apps', tab: 'finetunes' },
+  appaccess: { section: 'apps', tab: 'appaccess' },
+  agents: { section: 'chat' },
 };
 const SERVE_TABS = [
   { id: 'endpoints', label: 'Endpoints' },
@@ -149,7 +168,7 @@ export function AIManagerStudio({ navigation, route }) {
   useEffect(() => { setTab(initial); }, [initial]);
   const goSection = (id) => {
     const screen = SECTION_SCREENS[id];
-    if (screen) navigation.navigate(screen);
+    if (screen) navigation.navigate(screen, SECTION_PARAMS[id] || {});
   };
   const [intelJobs, setIntelJobs] = useState([]);
   const [jobSnap, setJobSnap] = useState(null);
@@ -227,6 +246,11 @@ export function AIManagerStudio({ navigation, route }) {
   const [accessConnectors, setAccessConnectors] = useState([]);
   const [serviceInfo, setServiceInfo] = useState(null);
   const [instances, setInstances] = useState([]);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'ai_manager',
+    navigation,
+    serviceInfo?.enabled,
+  );
 
   const apiBase = getApiBaseUrl();
 
@@ -802,6 +826,30 @@ export function AIManagerStudio({ navigation, route }) {
             { title: 'Intelligence', variant: 'secondary', onPress: () => goSection('intelligence') },
             { title: 'Agents', variant: 'secondary', onPress: () => goSection('agents') },
           ]} />
+          <ServiceGuide
+            title="Icarus setup"
+            analogue="Managed AI fleet"
+            blurb="Backends, models, RAG, and agents for this project. Dependencies (auth, keys, secrets) must be healthy before inference routes work."
+            whenToUse={[
+              'After enabling ai_manager for the project',
+              'Before seeding Ollama/vLLM integrations',
+              'When troubleshooting unreachable LLM endpoints',
+            ]}
+            prerequisites={[
+              'Project selected in the header',
+              'Provider API keys in secrets_manager when not using local seed',
+            ]}
+            examples={[
+              {
+                label: 'Service info',
+                code: `GET /api/services/ai_manager/api/v1/info?project_id={projectId}`,
+              },
+            ]}
+            deps={guideDeps}
+            onSetupDep={openDep}
+            onEnableAllDeps={enableAllDeps}
+            onSetup={onSetup}
+          />
           <Box title="Inference backends">
             {llmIntegrations.length > 0 ? (
               llmIntegrations.map((p) => {

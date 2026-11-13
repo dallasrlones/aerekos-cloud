@@ -38,10 +38,50 @@ Helper: `adminToken()`, `mintAppToken(admin, projectId)`, `request(method, path,
 | T43 C7 | `oauth-identity.js` | auth_manager OIDC providers create+list | Do not rebuild auth_manager from Mac |
 | T44 C8 | `gateway-presets.js` | `POST .../api_manager/api/v1/endpoints/seed-presets` | Preset scopes stuffed in `backend_url` (`service:path#scope`) |
 | T65 | `worker-env-tags.js` | conductor worker register/list | `GET /api/token` (admin JWT) for **registration** token; unique IPs; `env` string + `capabilities[]` |
+| Talk path | `icarus-talk-graph.js` | hey chat + do-work + `POST /api/live` for `ai:icarus.*` | Sacred CHAT/MANAGER path; LiveRoom allowlist regression |
+| Agents | `icarus-agents.js` | setup, chat, interrupt, connectors | Friend agent smoke |
+| Friends share (GA) | `friends-share.js` | invite (+email) → accept → outsider 403 → viewer write denial → leave → clear; `ai:friend.presence` | Needs admin JWT; creates temp users via `POST /api/auth/users` |
+| Friends federation (Preview) | `friends-federation.js` | loopback peer → mint grant → attach → status → proxy project | Optional `SECOND_CONDUCTOR_URL`; rebuild conductor image for new routes |
 
 ## db_manager (T39)
 
 `docker-compose.core.yml` service `db_manager` `:3004`. Listens when `AUTH_REQUIRED` is not true even if `PROJECT_ID` is unset. Auth middleware accepts app tokens. Engine `sqlite3` / `lancedb` in the create schema.
+
+## Laya + Flows + platform tools + Part I matrix
+
+| Check | Script | Notes |
+|-------|--------|-------|
+| Laya packs / predict / services map | `e2e/icarus-laya-flows.js` | Live `POST .../icarus/laya/predict` — real ai_manager |
+| Generated tool matrix (files) | `e2e/platform-tools-matrix.js` | After `make docs` / `gen-platform-tools.mjs` |
+| **Part I live matrix** | `e2e/icarus-platform-matrix.js` | Laya flow_pick/intake_next/lane, services map, `ai:ide.file` LiveRoom, agents — **non-prod only** |
+| **Wants W1–W4** | `e2e/icarus-wants-matrix.js` | Info verify + CorpusStore, nav catalog, safe deps dry-run, workload reconcile — offline with `ICARUS_C0_SKIP_LIVE=1` |
+
+### Part I acceptance rows (ship-blocking when live)
+
+1. **Laya** — `flow_pick`, `intake_next`, lane, HITL risk, `config_vs_code` (live predict; heuristic fallback unit-tested)
+2. **Guided Flows** — multi-turn ASK → confirm → stack apply (`new_project_app`, `new_worker_fleet`)
+3. **IaC/OOTB** — stack put/diff/apply → Data API / tunnel health; rollback path
+4. **Queue workers** — queue + consumer live
+5. **Layer spine** — chat → manager tool loop → spawn → bubble `report_user`
+6. **PR path** — branch + `open_pr` → `approve_pr` → user Merge; worker self-approve denied
+7. **safe_self_update** — spawn claim + PR + health fail → rollback
+8. **STEER / Neo4j** — steer mutates plan + wakes manager
+9. **RAG/info** — info lane knowledge without manager wake
+10. **HITL** — mutate without ASK fails; prod UUID hard-deny
+11. **Icarus IDE** — live buffer (`ai:ide.file`), follow, conflict, PR dock, stack apply, services map
+12. **Platform tools** — generated matrix + live SDK/status
+13. **Resume/heal** — Computer/browser down ASK → heal → resume
+14. **Docs drift** — `make docs` clean + SDK/catalog smoke
+
+```bash
+node e2e/platform-tools-matrix.js
+node e2e/icarus-laya-flows.js
+node e2e/icarus-platform-matrix.js
+ICARUS_C0_SKIP_LIVE=1 node e2e/icarus-wants-matrix.js   # offline W1–W4
+make e2e-icarus-wants                                    # same via Makefile
+```
+
+Ship criterion: live LLM jobs must **complete**, not only enqueue. Non-prod project only. If brain down, heal/resume then re-run — do not skip GPU for ship.
 
 ## api_manager (T44)
 
@@ -62,3 +102,11 @@ If `Record.registerMemoryModels` / `connectLance` are missing, `MemoryDbClient` 
 ## Order vs C0
 
 Run C0 first if `ai_manager` was recreated (LLM provider + memory setup). T40 GPU completion is **not** required for the JS e2e (it only asserts 201 + adapter id).
+
+## Friends / federation image deploy checklist
+
+1. Rebuild **conductor** image (federation + friends routes are baked — not hot-mounted API).
+2. `docker compose -f docker-compose.core.yml up -d conductor` (or stack equivalent).
+3. Confirm `GET /api/federation/peer` returns `maturity: preview` and `GET /api/projects/:id/members` returns `maturity: ga`.
+4. Frontend is host bind-mount — refresh UI for Friends → Local | Federation tabs.
+5. Loopback smoke: `node e2e/friends-share.js` then `node e2e/friends-federation.js` with `CONDUCTOR_URL` set.

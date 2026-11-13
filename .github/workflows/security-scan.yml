@@ -1,0 +1,53 @@
+name: Security scan
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: security-scan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security scan script (npm audit; optional gitleaks/trivy)
+        run: bash scripts/ci/security-scan.sh
+        env:
+          # W14 target: flip to 1 once high/critical npm issues are triaged.
+          SECURITY_SCAN_STRICT: "0"
+
+      # Optional scanners — skipped when binaries are absent (no extra network in this job).
+      - name: gitleaks (optional)
+        run: |
+          if command -v gitleaks >/dev/null 2>&1; then
+            gitleaks detect --source . --no-banner --redact
+          else
+            echo "gitleaks not on runner; see scripts/ci/security-scan.sh and wave W16"
+          fi
+        continue-on-error: true
+
+      - name: trivy fs (optional)
+        run: |
+          if command -v trivy >/dev/null 2>&1; then
+            trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+          else
+            echo "trivy not on runner; add aquasecurity/trivy-action for image scans in W16"
+          fi
+        continue-on-error: true

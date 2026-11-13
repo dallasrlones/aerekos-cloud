@@ -1,0 +1,83 @@
+openapi: 3.0.3
+info:
+  title: Aerekos AI Manager / Icarus
+  version: "1.0"
+  description: >
+    Console at /icarus. Proxy via conductor /api/services/ai_manager.
+    Live room ai:live:{projectId} events include ai:job.token and ai:icarus.*.
+paths:
+  /api/v1/agents/setup:
+    post:
+      summary: Idempotent Icarus agent setup
+      parameters:
+        - in: query
+          name: project_id
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id: { type: string }
+                name: { type: string, default: icarus }
+                timezone: { type: string }
+      responses:
+        "200": { description: Setup result with agent }
+  /api/v1/agents/{id}/chat:
+    post:
+      summary: User chat (gate CHAT / MANAGER / STEER)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: project_id
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string }
+                project_id: { type: string }
+      responses:
+        "202":
+          description: Queued job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string }
+                  route: { type: string, enum: [CHAT, MANAGER, STEER] }
+                  handed_off: { type: boolean }
+  /api/v1/agents/{id}/interrupt:
+    post:
+      summary: Stop or inject context mid-flight
+  /api/v1/agents/{id}/messages:
+    get:
+      summary: Chat history
+  /api/v1/icarus/plans:
+    get:
+      summary: List plan graphs
+  /api/v1/icarus/plans/{planId}:
+    get:
+      summary: Plan detail / subgraph
+  /api/v1/icarus/tasks/{taskId}/trace:
+    get:
+      summary: Task tools and why/trace
+  /api/v1/icarus/status:
+    get:
+      summary: Graph runtime status
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []

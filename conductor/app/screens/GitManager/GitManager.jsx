@@ -16,6 +16,8 @@ import { GitReadme } from './GitReadme';
 import { parseUnifiedDiff } from './parseUnifiedDiff';
 import { README_NAMES } from './languageFromPath';
 import { GitStyles as S } from './GitManager.styles';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 const TABS = [
   { id: 'files', label: 'Code' },
@@ -118,6 +120,7 @@ export const GitManager = ({ navigation, route }) => {
   const [newFilePath, setNewFilePath] = useState('');
   const [newFileContent, setNewFileContent] = useState('');
   const [busy, setBusy] = useState(false);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps('git_manager', navigation);
 
   const projectName = (id) => (projects || []).find((p) => p.id === id)?.name || id;
   const originPid = SYSTEM_PROJECT_ID || currentProject?.id;
@@ -819,7 +822,7 @@ export const GitManager = ({ navigation, route }) => {
           <View style={S.titleRow}>
             <Button title="All repositories" variant="secondary" onPress={() => { setView('list'); load(); }} />
             <View style={S.privateBadge}><Text style={S.privateBadgeText}>Private</Text></View>
-            <Button title="Open in Adonis" onPress={openAdonis} />
+            <Button title="Open in Icarus IDE" onPress={openAdonis} />
             {cloneUrl ? <Button title="Copy clone URL" variant="secondary" onPress={() => copyText(cloneUrl)} /> : null}
           </View>
           {cloneUrl ? <Text selectable style={S.muted}>{cloneUrl}</Text> : <Text style={S.muted}>Add an origin hostname under Clone & settings to get a clone URL.</Text>}
@@ -924,6 +927,34 @@ export const GitManager = ({ navigation, route }) => {
     >
       <ScrollView>
         {error ? <Text style={S.error}>{error}</Text> : null}
+        <ServiceGuide
+          title="Git guide"
+          analogue="AWS CodeCommit"
+          blurb="Private Smart HTTP repos with LFS objects in storage_manager — branches, PRs, and origin hostnames via Edge."
+          whenToUse={[
+            'Application source and infra-as-code',
+            'LFS for large binaries (with storage_manager)',
+            'Fleet-wide aerekos-cloud repo merges',
+          ]}
+          prerequisites={[
+            'Select or create a project repository',
+            'Enable storage_manager and auth_manager',
+          ]}
+          examples={[
+            {
+              label: 'Create repository',
+              code: `POST /api/services/git_manager/api/v1/repos\n{ "project_id": "{projectId}", "name": "app" }`,
+            },
+            {
+              label: 'Clone (HTTPS)',
+              code: `git clone https://{origin}/{repo}.git\n# password: console JWT or GIT_AUTH_TOKEN`,
+            },
+          ]}
+          deps={guideDeps}
+          onSetupDep={openDep}
+          onEnableAllDeps={enableAllDeps}
+          onSetup={onSetup}
+        />
         <AnimusNextSteps navigation={navigation} filter={['add_remote', 'open_pr', 'bind']} />
         {view === 'create' ? (
           <Box title="Create a repository">
@@ -952,7 +983,7 @@ export const GitManager = ({ navigation, route }) => {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   <Button title="Open" variant="secondary" onPress={() => openRepo(r)} />
                   <Button
-                    title="Open in Adonis"
+                    title="Open in Icarus IDE"
                     variant="secondary"
                     onPress={() => navigation?.navigate?.('adonis', {
                       projectId: r.project_id,

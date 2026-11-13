@@ -11,6 +11,8 @@ import { colors } from '../../styles/theme';
 import { ApiGatewayManagerStyles as S } from './ApiGatewayManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { stackService } from '../../services/stackService';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 const ENGINES = ['sqlite3', 'postgresql', 'mongodb'];
 
@@ -52,6 +54,11 @@ export const ApiGatewayManager = ({ navigation }) => {
   const [schemaJson, setSchemaJson] = useState(JSON.stringify(STARTER, null, 2));
   const [dataTab, setDataTab] = useState('gateway');
   const [lastApply, setLastApply] = useState(null);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'api_manager',
+    navigation,
+    status?.enabled,
+  );
 
   const parsedEngine = (() => {
     try { return JSON.parse(schemaJson).engine || 'sqlite3'; } catch { return 'sqlite3'; }
@@ -136,6 +143,35 @@ export const ApiGatewayManager = ({ navigation }) => {
     >
       <Text style={S.title}>API Gateway</Text>
       <Text style={S.subtitle}>Pretty invoke URLs → manager proxy with ARN injection</Text>
+
+      <ServiceGuide
+        title="API gateway guide"
+        analogue="Amazon API Gateway"
+        blurb="Publish HTTP routes and optional Data API schemas — JWT at the edge, conductor proxy injects project context to backend managers."
+        whenToUse={[
+          'Pretty URLs for storage, queue, db, and function invoke',
+          'Hosted CRUD from a model schema (Data API tab)',
+          'Public or app-credential scoped routes',
+        ]}
+        prerequisites={[
+          'Select a project — routes are project-scoped',
+          'Enable auth_manager for JWT validation',
+        ]}
+        examples={[
+          {
+            label: 'Seed presets',
+            code: `POST /api/services/api_manager/api/v1/projects/{projectId}/routes/seed-presets`,
+          },
+          {
+            label: 'Data API apply',
+            code: `POST .../data-apis/apply\n{ "name": "app", "engine": "sqlite3", "models": { ... } }`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
 
       {error ? (
         <Box style={S.errorBox}><Text style={S.errorText}>{error}</Text></Box>

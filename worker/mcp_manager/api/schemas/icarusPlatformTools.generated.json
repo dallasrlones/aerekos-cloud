@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-11-13T03:33:37.355Z",
+  "note": "Import alongside platformTools.js; do not hand-edit",
+  "tools": [
+    {
+      "name": "icarus.aerekos_status",
+      "description": "Icarus platform tool aerekos_status",
+      "mutating": false,
+      "lane": [
+        "user",
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.aerekos_search_docs",
+      "description": "Icarus platform tool aerekos_search_docs",
+      "mutating": false,
+      "lane": [
+        "user",
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.aerekos_call",
+      "description": "Icarus platform tool aerekos_call",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.iac_schema",
+      "description": "Icarus platform tool iac_schema",
+      "mutating": false,
+      "lane": [
+        "user",
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.iac_put",
+      "description": "Icarus platform tool iac_put",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.iac_diff",
+      "description": "Icarus platform tool iac_diff",
+      "mutating": false,
+      "lane": [
+        "user",
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.iac_apply",
+      "description": "Icarus platform tool iac_apply",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.iac_rollback",
+      "description": "Icarus platform tool iac_rollback",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.data_api_apply",
+      "description": "Icarus platform tool data_api_apply",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.project_services",
+      "description": "Icarus platform tool project_services",
+      "mutating": false,
+      "lane": [
+        "user",
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.update_work",
+      "description": "Icarus platform tool update_work",
+      "mutating": true,
+      "lane": [
+        "manager"
+      ]
+    },
+    {
+      "name": "icarus.rag_ingest",
+      "description": "Icarus platform tool rag_ingest",
+      "mutating": true,
+      "lane": [
+        "manager",
+        "user"
+      ]
+    }
+  ]
+}

@@ -42,6 +42,41 @@ function matchNav(phrase, ctx = {}) {
   if (/\b(dashboard|home)\b/i.test(t) && /\b(take me|go to)\b/i.test(t)) {
     return { kind: 'nav', screen: 'dashboard', env, project };
   }
+  if (/\b(friends|share (the )?project|project invite|invite (a )?friend)\b/i.test(t)
+    && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'icarusFriends', env, project, params: { section: 'friends' } };
+  }
+  if (/\b(federation|federated|remote peer|peer conductor)\b/i.test(t)
+    && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return {
+      kind: 'nav',
+      screen: 'icarusFriends',
+      env,
+      project,
+      params: { section: 'friends', tab: 'federation' },
+    };
+  }
+  if (/\b(icarus\s*)?(ide|adonis|editor|monaco)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'adonis', env, project, params: { section: 'ide' } };
+  }
+  if (/\b(services?\s*map|stack|infra\s*tab)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'adonis', env, project, params: { section: 'services' }, anchor: 'services-map' };
+  }
+  if (/\b(functions?|lambdas?)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'functionManager', env, project };
+  }
+  if (/\b(api\s*gateway|api\s*manager|data\s*api)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'apiManager', env, project };
+  }
+  if (/\b(storage|buckets?)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'storageManager', env, project };
+  }
+  if (/\b(git|repos?|pull\s*requests?)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'gitManager', env, project };
+  }
+  if (/\b(icarus\s*)?(chat|talk)\b/i.test(t) && /\b(take me|go to|open|show)\b/i.test(t)) {
+    return { kind: 'nav', screen: 'icarus', env, project, params: { section: 'chat' } };
+  }
 
   const restart = t.match(/\b(restart|start|stop)\s+(?:container\s+)?([a-zA-Z0-9._-]+)/i);
   if (restart) {
@@ -61,8 +96,9 @@ function matchNav(phrase, ctx = {}) {
     };
   }
 
+  // Ambiguous navigation-ish utterance → dock Icarus chat with the phrase (not a blind guess).
   if (/\b(take me|show me|go to|open)\b/i.test(t)) {
-    return { kind: 'unknown', text: t };
+    return { kind: 'chat', screen: 'icarus', params: { section: 'chat', seed: t }, text: t };
   }
   return { kind: 'shop', text: t };
 }

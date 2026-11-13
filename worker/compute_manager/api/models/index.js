@@ -28,7 +28,9 @@ const Task = db.model(
     network: 'string',
     arn: 'string',
     replica_ids: 'string',
-    resource_limits: 'string'
+    resource_limits: 'string',
+    workload_spec: 'string',
+    reconcile_snapshot: 'string',
   },
   {
     required: ['name', 'project_id', 'image', 'status', 'run_mode'],
@@ -52,6 +54,8 @@ try {
     ['worker_hostname', "TEXT DEFAULT ''"],
     ['environment', "TEXT DEFAULT 'prod'"],
     ['resource_limits', "TEXT DEFAULT '{}'"],
+    ['workload_spec', "TEXT DEFAULT ''"],
+    ['reconcile_snapshot', "TEXT DEFAULT ''"],
   ];
   for (const [name, spec] of add) {
     if (!cols.has(name)) {

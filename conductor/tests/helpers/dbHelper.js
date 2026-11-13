@@ -1,7 +1,7 @@
 /**
  * Database helper utilities for tests
  */
-const { User, Worker, Service, Project, ProjectWorker, ProjectService, Token, Resource, ServiceDeployment, ProjectMember, ProjectStack, ProjectEnvironment, PlatformJob } = require('../../api/models');
+const { User, Worker, Service, Project, ProjectWorker, ProjectService, Token, Resource, ServiceDeployment, ProjectMember, ProjectInvite, ProjectStack, ProjectEnvironment, PlatformJob } = require('../../api/models');
 const { initializeDatabase } = require('../../api/utils/dbInit');
 
 /**
@@ -55,6 +55,14 @@ async function cleanupTestData() {
     for (const member of await ProjectMember.findAll()) {
       try {
         await ProjectMember.delete(member.id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    for (const invite of await ProjectInvite.findAll()) {
+      try {
+        await ProjectInvite.delete(invite.id);
       } catch (e) {
         // Ignore errors
       }

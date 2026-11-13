@@ -18,6 +18,7 @@ const {
 
 const TRAIN_HOST = TRAINER.id;
 
+/** @deprecated Prefer PERSONALITY_CURRICULA — tools stay on base model. */
 const TOOL_CURRICULA = {
   coding: [
     'open_pr', 'git_commit', 'git_checkout', 'git_status', 'git_diff',
@@ -25,7 +26,7 @@ const TOOL_CURRICULA = {
     'run_checks', 'report_manager', 'shell',
   ],
   manager: [
-    'approve_pr', 'spawn_worker', 'replan_worker', 'preview', 'propose_plan',
+    'approve_pr', 'spawn_worker', 'update_work', 'replan_worker', 'preview', 'propose_plan',
     'propose_deploy', 'report_user', 'learn_propose', 'file_read', 'grep',
     'semantic_search', 'lora_propose',
   ],
@@ -36,6 +37,21 @@ const TOOL_CURRICULA = {
     'submit_brief', 'update_brief', 'propose_plan', 'revise_plan',
     'open_ask', 'open_plan_q', 'file_read', 'grep', 'semantic_search',
     'plan_query', 'plan_ready', 'plan_subgraph',
+  ],
+};
+
+/** Personality / domain LoRA packs — not tool-name dumps. */
+const PERSONALITY_CURRICULA = {
+  personality: [
+    'warm concise friend voice', 'never dump raw worker chatter',
+    'confirm before mutate', 'one question at a time in Flows',
+  ],
+  domain_ops: [
+    'terse ops status', 'prefer stack configure over codegen',
+    'cite health and rollback',
+  ],
+  domain_product: [
+    'product framing for Data API and FE scaffolds',
   ],
 };
 
@@ -50,12 +66,72 @@ const DEFAULT_BASE = {
 class LoraTrainService {
   constructor() {
     this.jobs = new Map();
+    /** @type {Map<string, object[]>} */
+    this.corpusRows = new Map();
+  }
+
+  /** Append a JSONL training row derived from a corpus blob (train still ASK-gated). */
+  recordCorpusRow(projectId, row = {}) {
+    const key = String(projectId);
+    const list = this.corpusRows.get(key) || [];
+    const entry = {
+      ...row,
+      recorded_at: Date.now(),
+    };
+    list.push(entry);
+    this.corpusRows.set(key, list);
+    return entry;
+  }
+
+  buildDatasetFromCorpus(projectId, { limit = 64, agentKind = 'coding' } = {}) {
+    const rows = (this.corpusRows.get(String(projectId)) || []).slice(-limit);
+    if (!rows.length) return '';
+    const tools = this.curriculumFor(agentKind);
+    const lines = rows.map((r) => JSON.stringify({
+      messages: [
+        {
+          role: 'system',
+          content: `Use verified corpus only. Tools: ${tools.join(', ')}`,
+        },
+        { role: 'user', content: r.prompt || r.query || r.title || 'Summarize verified source.' },
+        { role: 'assistant', content: r.completion || (r.normalized || '').slice(0, 4000) },
+      ],
+      meta: { corpus_hash: r.hash, prefix: r.prefix, url: r.url },
+    }));
+    return `${lines.join('\n')}\n`;
+  }
+
+  /** Enqueue Orin train using corpus JSONL — same ASK path as manual datasets. */
+  enqueueFromCorpus({
+    projectId, agentId, agentKind, adapterName, epochs, baseModel, targets, limit,
+  } = {}) {
+    const dataset = this.buildDatasetFromCorpus(projectId, { limit, agentKind });
+    if (!dataset.trim()) {
+      return { ok: false, error: 'no corpus rows for project' };
+    }
+    const job = this.enqueue({
+      projectId,
+      agentId,
+      agentKind,
+      adapterName,
+      epochs,
+      dataset,
+      baseModel,
+      targets,
+    });
+    job.dataset_source = 'corpus';
+    return job;
   }
 
   curriculumFor(kind) {
     const k = String(kind || 'coding');
+    if (PERSONALITY_CURRICULA[k]) return PERSONALITY_CURRICULA[k];
     if (k === 'worker') return TOOL_CURRICULA.coding;
     return TOOL_CURRICULA[k] || TOOL_CURRICULA.coding;
+  }
+
+  personalityCurricula() {
+    return { ...PERSONALITY_CURRICULA };
   }
 
   propose({
@@ -66,6 +142,8 @@ class LoraTrainService {
     epochs = 1,
     baseModel,
     targets,
+    fromCorpus = false,
+    corpusLimit,
   }) {
     const kind = ['coding', 'worker', 'manager', 'review', 'user'].includes(agentKind)
       ? (agentKind === 'worker' ? 'coding' : agentKind)
@@ -73,8 +151,12 @@ class LoraTrainService {
     const base = normalizeBase(baseModel || DEFAULT_BASE[kind] || 'qwen');
     const route = routeForBase(base);
     const tools = this.curriculumFor(kind);
-    const preview = String(datasetPreview || '').slice(0, 4000)
-      || `Tool-call examples for ${kind} (${base}): ${tools.join(', ')}`;
+    let preview = String(datasetPreview || '').slice(0, 4000);
+    if (fromCorpus) {
+      preview = this.buildDatasetFromCorpus(projectId, { limit: corpusLimit || 32, agentKind: kind }).slice(0, 4000)
+        || preview;
+    }
+    if (!preview) preview = `Tool-call examples for ${kind} (${base}): ${tools.join(', ')}`;
 
     const distributeHint = planDistribute({
       adapterName: adapterName || `${kind}-${base}-tools`,
@@ -224,6 +306,7 @@ class LoraTrainService {
       },
       note: 'Orin trains everything. Qwen stays on Orin; Gemma4 adapters move to prod/dev boxes.',
       curricula: TOOL_CURRICULA,
+      personality_curricula: PERSONALITY_CURRICULA,
       defaults: DEFAULT_BASE,
     };
   }
@@ -232,5 +315,5 @@ class LoraTrainService {
 const loraTrain = new LoraTrainService();
 
 module.exports = {
-  LoraTrainService, loraTrain, TOOL_CURRICULA, TRAIN_HOST, DEFAULT_BASE,
+  LoraTrainService, loraTrain, TOOL_CURRICULA, PERSONALITY_CURRICULA, TRAIN_HOST, DEFAULT_BASE,
 };

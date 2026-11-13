@@ -350,6 +350,11 @@ class StackService {
     return this.put(projectId, next);
   }
 
+  /**
+   * @deprecated Alternate writer to code_as_infra modules — stack revision + git
+   * (`put` / `record` / `recordProxyWrite` on this service) is the single writer;
+   * do not add new callers of code_as_infra PUT/POST for project state.
+   */
   async upsertIacModule(projectId, stack) {
     if (skipFlag('SKIP_STACK_IAC') || skipFlag('SKIP_STACK_PROVISION') || process.env.NODE_ENV === 'test') return;
     const axios = require('axios');

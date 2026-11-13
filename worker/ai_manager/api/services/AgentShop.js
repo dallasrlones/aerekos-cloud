@@ -267,6 +267,22 @@ function verifyTool(call, ctx = {}) {
   if (name === 'iac_apply' && ctx.projectId === PROD_PROJECT) {
     return { ok: false, level: 'deny', reason: 'never apply to the production project' };
   }
+  // Coding workers open PRs; they must never self-approve. Manager/review only.
+  if (name === 'approve_pr' && String(ctx.actor || '').startsWith('worker:')) {
+    return { ok: false, level: 'deny', reason: 'workers cannot approve_pr; manager review only' };
+  }
+  if (name === 'git_merge' || (name === 'shell' && /\bgit\s+merge\b/.test(String(args.cmd || '')))) {
+    if (String(ctx.actor || '').startsWith('worker:')) {
+      return { ok: false, level: 'deny', reason: 'workers never merge; open_pr then manager review' };
+    }
+  }
+  if ((name === 'git_push' || (name === 'shell' && /\bgit\s+push\b/.test(String(args.cmd || ''))))
+    && String(ctx.actor || '').startsWith('worker:')) {
+    const branch = String(args.branch || args.ref || ctx.branch || '');
+    if (/^(main|master)$/.test(branch) || /\s+(main|master)\b/.test(String(args.cmd || ''))) {
+      return { ok: false, level: 'deny', reason: 'workers never push to default branch' };
+    }
+  }
   if (name.startsWith('browser_') && /pay|auth|captcha|password|login|checkout/i.test(blob)) {
     return { ok: false, level: 'ask', reason: 'browser HITL — takeover required', ask: true, hitl: true };
   }

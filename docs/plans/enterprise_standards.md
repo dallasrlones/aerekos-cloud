@@ -301,7 +301,7 @@ Beyond prior list; **accepted** unless noted.
 - [ ] **E40** ai_manager LLM streaming (SSE) — console + CLI + API parity
 - [ ] **E41** Inbound webhook signature verification (HMAC) on platform receivers
 - [ ] **E42** Conductor DB + config backup/restore runbook tested quarterly
-- [ ] **E43** Project-level user RBAC — users scoped to assigned projects (conductor)
+- [x] **E43** Project-level user RBAC — users scoped to assigned projects (conductor); `GET /api/projects` filtered; open projects limited to creator; viewer read-only; Friends membership GA
 - [ ] **E44** Immutable release tags — Docker images pinned by SHA in compose deploy
 - [ ] **E45** SLO/error-budget panel on Dashboard (Animus stats from RED metrics)
 
@@ -313,7 +313,7 @@ Do not start these until the main production list is complete. Track as `post-e4
 - [ ] **E47** `docs/adr/` — architecture decision records for non-obvious design choices
 - [ ] **E48** SBOM + `npm audit` in CI — supply chain gate on deploy
 - [ ] **E49** Slug validation middleware — `[a-z0-9][a-z0-9-_]{0,63}` on all resource names at create
-- [ ] **E50** Conductor project membership — users belong to projects; no global admin by default (extends E43)
+- [x] **E50** Conductor project membership — users belong to projects; invite tokens + roles (`owner`/`member`/`viewer`); `ai_manager` proxy gated (viewer writes denied); Icarus Friends UI (**GA**). Optional invite email (mailto/copy, no SMTP). Federation attach is Preview. Global-admin-by-default remains for break-glass; empty membership lists stay open for creator/legacy install compat (extends E43)
 - [ ] **E51** Resource import/export — JSON bundle per project (DR / migration)
 - [ ] **E52** Manager dependency graph — **superseded by** [service_setup_wizard.md](./service_setup_wizard.md) (per-service wizards + `GET /api/setup/graph`)
 - [ ] **E53** LLM model governance — approved model allowlist per project (ai_manager)

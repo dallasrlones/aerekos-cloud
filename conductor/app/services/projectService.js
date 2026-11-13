@@ -400,4 +400,54 @@ export const projectService = {
     );
     return response.data;
   },
+
+  async listMembers(projectId) {
+    const response = await apiClient.get(`/api/projects/${projectId}/members`);
+    return response.data;
+  },
+
+  async addMember(projectId, body) {
+    const response = await apiClient.post(`/api/projects/${projectId}/members`, body || {});
+    return response.data;
+  },
+
+  async updateMemberRole(projectId, userId, role) {
+    const response = await apiClient.patch(`/api/projects/${projectId}/members/${userId}`, { role });
+    return response.data;
+  },
+
+  async revokeMember(projectId, userId) {
+    const response = await apiClient.delete(`/api/projects/${projectId}/members/${userId}`);
+    return response.data;
+  },
+
+  async listInvites(projectId) {
+    const response = await apiClient.get(`/api/projects/${projectId}/invites`);
+    return response.data;
+  },
+
+  async createInvite(projectId, body) {
+    const response = await apiClient.post(`/api/projects/${projectId}/invites`, body || {});
+    return response.data;
+  },
+
+  async revokeInvite(projectId, inviteId) {
+    const response = await apiClient.delete(`/api/projects/${projectId}/invites/${inviteId}`);
+    return response.data;
+  },
+
+  async acceptInvite(token) {
+    const response = await apiClient.post('/api/projects/invites/accept', { token });
+    return response.data;
+  },
+
+  async leaveProject(projectId) {
+    const response = await apiClient.post(`/api/projects/${projectId}/members/leave`, {});
+    return response.data;
+  },
+
+  async clearMembership(projectId) {
+    const response = await apiClient.post(`/api/projects/${projectId}/members/clear`, {});
+    return response.data;
+  },
 };

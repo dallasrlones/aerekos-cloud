@@ -28,7 +28,13 @@ npm run test:conductor
 npm run test:worker
 ```
 
-Per-manager packages under `worker/<name>/` are separate Node projects; install and test inside that directory when you touch a specific service.
+**Golden path (local appliance):** [`scripts/dev/golden-path.sh`](scripts/dev/golden-path.sh) prints the recommended clone → `make gen` → compose flow; see also [`GOLDEN_PATH.md`](GOLDEN_PATH.md).
+
+**Dev Container:** [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json) — Node 20 + Docker-in-Docker for catalog/docs scripts and optional full stack.
+
+Per-manager packages under `worker/<name>/` are separate Node projects; install and test inside that directory when you touch a specific service. For Icarus tool safety, `worker/ai_manager` runs `tests/unit/toolSandbox.test.js` via `npm test` (and `npm run test:sandbox`).
+
+Root CI (`.github/workflows/ci.yml`) runs `npm run test:worker`; ai_manager sandbox unit tests are included in the worker workspace Jest run when that package is exercised locally.
 
 ## Pull requests
 
@@ -41,6 +47,15 @@ Per-manager packages under `worker/<name>/` are separate Node projects; install 
 
 Participation is governed by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Be respectful and constructive.
 
+## Security
+
+- Do not open public issues for unfixed vulnerabilities — see [`SECURITY.md`](SECURITY.md).
+- Before a public release, run `bash scripts/ci/security-scan.sh` and complete the scrub items in [`docs/GA_CHECKLIST.md`](docs/GA_CHECKLIST.md).
+
+## OSS release gates
+
+Full **`v0.1.0`** requires **W0–W19** gates in [`docs/GA_CHECKLIST.md`](docs/GA_CHECKLIST.md). Preview tags may ship earlier with honest maturity labels.
+
 ## License
 
-By contributing, you agree that your contributions are licensed under the same terms as the project — see [`LICENSE`](LICENSE).
+By contributing, you agree that your contributions are licensed under the same terms as the project — see [`LICENSE`](LICENSE) (currently **MIT**; SPDX headers may be expanded in wave W13/W16).

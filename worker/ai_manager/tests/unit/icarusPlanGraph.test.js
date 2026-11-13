@@ -93,6 +93,23 @@ describe('PlanGraphStore (memory SOR stand-in)', () => {
     expect(nudges[0].type).toBe('stall');
   });
 
+  test('projectHierarchy lists phases and nested tasks', async () => {
+    const plan = await graph.createPlan({ title: 'Hierarchy' });
+    const phase = await graph.addTask(plan.id, { title: 'Phase 1', kind: 'phase' });
+    const child = await graph.addTask(plan.id, { title: 'Implement', parentId: phase.id });
+    const phases = await graph.listPhases(plan.id);
+    expect(phases).toHaveLength(1);
+    expect(phases[0].title).toBe('Phase 1');
+    const tree = await graph.taskHierarchy(plan.id);
+    expect(tree.phases).toHaveLength(1);
+    expect(tree.phases[0].children).toHaveLength(1);
+    expect(tree.phases[0].children[0].title).toBe('Implement');
+    const project = await graph.projectHierarchy();
+    expect(project.project_id).toBe('proj-1');
+    expect(project.plans).toHaveLength(1);
+    expect(project.plans[0].hierarchy[0].children[0].id).toBe(child.id);
+  });
+
   test('recordDecision + checkpoint', async () => {
     const plan = await graph.createPlan({ title: 'D' });
     const t = await graph.addTask(plan.id, { title: 'T' });

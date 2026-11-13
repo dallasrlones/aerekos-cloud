@@ -6,6 +6,8 @@ import { ServiceSecretsListStyles } from './ServiceSecretsList.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { EnvSwitcher } from '../../components/EnvSwitcher/EnvSwitcher';
 import { NextSteps } from '../../components/NextSteps/NextSteps';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 export const ServiceSecretsList = ({ navigation }) => {
   const { currentProject, currentEnvironment } = useProject();
@@ -13,6 +15,7 @@ export const ServiceSecretsList = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps('secrets_manager', navigation);
 
   const load = useCallback(async () => {
     if (!currentProject?.id) {
@@ -62,6 +65,35 @@ export const ServiceSecretsList = ({ navigation }) => {
 
       <EnvSwitcher />
       <NextSteps navigation={navigation} filter={['fill_secret']} />
+
+      <ServiceGuide
+        title="Secrets Manager guide"
+        analogue="AWS Secrets Manager"
+        blurb="Project-scoped API tokens and integration credentials — encrypted at rest with key_manager envelopes and mapped to worker environment variables."
+        whenToUse={[
+          'Provider API keys for ai_manager and edge_manager',
+          'Webhook signing secrets and bootstrap client secrets',
+          'Cloudflare and DNS tokens for tunnel services',
+        ]}
+        prerequisites={[
+          'Select a project and environment',
+          'Enable key_manager then secrets_manager',
+        ]}
+        examples={[
+          {
+            label: 'Create secret',
+            code: `POST /api/services/secrets_manager/api/v1/secrets\n{ "project_id": "{projectId}", "name": "cloudflare_api_token", "value": "…" }`,
+          },
+          {
+            label: 'List secrets',
+            code: `GET /api/services/secrets_manager/api/v1/secrets?project_id={projectId}&env=prod`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
 
       <Text style={ServiceSecretsListStyles.helpText}>
         Store API tokens and other credentials for services (for example Cloudflare for tunnel and DNS

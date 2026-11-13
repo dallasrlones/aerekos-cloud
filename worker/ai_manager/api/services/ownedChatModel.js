@@ -16,16 +16,24 @@ function pickChatModel(models) {
   return sorted[0]?.name || sorted[0]?.model;
 }
 
-/** Cloud owns the model. Never use the client body.model. Skip LoRA suffix on vLLM. */
-function resolveOwnedChatModel({ endpoint, provider, listedModels } = {}) {
+/**
+ * Cloud owns the model. Never use the client body.model. Skip LoRA suffix on vLLM.
+ * @param {object} [opts.selectedLora] — Laya-picked adapter { name, derived_model }; else first attachment.
+ */
+function resolveOwnedChatModel({ endpoint, provider, listedModels, selectedLora } = {}) {
   const isVllm = String(provider?.provider || provider?.provider_type || '').toLowerCase() === 'vllm';
   let model = String(endpoint?.model || provider?.model || '').trim() || undefined;
   if (!model) model = pickChatModel(listedModels);
-  const loraAtt = (endpoint?.lora || [])[0];
+  const list = endpoint?.lora || [];
+  let loraAtt = selectedLora || null;
+  if (!loraAtt && list.length) {
+    loraAtt = list.find((a) => a && (a.attached || a.selected)) || list[0];
+  }
+  // Personality LoRA on Ollama only — tools/code stay on base for vLLM.
   if (!isVllm && loraAtt && model) {
     model = loraAtt.derived_model || `${model}-${loraAtt.name}`;
   }
-  return { model, isVllm };
+  return { model, isVllm, lora: loraAtt || null };
 }
 
 module.exports = { pickChatModel, resolveOwnedChatModel };

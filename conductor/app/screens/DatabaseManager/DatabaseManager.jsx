@@ -8,6 +8,8 @@ import { DatabaseManagerStyles } from './DatabaseManager.styles';
 import { colors } from '../../styles/theme';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { useProject } from '../../contexts/ProjectContext';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 export const DatabaseManager = ({ navigation }) => {
   const { currentProject, currentEnvironment } = useProject();
@@ -23,6 +25,7 @@ export const DatabaseManager = ({ navigation }) => {
     creating: 0,
     failed: 0
   });
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps('db_manager', navigation);
 
   useEffect(() => {
     loadDatabases();
@@ -115,6 +118,35 @@ export const DatabaseManager = ({ navigation }) => {
       <Text style={DatabaseManagerStyles.subtitle}>
         {currentProject?.name || 'No project'} · {currentEnvironment || 'prod'}
       </Text>
+
+      <ServiceGuide
+        title="Managed databases guide"
+        analogue="Amazon RDS"
+        blurb="Provision Postgres, MongoDB, and SQLite workloads per project — start/stop containers, connection strings, and backups via the conductor proxy."
+        whenToUse={[
+          'App persistence for api_manager Data APIs',
+          'Vector / RAG stores paired with ai_manager',
+          'Dedicated engines instead of in-process sqlite3',
+        ]}
+        prerequisites={[
+          'Select a project — databases are project-scoped',
+          'Enable key_manager and auth_manager for credentials and db:Connect',
+        ]}
+        examples={[
+          {
+            label: 'Create database',
+            code: `POST /api/services/db_manager/api/databases\n{ "name": "app-db", "type": "postgresql", "project_id": "{projectId}" }`,
+          },
+          {
+            label: 'Connection string',
+            code: `GET /api/services/db_manager/api/databases/app-db/connection?project_id={projectId}`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
 
       {error && (
         <Box style={DatabaseManagerStyles.errorBox}>

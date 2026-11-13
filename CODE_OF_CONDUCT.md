@@ -58,8 +58,11 @@ an individual is officially representing the community in public spaces.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at the contact
 avenues listed in the project repository (e.g. maintainers in `README` or
-Security policy). All complaints will be reviewed and investigated promptly
-and fairly.
+[`SECURITY.md`](SECURITY.md) for safety-sensitive reports). All complaints
+will be reviewed and investigated promptly and fairly.
+
+Maintainers will respect reporter privacy where possible. Retaliation against
+anyone who reports in good faith is a violation of this Code of Conduct.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.

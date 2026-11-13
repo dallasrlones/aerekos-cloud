@@ -38,8 +38,10 @@ app.get('/ready', async (req, res) => {
 app.use('/api/v1', routes);
 app.use(errorHandler);
 if (require.main === module) {
-  app.listen(PORT, async () => {
-    console.log(`[auth_manager] listening on ${PORT}`);
+  const server = app.listen(PORT, async () => {
+    const addr = server.address();
+    const bound = typeof addr === 'object' && addr ? addr.port : PORT;
+    console.log(`[auth_manager] listening on ${bound}`);
     try {
       const { bootstrapSecrets } = require('./api/services/TokenService');
       await bootstrapSecrets();
@@ -48,7 +50,7 @@ if (require.main === module) {
     }
     if (process.env.SKIP_SERVICE_REGISTRATION === 'true') return;
     if (!process.env.CONDUCTOR_URL) { console.warn('[auth_manager] CONDUCTOR_URL not set; skipping registration'); return; }
-    try { await registerWithConductor(); } catch (e) { console.warn('Registration error:', e.message); }
+    try { await registerWithConductor(bound); } catch (e) { console.warn('Registration error:', e.message); }
   });
 }
 module.exports = app;

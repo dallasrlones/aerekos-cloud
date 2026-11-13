@@ -1,0 +1,32 @@
+{
+  "name": "aerekos-cloud",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "postCreateCommand": "npm ci --ignore-scripts 2>/dev/null || npm install",
+  "remoteUser": "node",
+  "forwardPorts": [3000, 19006],
+  "portsAttributes": {
+    "3000": { "label": "Conductor API" },
+    "19006": { "label": "Dashboard (Expo web)" }
+  },
+  "containerEnv": {
+    "COMPOSE_PROJECT_NAME": "aerekos-cloud-dev"
+  },
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "postAttachCommand": "echo 'Docker: host socket mounted — run scripts/dev/golden-path.sh or make up from repo root. DinD feature enabled if you need an isolated daemon.'"
+}

@@ -49,6 +49,8 @@ aerekos cred revoke <cred_id>
 
 aerekos token --client-id cred_xxx --client-secret '…'   # client_credentials
 
+# Icarus console is /icarus (Chat · Fleet · Models · Apps). SDK still uses service name ai_manager.
+# Example: chat with the project friend agent, then poll messages / subscribe ai:live:{projectId}.
 aerekos invoke ai_manager \
   --resource 'arn:aerekos:…:ai:llm:endpoint/prod' \
   --path /api/v1/llm/chat \

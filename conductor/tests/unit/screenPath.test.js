@@ -26,14 +26,16 @@ describe('getScreenFromPath', () => {
     expect(getScreenFromPath('/compute-manager')).toBe('computeManager');
   });
 
-  it('maps /adonis and round-trips', () => {
+  it('maps /adonis and /icarus/ide round-trips', () => {
     expect(getScreenFromPath('/adonis')).toBe('adonis');
+    expect(getScreenFromPath('/icarus/ide')).toBe('adonis');
     expect(getScreenFromPath('/adonis/r1/main')).toEqual({
       screen: 'adonis',
       params: { repoId: 'r1', ref: 'main' },
     });
-    expect(getPathFromScreen('adonis')).toBe('/adonis');
-    expect(getPathFromScreen('adonis', { repoId: 'r1', ref: 'main' })).toBe('/adonis/r1/main');
+    // Canonical public path is Icarus IDE; /adonis still resolves as screen.
+    expect(getPathFromScreen('adonis')).toBe('/icarus/ide');
+    expect(getPathFromScreen('adonis', { repoId: 'r1', ref: 'main' })).toBe('/icarus/ide/r1/main');
   });
 
   it('maps /services/iam_manager to managerConsole', () => {
@@ -74,14 +76,28 @@ describe('getScreenFromPath', () => {
     expect(getPathFromScreen('aiBalancerDetails', { balancerId: 'tg-9' })).toBe('/ai-manager/balancers/tg-9');
   });
 
-  it('maps AI Manager hub and section screens', () => {
-    expect(getScreenFromPath('/services/ai_manager')).toEqual({ screen: 'aiManager', params: {} });
-    expect(getScreenFromPath('/services/ai_manager/agents')).toEqual({ screen: 'aiAgents', params: {} });
-    expect(getScreenFromPath('/services/ai_manager/llm')).toEqual({ screen: 'aiLlm', params: {} });
-    expect(getScreenFromPath('/ai-manager/agents')).toBe('aiAgents');
-    expect(getScreenFromPath('/ai-manager/memory')).toBe('aiMemory');
-    expect(getPathFromScreen('aiAgents')).toBe('/services/ai_manager/agents');
-    expect(getPathFromScreen('aiLlm')).toBe('/services/ai_manager/llm');
+  it('maps AI Manager hub bookmarks into /icarus', () => {
+    expect(getScreenFromPath('/services/ai_manager')).toEqual({ screen: 'icarus', params: { section: 'chat' } });
+    expect(getScreenFromPath('/services/ai_manager/agents')).toEqual({
+      screen: 'icarus', params: { section: 'chat' },
+    });
+    expect(getScreenFromPath('/services/ai_manager/llm')).toEqual({
+      screen: 'icarusModels', params: { section: 'models', tab: 'llm' },
+    });
+    expect(getScreenFromPath('/ai-manager/agents')).toEqual({
+      screen: 'icarus', params: { section: 'chat' },
+    });
+    expect(getScreenFromPath('/ai-manager/memory')).toEqual({
+      screen: 'icarusApps', params: { section: 'apps', tab: 'memory' },
+    });
+    expect(getPathFromScreen('aiAgents')).toBe('/icarus');
+    expect(getPathFromScreen('aiLlm')).toBe('/icarus/models/llm');
+    expect(getPathFromScreen('icarus')).toBe('/icarus');
+    expect(getPathFromScreen('icarusFleet')).toBe('/icarus/fleet');
+    expect(getScreenFromPath('/icarus')).toEqual({ screen: 'icarus', params: { section: 'chat' } });
+    expect(getScreenFromPath('/icarus/models/tts')).toEqual({
+      screen: 'icarusModels', params: { section: 'models', tab: 'tts' },
+    });
   });
 
   it('maps agent task detail screens', () => {

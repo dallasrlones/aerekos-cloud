@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: Conductor friends federation (Preview)
+  version: 0.1.0
+  description: |
+    Remote project attach via signed EdDSA grants. Maturity Preview.
+    Does not change ADR 001 (one primary SQLite writer per conductor).
+    No file mirror; jobs always run on the home conductor.
+paths:
+  /api/federation/peer:
+    get:
+      summary: This conductor peer card
+      responses:
+        '200':
+          description: peer_id, public_key, base_url, maturity preview
+  /api/federation/peers:
+    get:
+      summary: List trusted peers
+      responses:
+        '200':
+          description: Trusted peer cards
+    post:
+      summary: Register / trust a remote peer card
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [peer_id, public_key]
+              properties:
+                peer_id: { type: string }
+                public_key: { type: string }
+                base_url: { type: string }
+                label: { type: string }
+      responses:
+        '201':
+          description: Trusted peer
+  /api/projects/{id}/federation/grants:
+    get:
+      summary: List grants minted for project (owner+)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Grants
+    post:
+      summary: Mint signed federation grant (owner+)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [owner, member, viewer] }
+                ttl_ms: { type: integer }
+      responses:
+        '201':
+          description: token + grant metadata
+  /api/federation/attach:
+    post:
+      summary: Accept grant and attach remote project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+                label: { type: string }
+      responses:
+        '201':
+          description: Attach record
+  /api/federation/attaches:
+    get:
+      summary: List attached remote projects
+      responses:
+        '200':
+          description: Attaches
+  /api/federation/attaches/{id}:
+    delete:
+      summary: Detach / revoke local attach
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Detached
+  /api/federation/attaches/{id}/status:
+    get:
+      summary: Federation status chip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: connecting | active | degraded | disconnected
+  /api/federation/attaches/{id}/project:
+    get:
+      summary: Proxy GET home project
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Home project JSON
+  /api/federation/attaches/{id}/proxy:
+    get:
+      summary: Proxy arbitrary home path
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Proxied response

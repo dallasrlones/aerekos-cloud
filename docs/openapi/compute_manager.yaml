@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: aerekos Compute (compute_manager)
+  version: 1.0.0
+  description: |
+    Kubernetes-class orchestrator for aerekos. Project ≈ namespace.
+    Docker is the v0.1.0 node agent only. See ADR 004.
+servers:
+  - url: /api/services/compute_manager/api/v1
+paths:
+  /deployments/{id}:
+    put:
+      summary: Apply declarative Deployment
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentApply'
+      responses:
+        '200':
+          description: Applied
+    get:
+      summary: Get Deployment and status
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /deployments/{id}/reconcile:
+    post:
+      summary: Reconcile once; abort on progress deadline
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reconcile result
+  /deployments/{id}/pause:
+    post:
+      summary: Pause rollout
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paused
+  /deployments/{id}/resume:
+    post:
+      summary: Resume rollout
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Resumed
+  /deployments/{id}/rollback:
+    post:
+      summary: Rollback to a prior revision
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revision: { type: integer }
+      responses:
+        '200':
+          description: Rolled back
+components:
+  parameters:
+    projectId:
+      name: project_id
+      in: query
+      required: true
+      schema: { type: string }
+  schemas:
+    DeploymentApply:
+      type: object
+      properties:
+        replicas: { type: integer, minimum: 0 }
+        strategy:
+          type: object
+          properties:
+            type: { type: string, enum: [RollingUpdate, Recreate] }
+            maxSurge: { type: integer }
+            maxUnavailable: { type: integer }
+        progressDeadlineSeconds: { type: integer }
+        paused: { type: boolean }
+        template:
+          type: object
+          required: [image]
+          properties:
+            name: { type: string }
+            image: { type: string }
+            resources: { type: object }
+            probes: { type: object }

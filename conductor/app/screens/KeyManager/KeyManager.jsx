@@ -9,6 +9,8 @@ import { KeyManagerStyles } from './KeyManager.styles';
 import { ResourceCrud } from '../../components/ResourceCrud';
 import { Button } from '../../components/Button/Button';
 import { AnimusPage } from '../../components/Animus';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 export const KeyManager = ({ navigation }) => {
   const [status, setStatus] = useState(null);
@@ -19,6 +21,11 @@ export const KeyManager = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [secretsError, setSecretsError] = useState(null);
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'key_manager',
+    navigation,
+    status?.enabled,
+  );
 
   useEffect(() => {
     loadStatus();
@@ -121,6 +128,34 @@ export const KeyManager = ({ navigation }) => {
           <Text style={KeyManagerStyles.errorText}>{error}</Text>
         </Box>
       )}
+
+      <ServiceGuide
+        title="Key management guide"
+        analogue="AWS KMS"
+        blurb="Symmetric and asymmetric encryption keys for storage_manager, secrets_manager, and platform crypto — envelope-encrypt secrets below."
+        whenToUse={[
+          'Per-bucket and per-object encryption in storage_manager',
+          'Bootstrap envelope keys for secrets_manager',
+          'JWT signing material consumed by auth_manager',
+        ]}
+        prerequisites={[
+          'Enable key_manager on a worker before dependent services',
+        ]}
+        examples={[
+          {
+            label: 'Create key',
+            code: `POST /api/services/key_manager/api/v1/keys\n{ "alias": "project-main", "usage": "ENCRYPT_DECRYPT" }`,
+          },
+          {
+            label: 'Encrypt',
+            code: `POST /api/services/key_manager/api/v1/keys/{keyId}/encrypt\n{ "plaintext": "base64…" }`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
 
       {/* Service Status */}
       <Box title="Service Status">

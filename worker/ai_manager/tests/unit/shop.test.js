@@ -325,6 +325,8 @@ describe('Icarus shop', () => {
     expect(shop.verifyTool({ name: 'git_push', args: { branch: 'icarus/x' } }).ask).toBe(true);
     expect(shop.verifyTool({ name: 'browser_click', args: { selector: 'Pay now' } }).hitl).toBe(true);
     expect(shop.verifyTool({ name: 'iac_apply', args: {} }, { projectId: shop.PROD_PROJECT }).ok).toBe(false);
+    expect(shop.verifyTool({ name: 'approve_pr', args: { pr_id: '1' } }, { actor: 'worker:w1' }).ok).toBe(false);
+    expect(shop.verifyTool({ name: 'approve_pr', args: { pr_id: '1' } }, { actor: 'manager:a1' }).ok).not.toBe(false);
   });
 
   test('git add -A is not used; .js cannot be trivial', () => {

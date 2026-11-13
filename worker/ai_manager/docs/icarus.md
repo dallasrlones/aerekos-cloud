@@ -37,13 +37,14 @@ Gateway classes P0–P5 + lane order + aging + `reserved_user_slots` so user/cha
 
 ## Live task graph (UI)
 
-Plans pane in Agents workspace shows the **live DAG** (BEFORE / PARALLEL / MUTEX / INVALIDATES) with status colors. Websocket events:
+Console product surface is **`/icarus`** (Chat · Fleet · Models · Apps). The Chat right pane shows the **live 3D PlanGraph** (BEFORE / PARALLEL / MUTEX / INVALIDATES) with status colors. Websocket events (LiveRoom allowlisted):
 
 - `ai:icarus.graph` — coalesced subgraph (~100ms)
 - `ai:icarus.task` — status patch
 - `ai:icarus.tool` — tool call for a task
+- `ai:icarus.bench` — live bench scorecard
 
-Click a node → TaskInspector (chat + tools). History tab + scrubber replays `status_history` via `GET /icarus/plans/:id/scrub?at=`.
+Click a node → kind-aware Node Detail (task/worker/agent). Scrubber still uses `GET /icarus/plans/:id/scrub?at=`.
 
 Hydrate: `GET /icarus/plans`, `GET /icarus/plans/:id`, `GET /icarus/tasks/:id/trace`, `GET /icarus/ready`.
 

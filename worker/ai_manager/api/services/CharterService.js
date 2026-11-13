@@ -13,6 +13,7 @@ const DEFAULT_CHARTER = {
   no_env_read: true,
   no_docker_in_jail: true,
   spend_cap_usd_day: 50,
+  token_cap_day: 2_000_000,
   injection_harden: true,
   allowed_projects_deny: ['ea370977-3aff-4c76-95a6-a0c50fd2bce7'],
 };

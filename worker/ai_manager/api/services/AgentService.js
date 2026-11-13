@@ -180,7 +180,14 @@ class AgentService {
 
   async listMessages(projectId, agentId, { limit = 50 } = {}) {
     const rows = await AgentMessage.findAll({ where: { project_id: projectId, agent_id: agentId } });
-    return rows.slice(-Math.min(200, Number(limit) || 50));
+    const sorted = (rows || []).slice().sort((a, b) => {
+      const ta = Date.parse(a.created_at || a.updated_at || 0) || 0;
+      const tb = Date.parse(b.created_at || b.updated_at || 0) || 0;
+      if (ta !== tb) return ta - tb;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    const cap = Math.min(1000, Math.max(1, Number(limit) || 50));
+    return sorted.slice(-cap);
   }
 
   async addMessage(projectId, agentId, { role, content, layer = 'user', job_id = '', ask_id = '' }) {

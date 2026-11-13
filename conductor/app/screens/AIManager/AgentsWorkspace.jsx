@@ -234,12 +234,26 @@ export function AgentsWorkspace({ projectId, jobs = [], navigation }) {
         }));
       }
       if (['succeeded', 'failed', 'cancelled'].includes(job.status)) {
-        setStream({ jobId: job.id, status: job.status, phase: 'done', partial: '' });
+        setStream((cur) => ({
+          jobId: job.id,
+          status: job.status,
+          phase: 'done',
+          partial: job.status === 'succeeded'
+            ? (cur?.jobId === job.id ? (cur.partial || job.partial || '') : (job.partial || ''))
+            : '',
+        }));
         if (streamDoneTimer.current) clearTimeout(streamDoneTimer.current);
         streamDoneTimer.current = setTimeout(() => {
           setStream((cur) => (cur?.jobId === job.id && cur.phase === 'done' ? null : cur));
         }, 4000);
-        if (agent?.id) reloadAgent(agent.id);
+        if (agent?.id) {
+          Promise.resolve(reloadAgent(agent.id)).finally(() => {
+            setStream((cur) => {
+              if (!cur || cur.jobId !== job.id || cur.phase !== 'done') return cur;
+              return { ...cur, partial: '' };
+            });
+          });
+        }
       }
     });
     const offToken = websocketService.on('ai:job.token', (payload) => {

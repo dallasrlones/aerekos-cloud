@@ -1,0 +1,11 @@
+{
+  "name": "notify_manager",
+  "version": "0.1.0",
+  "description": "Unified notify facade (W9a); MockProvider by default",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test ../tests/unit/notifyProviders.test.js"
+  },
+  "license": "ISC"
+}

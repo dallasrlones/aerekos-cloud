@@ -3,8 +3,10 @@ import { Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'r
 import { useProject } from '../../contexts/ProjectContext';
 import api from '../../utils/api';
 import { containerService } from '../../services/containerService';
+import websocketService from '../../services/websocketService';
 import { languageFromPath } from '../GitManager/languageFromPath';
 import { AdonisStyles as S, c9 } from './Adonis.styles';
+import { runIdeAttachAction } from './ideAttach';
 
 const { canSwitchRef, defaultCommitMessage, isDirty } = require('./dirtyGuard');
 
@@ -65,8 +67,19 @@ export const Adonis = ({ navigation, route }) => {
   const [newBranch, setNewBranch] = useState('');
   const [addPath, setAddPath] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [servicesMap, setServicesMap] = useState({ nodes: [], edges: [] });
+  const [followAgent, setFollowAgent] = useState(true);
+  const [agentPresence, setAgentPresence] = useState(null);
+  const [prDock, setPrDock] = useState({ branch: '', status: '', review: '' });
+  const [inlineAsk, setInlineAsk] = useState(null);
+  const [pendingAgentFile, setPendingAgentFile] = useState(null);
+  const [agentTerm, setAgentTerm] = useState('');
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdFilter, setCmdFilter] = useState('');
+  const [ctxMenu, setCtxMenu] = useState(null);
 
   const dirty = useMemo(() => isDirty(original, content), [original, content]);
+  const activePath = blob?.path || '';
   const tipSha = useMemo(() => {
     const b = (branches || []).find((x) => branchName(x) === gitRef);
     return branchSha(b);
@@ -81,6 +94,19 @@ export const Adonis = ({ navigation, route }) => {
     setProjectId(pid);
     const r = await api.get('/api/services/git_manager/api/v1/repos', { params: { project_id: pid } });
     setRepos(r.data?.repositories || []);
+  }, [projectId, currentProject?.id]);
+
+  const loadServicesMap = useCallback(async () => {
+    const pid = projectId || currentProject?.id;
+    if (!pid) return;
+    try {
+      const r = await api.get('/api/services/ai_manager/api/v1/icarus/project-services', {
+        params: { project_id: pid },
+      });
+      setServicesMap({ nodes: r.data?.nodes || [], edges: r.data?.edges || [] });
+    } catch {
+      setServicesMap({ nodes: [], edges: [] });
+    }
   }, [projectId, currentProject?.id]);
 
   const loadBranches = async (id, pid) => {
@@ -115,6 +141,7 @@ export const Adonis = ({ navigation, route }) => {
     (async () => {
       try {
         await loadRepos();
+        await loadServicesMap();
         if (params.repoId && (params.projectId || currentProject?.id)) {
           const pid = params.projectId || currentProject?.id;
           const got = await api.get(`/api/services/git_manager/api/v1/repos/${params.repoId}`, {
@@ -128,6 +155,96 @@ export const Adonis = ({ navigation, route }) => {
       }
     })();
   }, []);
+
+  // Live Icarus IDE: agent file sync, presence, ASK strip, stack map, terminal echo
+  useEffect(() => {
+    const pid = projectId || currentProject?.id;
+    if (!pid || !websocketService?.subscribeRoom) return undefined;
+    const room = `ai:live:${pid}`;
+    websocketService.subscribeRoom(room, { projectId: pid });
+
+    const offFile = websocketService.on('ai:ide.file', (payload) => {
+      if (!payload?.path) return;
+      if (payload.repoId && repoId && payload.repoId !== repoId) return;
+      setAgentPresence({ path: payload.path, line: payload.line, at: payload.at });
+      if (followAgent) {
+        const same = blob?.path === payload.path;
+        if (same && dirty && payload.content != null && payload.content !== content) {
+          setPendingAgentFile(payload);
+          return;
+        }
+        if (payload.content != null) {
+          if (same) {
+            setContent(payload.content);
+            setOriginal(payload.content);
+          } else {
+            setBlob({ path: payload.path, binary: false, size: payload.content.length });
+            setContent(payload.content);
+            setOriginal(payload.content);
+          }
+          setStatus(`Icarus edited ${payload.path}`);
+        }
+      }
+      if (payload.ref) setPrDock((d) => ({ ...d, branch: payload.ref }));
+    });
+
+    const offPresence = websocketService.on('ai:ide.presence', (payload) => {
+      setAgentPresence(payload);
+      if (followAgent && payload?.path && blob?.path !== payload.path) {
+        setStatus(`Icarus is on ${payload.path}${payload.line ? `:${payload.line}` : ''}`);
+      }
+    });
+
+    const offAsk = websocketService.on('ai:agent.ask', (payload) => {
+      setInlineAsk(payload);
+    });
+    const offAns = websocketService.on('ai:agent.ask.answered', () => setInlineAsk(null));
+
+    const offStack = websocketService.on('ai:stack.update', () => {
+      loadServicesMap();
+    });
+    const offHighlight = websocketService.on('ai:stack.highlight', (payload) => {
+      if (payload?.nodes?.length) {
+        setServicesMap((prev) => ({
+          ...prev,
+          highlight: payload.nodes,
+        }));
+      }
+    });
+
+    const offTerm = websocketService.on('ai:ide.terminal', (payload) => {
+      const line = payload?.line || payload?.cmd || '';
+      if (line) setAgentTerm((t) => `${t}${t ? '\n' : ''}$ ${line}`.slice(-8000));
+    });
+
+    const offTool = websocketService.on('ai:icarus.tool', (payload) => {
+      if (payload?.tool === 'open_pr') {
+        setPrDock({
+          branch: payload.args?.branch || gitRef,
+          status: 'open',
+          review: 'awaiting manager review',
+        });
+      }
+      if (payload?.tool === 'approve_pr') {
+        setPrDock((d) => ({
+          ...d,
+          review: payload.after?.verdict || payload.result?.verdict || 'approved',
+          status: 'reviewed',
+        }));
+      }
+    });
+
+    return () => {
+      offFile?.();
+      offPresence?.();
+      offAsk?.();
+      offAns?.();
+      offStack?.();
+      offHighlight?.();
+      offTerm?.();
+      offTool?.();
+    };
+  }, [projectId, currentProject?.id, repoId, followAgent, blob?.path, dirty, content, gitRef, loadServicesMap]);
 
   const guardSwitch = () => canSwitchRef({
     dirty,
@@ -209,15 +326,55 @@ export const Adonis = ({ navigation, route }) => {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
     const onKeyDown = (e) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key !== 's' && e.key !== 'S') return;
-      e.preventDefault();
-      e.stopPropagation();
-      saveCurrentRef.current?.();
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          e.stopPropagation();
+          saveCurrentRef.current?.();
+          return;
+        }
+        if (e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          setCmdOpen(true);
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []);
+
+  const ideAttachCtx = useCallback(() => ({
+    projectId,
+    repoId,
+    ref: gitRef,
+    path: activePath,
+  }), [projectId, repoId, gitRef, activePath]);
+
+  const runAttach = useCallback(async (kind, pathOverride) => {
+    const path = pathOverride || activePath;
+    if (!path || !repoId || !projectId) {
+      setError('Open a file first.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError(null);
+      const out = await runIdeAttachAction(kind, { ...ideAttachCtx(), path });
+      if (out.cancelled) {
+        setStatus('Attach cancelled');
+        return;
+      }
+      if (out.stack_revision != null) {
+        setStatus(`Stack r${out.stack_revision} · ${kind === 'attach_function' ? out.function?.name : out.route?.name}`);
+      }
+      await loadServicesMap();
+    } catch (e) {
+      setError(e.response?.data?.error?.message || e.message);
+    } finally {
+      setBusy(false);
+      setCmdOpen(false);
+    }
+  }, [activePath, ideAttachCtx, loadServicesMap, projectId, repoId]);
 
   const createBranch = async () => {
     if (!newBranch.trim()) return;
@@ -386,13 +543,120 @@ export const Adonis = ({ navigation, route }) => {
         <ToolBtn label={busy ? '…' : 'Save'} primary onPress={saveCurrent} disabled={busy || !blob?.path || !dirty} />
         <ToolBtn label={workspace ? 'Stop WS' : 'Start WS'} onPress={workspace ? stopWorkspace : ensureWorkspace} disabled={busy} />
         <ToolBtn label="Deploy" primary onPress={deploy} disabled={busy} />
+        <ToolBtn label="⌘⇧P" onPress={() => setCmdOpen((v) => !v)} disabled={!repoId} />
       </View>
+
+      {ctxMenu ? (
+        <View style={S.addBar}>
+          <Text style={S.statusText} numberOfLines={1}>{ctxMenu.path}</Text>
+          <ToolBtn
+            label="Attach as Function"
+            primary
+            disabled={busy}
+            onPress={async () => {
+              const p = ctxMenu.path;
+              setCtxMenu(null);
+              await runAttach('attach_function', p);
+            }}
+          />
+          <ToolBtn
+            label="Expose via API"
+            disabled={busy}
+            onPress={async () => {
+              const p = ctxMenu.path;
+              setCtxMenu(null);
+              await runAttach('expose_api', p);
+            }}
+          />
+          <ToolBtn label="Cancel" onPress={() => setCtxMenu(null)} />
+        </View>
+      ) : null}
+
+      {cmdOpen ? (
+        <View style={S.addBar}>
+          <TextInput
+            value={cmdFilter}
+            onChangeText={setCmdFilter}
+            placeholder="Command palette"
+            autoCapitalize="none"
+            placeholderTextColor={c9.textMuted}
+            style={[S.tinyInput, { flex: 1 }]}
+          />
+          {(!cmdFilter || /attach|function/i.test(cmdFilter)) ? (
+            <ToolBtn
+              label="Attach as Function"
+              primary
+              disabled={busy || !activePath}
+              onPress={() => runAttach('attach_function')}
+            />
+          ) : null}
+          {(!cmdFilter || /expose|api/i.test(cmdFilter)) ? (
+            <ToolBtn
+              label="Expose via API"
+              disabled={busy || !activePath}
+              onPress={() => runAttach('expose_api')}
+            />
+          ) : null}
+          <ToolBtn label="Close" onPress={() => { setCmdOpen(false); setCmdFilter(''); }} />
+        </View>
+      ) : null}
 
       {error ? (
         <View style={S.errorBanner}>
           <Text style={S.errorText}>{error}</Text>
         </View>
       ) : null}
+
+      {inlineAsk ? (
+        <View style={S.addBar}>
+          <Text style={S.statusText} numberOfLines={2}>
+            ASK · {inlineAsk.speak_text || inlineAsk.text || inlineAsk.kind || 'approve'}
+          </Text>
+          <ToolBtn
+            label="Open chat"
+            primary
+            onPress={() => navigation?.navigate?.('icarus', { projectId })}
+          />
+          <ToolBtn label="Dismiss" onPress={() => setInlineAsk(null)} />
+        </View>
+      ) : null}
+
+      {pendingAgentFile ? (
+        <View style={S.addBar}>
+          <Text style={S.statusText}>
+            Conflict · Icarus wrote {pendingAgentFile.path} while you have unsaved edits
+          </Text>
+          <ToolBtn
+            label="Keep mine"
+            onPress={() => setPendingAgentFile(null)}
+          />
+          <ToolBtn
+            label="Take Icarus"
+            primary
+            onPress={() => {
+              setContent(pendingAgentFile.content || '');
+              setOriginal(pendingAgentFile.content || '');
+              setPendingAgentFile(null);
+              setStatus(`Took Icarus version of ${pendingAgentFile.path}`);
+            }}
+          />
+        </View>
+      ) : null}
+
+      <View style={S.addBar}>
+        <Text style={S.statusText}>
+          PR · {prDock.branch || gitRef}
+          {prDock.status ? ` · ${prDock.status}` : ''}
+          {prDock.review ? ` · ${prDock.review}` : ' · no open PR'}
+          {agentPresence?.path ? ` · Icarus @ ${agentPresence.path}` : ''}
+        </Text>
+        <ToolBtn
+          label={followAgent ? 'Following' : 'Follow Icarus'}
+          primary={followAgent}
+          onPress={() => setFollowAgent((v) => !v)}
+        />
+        <ToolBtn label="↻ services" onPress={loadServicesMap} />
+      </View>
 
       {showAdd ? (
         <View style={S.addBar}>
@@ -453,11 +717,18 @@ export const Adonis = ({ navigation, route }) => {
             {[...folders, ...files].map((e) => {
               const path = treePath ? `${treePath}/${e.name}` : e.name;
               const active = blob?.path === path;
+              const ctxProps = Platform.OS === 'web' && e.type !== 'tree' ? {
+                onContextMenu: (ev) => {
+                  ev.preventDefault();
+                  setCtxMenu({ path });
+                },
+              } : {};
               return (
                 <TouchableOpacity
                   key={e.name}
                   style={[S.treeRow, active ? S.treeRowActive : null]}
                   onPress={() => openEntry(e)}
+                  {...ctxProps}
                 >
                   <Text style={S.treeIcon}>{e.type === 'tree' ? '▸' : '·'}</Text>
                   <Text style={[S.treeName, e.type === 'tree' ? S.treeNameDir : null]}>
@@ -488,10 +759,28 @@ export const Adonis = ({ navigation, route }) => {
           <View style={S.editorWrap}>
             {!blob ? (
               <View style={S.emptyEditor}>
-                <Text style={S.emptyTitle}>{projectName}</Text>
+                <Text style={S.emptyTitle}>Icarus IDE · {projectName}</Text>
                 <Text style={S.emptyHint}>
                   Open a file from the Environment tree to edit. Save commits to {gitRef}.
+                  Live agent edits sync here; Follow Icarus is {followAgent ? 'on' : 'off'}.
                 </Text>
+                <ToolBtn
+                  label={followAgent ? 'Following Icarus' : 'Follow Icarus'}
+                  onPress={() => setFollowAgent((v) => !v)}
+                  primary={followAgent}
+                />
+                <Text style={[S.emptyHint, { marginTop: 16 }]}>Attached services (live)</Text>
+                <ScrollView style={{ maxHeight: 220, alignSelf: 'stretch', paddingHorizontal: 12 }}>
+                  {(servicesMap.nodes || []).filter((n) => n.kind !== 'project').map((n) => (
+                    <Text key={n.id} style={S.statusText}>
+                      [{n.health || '?'}] {n.kind}: {n.label}
+                    </Text>
+                  ))}
+                  {!servicesMap.nodes?.length ? (
+                    <Text style={S.statusText}>No stack services yet — talk to Icarus to configure.</Text>
+                  ) : null}
+                </ScrollView>
+                <ToolBtn label="Refresh services" onPress={loadServicesMap} />
               </View>
             ) : blob.binary ? (
               <View style={S.emptyEditor}>
@@ -564,9 +853,12 @@ export const Adonis = ({ navigation, route }) => {
               </View>
               <ScrollView style={{ flex: 1 }}>
                 <Text selectable style={S.termOut}>
-                  {termOut || (workspace
-                    ? `workspace ${workspace.container_id || 'pending'} · ${workspace.status}`
-                    : 'Start a workspace to run commands.')}
+                  {[
+                    agentTerm ? `── Icarus ──\n${agentTerm}` : '',
+                    termOut || (workspace
+                      ? `workspace ${workspace.container_id || 'pending'} · ${workspace.status}`
+                      : 'Start a workspace to run commands.'),
+                  ].filter(Boolean).join('\n\n')}
                 </Text>
               </ScrollView>
             </View>

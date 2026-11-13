@@ -12,6 +12,8 @@ import { useProject } from '../../contexts/ProjectContext';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { colors } from '../../styles/theme';
 import { IntegrationHubStyles as S } from '../IntegrationHub/IntegrationHub.styles';
+import { ServiceGuide } from '../../components/ServiceGuide/ServiceGuide';
+import { useServiceGuideDeps } from '../../hooks/useServiceGuideDeps';
 
 const BASE = '/api/services/queue_manager/api/v1';
 const ENGINES = ['standard', 'fifo', 'rabbitmq', 'redis_stream'];
@@ -31,6 +33,11 @@ export const QueueManager = ({ navigation }) => {
   const [selected, setSelected] = useState('');
   const [body, setBody] = useState('{"ping":1}');
   const [received, setReceived] = useState('');
+  const { guideDeps, openDep, enableAllDeps, onSetup } = useServiceGuideDeps(
+    'queue_manager',
+    navigation,
+    status?.enabled,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -150,6 +157,36 @@ export const QueueManager = ({ navigation }) => {
     >
       <Text style={S.title}>Message Queues</Text>
       <Text style={S.subtitle}>SQS analog. standard/fifo are SQLite; rabbitmq is AMQP; redis_stream is Redis Streams.</Text>
+
+      <ServiceGuide
+        title="Message queues guide"
+        analogue="Amazon SQS"
+        blurb="Project-scoped queues with standard, FIFO, RabbitMQ, or Redis Streams engines. Pair with function_manager for inbox + DLQ fan-out."
+        whenToUse={[
+          'Async work behind function_manager handlers',
+          'Webhook and event_manager fan-out targets',
+          'DLQ-backed retries for poison messages',
+        ]}
+        prerequisites={[
+          'Select a project — queues are project-scoped',
+          'Enable auth_manager for queue:Send and queue:Receive',
+        ]}
+        examples={[
+          {
+            label: 'Create queue',
+            code: `POST /api/services/queue_manager/api/v1/queues\n{ "project_id": "{projectId}", "name": "jobs", "engine": "standard" }`,
+          },
+          {
+            label: 'Send message',
+            code: `POST .../queues/jobs/messages\n{ "project_id": "{projectId}", "body": { "ping": 1 } }`,
+          },
+        ]}
+        deps={guideDeps}
+        onSetupDep={openDep}
+        onEnableAllDeps={enableAllDeps}
+        onSetup={onSetup}
+      />
+
       {error ? <Box><Text style={S.error}>{error}</Text></Box> : null}
 
       <Box title="Service">

@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Conductor project friends (GA)
+  version: 1.0.0
+  description: |
+    Same-conductor project sharing. Maturity GA.
+    Viewer role is read-only on project + ai_manager writes.
+    Optional invite `email` is stored for copy/mailto only (no SMTP).
+    Peer-conductor federation is Preview — see conductor_federation.yaml.
+paths:
+  /api/projects/{id}/members:
+    get:
+      summary: List members
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Members with status active + maturity ga
+    post:
+      summary: Add member by user_id (owner+)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+                role: { type: string, enum: [owner, member, viewer] }
+      responses:
+        '201':
+          description: Created member
+  /api/projects/{id}/members/{userId}:
+    patch:
+      summary: Update member role
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [owner, member, viewer] }
+      responses:
+        '200':
+          description: Updated member
+    delete:
+      summary: Revoke member
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Revoked
+  /api/projects/{id}/invites:
+    get:
+      summary: List invites
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Invites
+    post:
+      summary: Create invite token
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [owner, member, viewer] }
+                ttl_ms: { type: integer }
+                email: { type: string, description: Optional; stored for mailto/copy only }
+      responses:
+        '201':
+          description: Invite with token + maturity ga
+  /api/projects/{id}/invites/{inviteId}:
+    delete:
+      summary: Revoke invite
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: inviteId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Revoked invite
+  /api/projects/invites/accept:
+    post:
+      summary: Accept invite by token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Member created/active
+  /api/projects/{id}/members/leave:
+    post:
+      summary: Current user leaves the project
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Left
+  /api/projects/{id}/members/clear:
+    post:
+      summary: Owner clears membership ACL (project becomes open to creator)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Cleared

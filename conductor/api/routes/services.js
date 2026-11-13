@@ -4,6 +4,7 @@ const authenticate = require('../middleware/auth');
 const authenticateService = require('../middleware/serviceAuth');
 const appProxyAuth = require('../middleware/appProxyAuth');
 const { requireIamAccess } = require('../middleware/requireIamAccess');
+const { requireProjectMemberForProxy } = require('../middleware/requireProjectMember');
 const { authorizationForProxy } = require('../utils/proxyAuthorization');
 const { buildServiceProxyPath } = require('../utils/buildServiceProxyPath');
 const ServiceManager = require('../services/ServiceManager');
@@ -12,6 +13,15 @@ const ProjectService = require('../services/ProjectService');
 const SetupService = require('../services/SetupService');
 const { Service } = require('../models');
 const { randomUUID } = require('crypto');
+const { requireShared } = require('../utils/loadWorkerShared');
+const { getSetupMeta, requiredDepsInOrder } = requireShared('setupCatalog');
+
+function labelForService(name) {
+  return String(name || '')
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 // Initialize ServiceManager (use singleton for shared state)
 // WorkerRepository is exported as an instance, not a class
@@ -172,6 +182,89 @@ router.get('/', authenticate, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+/**
+ * POST /api/services/provision-deps
+ * Dry-run plan for enabling missing dependencies (AWS-style one-click setup).
+ */
+router.post('/provision-deps', authenticate, async (req, res, next) => {
+  try {
+    const { service, project_id: projectId, dry_run: dryRun = true } = req.body || {};
+    if (!service) {
+      return res.status(400).json({
+        error: { message: 'service is required', status: 400 },
+      });
+    }
+    if (!projectId) {
+      return res.status(400).json({
+        error: { message: 'project_id is required', status: 400 },
+      });
+    }
+
+    const meta = getSetupMeta(service);
+    if (!meta || !meta.summary) {
+      return res.status(404).json({
+        error: { message: `Unknown service: ${service}`, status: 404 },
+      });
+    }
+
+    const enableOrder = requiredDepsInOrder(service);
+    const steps = [];
+    const missing = [];
+
+    for (const name of enableOrder) {
+      const depMeta = getSetupMeta(name);
+      const st = await SetupService.probeHealth(name).catch(() => ({ ok: false }));
+      let enabled = false;
+      try {
+        const { Service: ServiceModel, ProjectService: ProjectServiceModel } = require('../models');
+        const rows = await ServiceModel.findAll({ where: { name } });
+        if (rows.length) {
+          const ps = await ProjectServiceModel.findAll({
+            where: { project_id: projectId, service_id: rows[0].id },
+          });
+          enabled = ps.length > 0 && ps[0].enabled === 1;
+        }
+      } catch (_) { /* best-effort */ }
+
+      const step = {
+        action: 'enable',
+        service: name,
+        label: labelForService(name),
+        already_enabled: enabled,
+        health_ok: st.ok,
+        reason: name === service
+          ? (depMeta.summary || 'Primary service')
+          : ((meta.dependencies || []).find((d) => d.service === name)?.reason
+            || (depMeta.summary || '')),
+      };
+      steps.push(step);
+      if (!enabled) missing.push(name);
+    }
+
+    const plan = {
+      dry_run: dryRun !== false,
+      service,
+      project_id: projectId,
+      enable_order: enableOrder,
+      steps,
+      missing,
+      summary: missing.length
+        ? `Enable ${missing.length} manager(s) then ${service}`
+        : `${service} and dependencies are already enabled`,
+    };
+
+    if (dryRun === false) {
+      // TODO: delegate to SetupService.enableWithDependencies when click-ops batching is unified.
+      plan.executed = false;
+      plan.note = 'Actual enable not run — pass dry_run:true for planning only until batch enable ships.';
+    }
+
+    return res.json({ plan });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -734,6 +827,7 @@ router.use(
     return appProxyAuth(req, res, next);
   },
   requireIamAccess(),
+  requireProjectMemberForProxy(['ai_manager']),
   async (req, res, next) => {
     try {
       const { serviceName } = req.params;
@@ -789,7 +883,12 @@ router.use(
       // matches live state (covers CLI/SDK direct writes, not just click-ops).
       if (projectId && result.status >= 200 && result.status < 400 &&
           ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase())) {
-        require('../services/StackService').recordProxyWrite(projectId, serviceName, method, req.path, data, result.data);
+        try {
+          const StackService = require('../services/StackService');
+          if (typeof StackService.recordProxyWrite === 'function') {
+            StackService.recordProxyWrite(projectId, serviceName, method, req.path, data, result.data);
+          }
+        } catch (_) { /* older StackService images */ }
       }
 
       const ct = (result.headers && (result.headers['content-type'] || result.headers['Content-Type'])) || '';

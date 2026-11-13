@@ -5,8 +5,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { ProjectSwitcher } from '../ProjectSwitcher/ProjectSwitcher';
 import { EnvSwitcher } from '../EnvSwitcher/EnvSwitcher';
 import { GlobalSearch } from '../GlobalSearch/GlobalSearch';
-import { IcarusOverlay } from './IcarusOverlay';
 import { NotificationBell } from '../NotificationBell/NotificationBell';
+import { IcarusOverlay } from './IcarusOverlay';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen }) => {
@@ -126,11 +126,38 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
 
       <TouchableOpacity
         style={iconBtn}
-        onPress={() => { setIcarusOpen(true); setOpen(false); }}
+        onPress={() => {
+          setOpen(false);
+          setIcarusOpen(true);
+        }}
         activeOpacity={0.7}
-        accessibilityLabel="Icarus"
+        accessibilityLabel="Talk to Icarus"
+      >
+        <Ionicons name="mic-outline" size={24} color={animus.gold} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={iconBtn}
+        onPress={() => {
+          setOpen(false);
+          setIcarusOpen(false);
+          if (currentScreen !== 'icarus') navigation?.navigate('icarus', { section: 'chat' });
+        }}
+        activeOpacity={0.7}
+        accessibilityLabel="Icarus chat"
       >
         <Ionicons name="sparkles-outline" size={24} color={animus.gold} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={iconBtn}
+        onPress={() => {
+          setOpen(false);
+          navigation?.navigate('icarusFriends', { section: 'friends' });
+        }}
+        activeOpacity={0.7}
+        accessibilityLabel="Friends"
+      >
+        <Ionicons name="people-outline" size={24} color={colors.textPrimary} />
       </TouchableOpacity>
 
       <NotificationBell navigation={navigation} />
@@ -149,7 +176,7 @@ export const Header = ({ navigation, currentScreen, searchOpen, setSearchOpen })
             style={iconBtn}
             onPress={() => currentScreen !== 'adonis' && navigation?.navigate('adonis')}
             activeOpacity={0.7}
-            accessibilityLabel="Adonis IDE"
+            accessibilityLabel="Icarus IDE"
           >
             <Ionicons name="code-slash-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>

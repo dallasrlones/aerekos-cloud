@@ -15,6 +15,9 @@ Operator docs for the homelab fleet. **Mac checkout is source of truth.** Device
 | [icarus-c0.md](icarus-c0.md) | Icarus C0: timeouts, app tokens, storage, smoke |
 | [icarus-live-e2e.md](icarus-live-e2e.md) | C1–C8 + T65 live scripts |
 | [lora-gpu.md](lora-gpu.md) | PEFT LoRA trainer on oculus (do not restart vLLM) |
+| [auth-required.md](auth-required.md) | `AUTH_REQUIRED=true` manager auth flip (prod compose) |
+| [git-vs-ide.md](git-vs-ide.md) | git_manager hosting vs Icarus IDE workspace (W4) |
+| [auth-port-quirk.md](auth-port-quirk.md) | auth_manager listen vs port-detection registration mismatch |
 | [key-rotation.md](key-rotation.md) | Signing / envelope keys |
 | [incident.md](incident.md) | Incident response |
 

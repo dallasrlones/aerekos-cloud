@@ -70,7 +70,8 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-mxbai-embed-large}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL}
       - RABBITMQ_URL=${RABBITMQ_URL:-}
-      - AUTH_REQUIRED=${AI_AUTH_REQUIRED:-false}
+      # GA default: require Bearer on :3126; homelab override AI_AUTH_REQUIRED=false in .env
+      - AUTH_REQUIRED=${AI_AUTH_REQUIRED:-true}
       - MEMORY_DB_FALLBACK=${MEMORY_DB_FALLBACK:-1}
       - SKIP_SERVICE_REGISTRATION=${SKIP_SERVICE_REGISTRATION:-false}
       # Auto-benchmark new Ollama models (speed + JSON command compliance)

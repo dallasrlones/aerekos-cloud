@@ -32,6 +32,8 @@ describe('icarusThink', () => {
     expect(livePrompt('called')).toBe('Called the brain…');
     expect(livePrompt('waiting', 'Hello')).toBe('Hello');
     expect(livePrompt('waiting', '')).toMatch(/Waiting/);
+    expect(livePrompt('done', 'Final answer')).toBe('Final answer');
+    expect(livePrompt('done', '')).toBe('');
     expect(livePrompt('idle')).toBe('');
   });
 });

@@ -3,7 +3,7 @@
 const { gatewayFor } = require('./AgentGateway');
 const {
   executeTool, dangerClassify, classifyTool, toolSchemas, openaiToolSchemas,
-  extractToolCalls, resolveInWorkspace, hangoutReadSchemas,
+  extractToolCalls, resolveInWorkspace, hangoutReadSchemas, workerToolSchemas,
 } = require('./workspaceTools');
 const { emitAgentPulse } = require('../utils/aiLive');
 const { fail, json, scrubSecrets } = require('./agentArn');
@@ -93,6 +93,7 @@ class AgentRuntime {
     const { forProject } = require('./IcarusFacade');
     const { uxSlo } = require('./UxSlo');
     const icarus = forProject(projectId, settings);
+    if (typeof icarus.bindRuntime === 'function') icarus.bindRuntime(this);
     const t0 = Date.now();
     let livePlan = false;
     try {
@@ -101,6 +102,15 @@ class AgentRuntime {
     } catch { /* memory/neo4j */ }
     const gated = await icarus.gate.route(text, { hasLivePlan: livePlan });
     uxSlo.record('gate_classify_ms', Date.now() - t0, { route: gated.route });
+    await this._note(projectId, agent.id, {
+      layer: 'user', type: 'laya', summary: `lane=${gated.lane_choice || gated.route}`, meta: {
+        route: gated.route, lane_choice: gated.lane_choice, source: gated.source,
+      },
+    });
+
+    // Guided user Flow intake (Laya flow_pick + intake_next) — hand-holding ASKs
+    const flowOut = await this._maybeFlowIntake(projectId, agent, text, icarus, gated);
+    if (flowOut) return { ...flowOut, gate: gated };
 
     const route = shop.routeChat(agent.mode);
     const userId = body.user_id || agent.user_id || 'console';
@@ -115,26 +125,50 @@ class AgentRuntime {
       icarus.ledger.append({
         projectId, agentId: agent.id, lane: 'user', tool: 'steer', args: { text, gate: gated },
       });
+      // STEER wakes manager with report + graph nudge
+      try {
+        if (typeof icarus.graph.invalidateFromSteer === 'function') {
+          await icarus.graph.invalidateFromSteer(text);
+        }
+      } catch { /* optional */ }
+      setImmediate(() => {
+        this.runManager(projectId, agent.id, {
+          text, userId, report: { steer: true, text },
+        }).catch(() => {});
+      });
     }
 
-    if (!route.shop || gated.policy.user_immediate) {
-      const userOut = await this._userTurn(projectId, agent, settings, {
-        ...ctx, shop: Boolean(route.shop),
-      });
-      // Wake manager without blocking user stream
-      if (gated.policy.wake_manager && route.shop && gated.route === 'MANAGER') {
-        setImmediate(() => {
-          this._shopTurn(projectId, agent, settings, ctx).catch(() => {});
-        });
-        return { ...userOut, gate: gated, dual_stream: true };
-      }
-      if (!route.shop) return { ...userOut, gate: gated };
+    // Gate owns friend vs work. Ask/Plan/Agent are UX hints.
+    // Clear shop briefs always sync-shop. Agent-mode CHAT without a clear brief still
+    // hits shop for the free_text "what should we get done?" ASK (not a plan preview).
+    // MANAGER dual-streams: user reply immediate + shop in background.
+    const clearShop = shop.briefIsClear(text);
+    const infoOnly = gated.lane_choice === 'info' || gated.policy.info_lane;
+    const friendOnly = (gated.route === 'CHAT' || gated.route === 'CLARIFY') && !clearShop && !route.shop;
+    const wantShop = Boolean(route.shop) && !friendOnly && !infoOnly;
+    // Tiny clear briefs (folder/file) always sync-shop for preview ASK.
+    // Broader MANAGER intents dual-stream: user reply now + shop in background.
+    const dualManager = wantShop && gated.route === 'MANAGER' && gated.policy.wake_manager && !clearShop;
+
+    if (wantShop && !dualManager) {
+      const shopOut = await this._shopTurn(projectId, agent, settings, ctx);
+      return { ...shopOut, gate: gated };
     }
-    const shopOut = await this._shopTurn(projectId, agent, settings, ctx);
-    return { ...shopOut, gate: gated };
+
+    const userOut = await this._userTurn(projectId, agent, settings, {
+      ...ctx,
+      shop: false,
+    });
+    if (dualManager) {
+      setImmediate(() => {
+        this._shopTurn(projectId, agent, settings, ctx).catch(() => {});
+      });
+      return { ...userOut, gate: gated, dual_stream: true };
+    }
+    return { ...userOut, gate: gated };
   }
 
-  async _userTurn(projectId, agent, settings, { text, userId, pins, rolls, images, shop: inShop }) {
+  async _userTurn(projectId, agent, settings, { text, userId, pins, rolls, images, shop: inShop, gate }) {
     if (inShop) {
       return { agent_id: agent.id, job_id: null, reply: '', handed_off: false, messages: [] };
     }
@@ -151,16 +185,56 @@ class AgentRuntime {
       .filter((m) => m.content && m.content !== '…' && m.content !== 'Thinking…');
     const system = friendSystem(agent, pins, rolls, target)
       + `\nPEEK of ${target.claim}:\n${peek.text}`;
+    const infoLane = Boolean(gate?.lane_choice === 'info' || gate?.policy?.info_lane);
+    let infoVerifyAppendix = '';
+    if (infoLane || gate) {
+      try {
+        const { planInfoVerify, executeInfoVerify } = require('./InfoVerifyGate');
+        const ragSearch = async (pid, coll, opts) => {
+          const { RagCollectionService } = require('./RagCollectionService');
+          const rag = new RagCollectionService();
+          return rag.search(pid, coll, opts);
+        };
+        const plan = await planInfoVerify({ text, projectId, agent, gate, ragSearch });
+        if (plan.required) {
+          const verified = await executeInfoVerify({
+            text, projectId, agent, bucket: agent.storage_bucket,
+          });
+          if (verified.appendix) {
+            infoVerifyAppendix = verified.appendix;
+            if (verified.corpus?.hash) {
+              const { forProject } = require('./IcarusFacade');
+              forProject(projectId, settings).loraTrain.recordCorpusRow(projectId, {
+                hash: verified.corpus.hash,
+                prefix: verified.corpus.prefix,
+                url: verified.sources?.[0]?.url,
+                query: text,
+                normalized: verified.appendix,
+                title: verified.sources?.[0]?.title,
+                prompt: text,
+              });
+            }
+          }
+        } else if (infoLane && plan.factual) {
+          infoVerifyAppendix = 'Factual info lane: cite RAG/skills only; if uncertain, say you cannot verify — never invent.';
+        }
+      } catch { /* verify optional */ }
+    }
+
     const messages = [
       { role: 'system', content: scrubSecrets(system) },
       ...prior,
     ];
+    if (infoVerifyAppendix) {
+      messages.splice(1, 0, { role: 'system', content: scrubSecrets(infoVerifyAppendix) });
+    }
     if (!prior.length || prior[prior.length - 1].content !== text) {
       messages.push({
         role: 'user',
         content: scrubSecrets(images.length ? `${text}\n[images attached: ${images.length}]` : text),
       });
     }
+
     const seesCode = /\b(see (your )?(own )?(code|codebase|repo)|your own codebase)\b/i.test(text);
     if (seesCode) {
       const reply = `Yes. I'm Icarus on aerekos-cloud. I can read ${target.claim}. ${peek.text.slice(0, 400)}`;
@@ -173,6 +247,7 @@ class AgentRuntime {
     const gw = gatewayFor(projectId, settings);
     let job = null;
     const { resolveLaneIntelligence } = require('./laneIntelligence');
+    const chatLane = infoLane ? 'info' : 'user';
     const lane = resolveLaneIntelligence(agent, 'user');
     const opts = json(agent.options, {});
     const names = [
@@ -194,7 +269,7 @@ class AgentRuntime {
                 user_id: userId,
                 session_id: `agent:${agent.id}`,
                 message_id: `u-${Date.now()}`,
-                lane: 'user',
+                lane: chatLane,
                 agent_id: agent.id,
                 priority_class: 1,
                 tools,
@@ -348,6 +423,15 @@ class AgentRuntime {
 
   async runManager(projectId, agentId, { text, userId, report, plan_id, step_id } = {}) {
     const { agent, settings } = await this._ctx(projectId, agentId);
+    if (report?.flow === 'browse_learn_ingest') {
+      return this._browseLearnIngest(projectId, agent, report.slots || {}, settings, {
+        text: text || '',
+        userId,
+      });
+    }
+    if (report?.flow === 'safe_deps_upgrade') {
+      return this._safeDepsUpgradeManager(projectId, agent, report.slots || {}, settings);
+    }
     const gw = gatewayFor(projectId, settings);
     const board = typeof this.agents.shopBoard === 'function'
       ? await this.agents.shopBoard(projectId, agent.id)
@@ -360,29 +444,44 @@ class AgentRuntime {
         ? await this.agents.upsertBrief(projectId, agent.id, shop.briefFromText(text))
         : shop.briefFromText(text);
     }
-    if (agent.intelligence && (report || shop.inferPreview(text || brief?.client_words || brief?.goal || '').type === 'other')) {
+    const { resolveLaneIntelligence } = require('./laneIntelligence');
+    const mgrLane = resolveLaneIntelligence(agent, 'manager');
+    const mgrIntel = mgrLane.intelligence || agent.intelligence;
+    if (mgrIntel && (report || shop.inferPreview(text || brief?.client_words || brief?.goal || '').type === 'other')) {
       try {
-        await gw.enqueue('manager', async () => this.jobs.submit(projectId, {
-          intelligence: agent.intelligence,
-          messages: [
-            {
-              role: 'system',
-              content: managerSystem(
-                settings.workspace_root || '/home/aerekos/work',
-                board,
-                json(agent.options, {}),
-                shop.resolveTarget(text || brief?.client_words || brief?.goal || '', { projectId, agent, settings }),
-              ),
+        await gw.enqueue('manager', async () => {
+          const job = await this.jobs.submit(projectId, {
+            intelligence: mgrIntel,
+            messages: [
+              {
+                role: 'system',
+                content: managerSystem(
+                  settings.workspace_root || '/home/aerekos/work',
+                  board,
+                  json(agent.options, {}),
+                  shop.resolveTarget(text || brief?.client_words || brief?.goal || '', { projectId, agent, settings }),
+                ),
+              },
+              { role: 'user', content: scrubSecrets(JSON.stringify({ brief, report: report || null, text, board })) },
+            ],
+            user_id: userId || `manager:${agent.id}`,
+            session_id: `agent:${agent.id}:manager`,
+            tools: openaiToolSchemas(),
+            tool_choice: 'auto',
+            lane: 'manager',
+            agent_id: agent.id,
+            hangout: {
+              claim: '',
+              workspace_root: settings.workspace_root || '',
+              workspace_worker_id: settings.workspace_worker_id || '',
             },
-            { role: 'user', content: scrubSecrets(JSON.stringify({ brief, report: report || null, text, board })) },
-          ],
-          user_id: userId || `manager:${agent.id}`,
-          session_id: `agent:${agent.id}:manager`,
-          tools: openaiToolSchemas(),
-          tool_choice: 'auto',
-          lane: 'manager',
-          agent_id: agent.id,
-        }), { agentId: agent.id });
+          });
+          // Manager tool loop: execute tool calls from the job result when present
+          try {
+            await this._managerToolLoop(projectId, agent.id, job, settings);
+          } catch { /* deterministic path still runs */ }
+          return job;
+        }, { agentId: agent.id });
       } catch { /* deterministic path still runs */ }
     }
 
@@ -539,6 +638,34 @@ class AgentRuntime {
     const payload = json(ask.payload, {});
     const yes = /go ahead|yes|apply|start computer|start browser|merge|run it|ingest/i.test(String(answer));
 
+    if (ask.kind === 'flow_confirm' || ask.kind === 'flow_intake') {
+      if (ask.kind === 'flow_intake') {
+        const { FlowIntakeService } = require('./FlowIntakeService');
+        const flowIntake = new FlowIntakeService(this.agents);
+        const advanced = await flowIntake.advance(projectId, agent, answer, {
+          flowId: payload.flow_id,
+        });
+        if (advanced.confirm) {
+          const next = await this._createAsk(projectId, agent.id, {
+            text: advanced.confirm.text,
+            options: advanced.confirm.options,
+            recommended: 'Yes',
+            kind: 'flow_confirm',
+            from_layer: 'user',
+            speak_text: advanced.confirm.text,
+            payload: { flow_id: advanced.confirm.flow_id, slots: advanced.confirm.slots },
+          });
+          this._pulse(projectId, agent.id);
+          return { ask: next, reply: next.speak_text };
+        }
+        if (advanced.ask) {
+          const next = await this._createAsk(projectId, agent.id, advanced.ask);
+          this._pulse(projectId, agent.id);
+          return { ask: next, reply: next.speak_text };
+        }
+      }
+      return this._runFlowConfirm(projectId, agent, ask, payload, yes);
+    }
     if (ask.kind === 'plan_q') {
       return this._answerPlanQ(projectId, agent, ask, answer, payload);
     }
@@ -762,8 +889,8 @@ class AgentRuntime {
     }
     const root = settings.workspace_root || process.cwd();
     const gw = gatewayFor(projectId, settings);
-    const tools = openaiToolSchemas();
-    const names = toolSchemas().map((t) => t.name).join(', ');
+    const tools = workerToolSchemas();
+    const names = tools.map((t) => t.function?.name || t.name).filter(Boolean).join(', ');
     const pack = packText(worker.persona || 'dev');
     const saved = json(worker.messages_json, []);
     const browse = worker.claim_prefix === 'browser' || /browse|browser/i.test(worker.objective || '');
@@ -777,7 +904,7 @@ class AgentRuntime {
         content: workerSystem(worker.persona || 'dev', root, pack, json(agent.options, {}), {
           kind: 'claim', claim: worker.claim_prefix || '', label: worker.claim_prefix || root,
         })
-          + ` Tools: ${names}. Board: ${JSON.stringify({ locks: board?.locks, claim: worker.claim_prefix }).slice(0, 1500)}`,
+          + ` Tools: ${names}. Never approve_pr or merge — open_pr only. Board: ${JSON.stringify({ locks: board?.locks, claim: worker.claim_prefix }).slice(0, 1500)}`,
       },
       { role: 'user', content: worker.objective },
     ];
@@ -944,11 +1071,29 @@ class AgentRuntime {
     const danger = dangerClassify(name, args, root, persona);
     if (danger.level === 'deny') throw fail(403, danger.reason);
 
+    const { spendCap } = require('./SpendCapService');
+    const capHit = spendCap.checkTool(projectId, name);
+    if (!capHit.allow) {
+      return { result: { ok: false, denied: true, error: capHit.reason, spend_cap: true }, pending: false };
+    }
+
+    const { guardToolCall } = require('./ToolSandbox');
+    const sandboxBlock = guardToolCall(name, args, { root, projectId, persona });
+    if (sandboxBlock) {
+      return { result: sandboxBlock, pending: false };
+    }
+
+    const mutateBlock = this._mutateGateCheck(name, args, settings);
+    if (mutateBlock) {
+      return { result: mutateBlock, pending: false };
+    }
+
     const Browser = require('./BrowserSession');
     const verified = shop.verifyTool({ name, args }, {
       goal, claim, preview, mode: useMode, projectId, worker_id: workerId,
       browser_owner: Browser.sessionOf(projectId, agentId)?.owner,
       branch,
+      actor,
     });
     if (!verified.ok && verified.level === 'deny') {
       return { result: { ok: false, denied: true, error: verified.reason, report_manager: true }, pending: false };
@@ -1080,6 +1225,24 @@ class AgentRuntime {
       });
       return { result: { ok: true, worker }, pending: false };
     }
+    if (name === 'update_work') {
+      const id = args.work_id || args.id;
+      if (!id) throw fail(400, 'work_id required');
+      const patch = {};
+      if (args.status != null) patch.status = String(args.status);
+      if (args.title != null) patch.title = String(args.title).slice(0, 180);
+      if (args.priority != null) patch.priority = String(args.priority);
+      const item = await this.agents.updateWork(id, patch);
+      return { result: { ok: true, work: item }, pending: false };
+    }
+    if (name === 'aerekos_status' || name === 'aerekos_search_docs' || name === 'aerekos_call'
+      || name === 'rag_ingest' || name === 'data_api_apply' || name === 'project_services'
+      || name === 'safe_deps_detect' || name === 'safe_deps_upgrade' || name === 'safe_deps_rollback') {
+      const PlatformToolkit = require('./PlatformToolkit');
+      return PlatformToolkit.execute(projectId, agentId, name, args, {
+        approved, runtime: this, settings, agent,
+      });
+    }
     if (name === 'replan_worker') {
       const wid = args.worker_id || workerId;
       const mgr = await this.runManager(projectId, agentId, {
@@ -1201,6 +1364,14 @@ class AgentRuntime {
       }).catch((e) => e.ask || null);
       return { ask, pending: true, result };
     }
+    if (['file_edit', 'file_write', 'file_delete'].includes(name) && result?.ok !== false) {
+      await this._emitIdeFile(projectId, agentId, {
+        path: args.path,
+        content: name === 'file_write' ? args.content : undefined,
+        patch: name === 'file_edit' ? { old: args.old, new: args.new } : undefined,
+        ref: branch || undefined,
+      });
+    }
     if (write && workerId && String(actor || '').startsWith('worker:') && name !== 'run_checks') {
       return this._afterMutate(projectId, agentId, {
         workerId, settings, persona, claim, result, actor,
@@ -1263,6 +1434,43 @@ class AgentRuntime {
     };
   }
 
+  /** Context-Gate / Done-Gate / InfoVerifyGate — fail closed on mutate (write) tools when flags set. */
+  _mutateGateCheck(name, args, settings = {}) {
+    const { classifyTool } = require('./workspaceTools');
+    if (classifyTool(name, args) !== 'write') return null;
+
+    if (settings.context_gate_deny === true || settings.block_mutate === true) {
+      return { ok: false, denied: true, error: 'Context-Gate denied mutate tool' };
+    }
+
+    const requireDone = settings.require_done_gate === true
+      || process.env.ICARUS_REQUIRE_DONE_GATE === '1';
+    if (requireDone) {
+      try {
+        const { layaDecision } = require('./LayaDecisionService');
+        const st = settings.done_gate_state || settings.gate_state || {};
+        const hit = layaDecision.predict(st, { done_gate: {} });
+        const choice = hit?.answers?.done_gate?.choice || 'retry';
+        if (choice !== 'complete') {
+          return { ok: false, denied: true, error: `done_gate: ${choice}` };
+        }
+      } catch {
+        return { ok: false, denied: true, error: 'done_gate: unavailable' };
+      }
+    }
+
+    if (settings.info_verify_required === true) {
+      try {
+        require('./InfoVerifyGate');
+        return { ok: false, denied: true, error: 'InfoVerifyGate: verification required before mutate' };
+      } catch {
+        return { ok: false, denied: true, error: 'InfoVerifyGate unavailable' };
+      }
+    }
+
+    return null;
+  }
+
   async _rollbackClaim(workerId, settings, projectId, persona, claim) {
     const ck = this._checkpoints.get(workerId) || { snaps: {} };
     const paths = Object.keys(ck.snaps || {});
@@ -1280,6 +1488,11 @@ class AgentRuntime {
 
   async _runTool(name, args, settings, projectId, persona = 'dev') {
     const root = settings.workspace_root || process.cwd();
+    const { guardToolCall } = require('./ToolSandbox');
+    const sandboxBlock = guardToolCall(name, args, { root, projectId, persona });
+    if (sandboxBlock) return sandboxBlock;
+    const mutateBlock = this._mutateGateCheck(name, args, settings);
+    if (mutateBlock) return mutateBlock;
     const workerId = settings.workspace_worker_id;
     const remote = workerId && (REMOTE_TOOLS.has(name) || String(name).startsWith('git_'));
     if (remote) {
@@ -1853,7 +2066,7 @@ class AgentRuntime {
       projectId, agentId: agent.id, sources, workItemId: extra.work_item_id || '',
     });
     const fetched = await this.learn.fetchRemaining(created.job.id, {
-      fetchImpl: (url) => this._fetchLearnPage(projectId, url),
+      fetchImpl: (url) => this._fetchLearnPage(projectId, url, { agent }),
     });
     if (fetched.waiting) {
       const speak = fetched.waiting === 'waiting_computer'
@@ -1924,7 +2137,7 @@ class AgentRuntime {
     return rag.hasDocument(projectId, agent.rag_collection, docId);
   }
 
-  async _fetchLearnPage(projectId, url) {
+  async _fetchLearnPage(projectId, url, { agent, bucket } = {}) {
     if (String(url || '').startsWith('inline:')) {
       return { ok: true, text: String(url).slice(7) };
     }
@@ -1933,7 +2146,102 @@ class AgentRuntime {
     if (!got.ok && /enotfound|network|offline|econnrefused/i.test(String(got.error || got.code || ''))) {
       return { ok: false, error: got.error, code: got.code || 'ENOTFOUND' };
     }
+    if (got.ok) {
+      try {
+        const { corpusStore } = require('./CorpusStore');
+        const corpus = await corpusStore.put({
+          projectId,
+          raw: String(got.text || got.body || ''),
+          meta: {
+            url,
+            source: 'learn_fetch',
+            content_type: 'text/html',
+          },
+          bucket: bucket || agent?.storage_bucket,
+        });
+        got.path = corpus.prefix;
+        got.corpus = corpus;
+        const { forProject } = require('./IcarusFacade');
+        const { loraTrain } = forProject(projectId, {});
+        loraTrain.recordCorpusRow(projectId, {
+          hash: corpus.hash,
+          prefix: corpus.prefix,
+          url,
+          normalized: corpusStore.readNormalized(projectId, corpus.hash),
+          prompt: `Learn from ${url}`,
+        });
+      } catch { /* corpus optional */ }
+    }
     return got;
+  }
+
+  async _browseLearnIngest(projectId, agent, slots, settings, { text, userId } = {}) {
+    const topic = String(slots.topic || text || '').trim();
+    const sourceHint = String(slots.source || '').trim();
+    const Web = require('./WebSearchService');
+    const { corpusStore } = require('./CorpusStore');
+    const { forProject } = require('./IcarusFacade');
+    const icarus = forProject(projectId, settings);
+
+    let url = '';
+    if (/^https?:\/\//i.test(sourceHint)) url = sourceHint;
+    else if (/^https?:\/\//i.test(topic)) url = topic;
+    else if (topic) {
+      const sr = await Web.webSearch(topic, { url: settings.web_search_url });
+      url = sr?.results?.[0]?.url || '';
+    }
+    if (!url) {
+      const reply = 'Need a URL or searchable topic before I can ingest.';
+      await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+      return { ok: false, reply };
+    }
+
+    const fetched = await this._fetchLearnPage(projectId, url, { agent });
+    if (!fetched?.ok) {
+      const reply = `Fetch failed: ${fetched?.error || 'unknown'}`;
+      await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+      return { ok: false, reply };
+    }
+
+    const corpus = fetched.corpus || await corpusStore.put({
+      projectId,
+      raw: String(fetched.text || fetched.body || ''),
+      meta: { url, query: topic, source: 'browse_learn_ingest' },
+      bucket: agent.storage_bucket,
+    });
+
+    icarus.loraTrain.recordCorpusRow(projectId, {
+      hash: corpus.hash,
+      prefix: corpus.prefix,
+      url,
+      query: topic,
+      normalized: corpusStore.readNormalized(projectId, corpus.hash),
+      prompt: topic || url,
+    });
+
+    const norm = corpusStore.readNormalized(projectId, corpus.hash)
+      || String(fetched.text || '').slice(0, 12000);
+    const docId = require('./AgentLearnService').sourceDocId(url);
+    try {
+      await this._ragIngest(projectId, agent, {
+        title: topic || url,
+        text: norm,
+        doc_id: docId,
+        metadata: { source: url, corpus_prefix: corpus.prefix, corpus_hash: corpus.hash },
+      });
+    } catch (e) {
+      const reply = `Saved corpus ${corpus.prefix} but RAG ingest failed: ${e.message}`;
+      await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+      return { ok: false, corpus, reply };
+    }
+
+    const reply = `Learned “${topic || url}” — corpus ${corpus.prefix}, skills RAG updated.`;
+    await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+    this._pulse(projectId, agent.id);
+    await this._note(projectId, agent.id, {
+      layer: 'manager', type: 'learn', summary: reply.slice(0, 160), meta: { corpus, url },
+    });
+    return { ok: true, corpus, url, reply };
   }
 
   async _proposeCron(projectId, agent, settings, ctx, intent) {
@@ -2147,6 +2455,7 @@ class AgentRuntime {
     const { settings } = await this._ctx(projectId, agentId);
     const { forProject } = require('./IcarusFacade');
     const icarus = forProject(projectId, settings);
+    const fromCorpus = args.from_corpus === true || args.dataset_source === 'corpus';
     const proposal = icarus.loraTrain.propose({
       projectId,
       agentKind: args.agent_kind || args.kind || 'coding',
@@ -2154,6 +2463,8 @@ class AgentRuntime {
       adapterName: args.adapter_name,
       datasetPreview: args.dataset_preview || args.preview,
       epochs: args.epochs,
+      fromCorpus,
+      corpusLimit: args.corpus_limit,
     });
     if (!approved && !chunkGrant) {
       const ask = await this._createAsk(projectId, agentId, {
@@ -2167,15 +2478,28 @@ class AgentRuntime {
       });
       return { result: { ok: true, proposal }, ask, pending: true };
     }
-    const job = icarus.loraTrain.enqueue({
-      projectId,
-      agentId,
-      agentKind: proposal.agent_kind,
-      adapterName: proposal.adapter_name,
-      epochs: proposal.epochs,
-      dataset: proposal.dataset_preview,
-      baseModel: proposal.base_model,
-    });
+    const job = fromCorpus
+      ? icarus.loraTrain.enqueueFromCorpus({
+        projectId,
+        agentId,
+        agentKind: proposal.agent_kind,
+        adapterName: proposal.adapter_name,
+        epochs: proposal.epochs,
+        baseModel: proposal.base_model,
+        limit: args.corpus_limit,
+      })
+      : icarus.loraTrain.enqueue({
+        projectId,
+        agentId,
+        agentKind: proposal.agent_kind,
+        adapterName: proposal.adapter_name,
+        epochs: proposal.epochs,
+        dataset: proposal.dataset_preview,
+        baseModel: proposal.base_model,
+      });
+    if (job?.error) {
+      return { result: { ok: false, error: job.error, proposal }, pending: false };
+    }
     return { result: { ok: true, proposal, job }, pending: false };
   }
 
@@ -2424,6 +2748,334 @@ class AgentRuntime {
         emitAgentPulse(pulse, projectId);
       })
       .catch(() => {});
+  }
+
+  /**
+   * Guided Flow hand-holding. Returns a chat response when Flow owns the turn.
+   */
+  async _maybeFlowIntake(projectId, agent, text, icarus, gated) {
+    // Learn / shop ingest has its own ASK path — do not steal into FlowIntake.
+    if (/\blearn\b/i.test(String(text || ''))) return null;
+    const { FlowIntakeService } = require('./FlowIntakeService');
+    // Prefer the runtime's agents seam (unit tests inject memAgents; prod uses AgentService).
+    const flowIntake = new FlowIntakeService(this.agents);
+    const existing = await flowIntake.getState(agent);
+    const wantsFlow = existing
+      && (existing.status === 'intake' || existing.status === 'confirm');
+    const pickHint = gated?.laya?.answers?.flow_pick?.choice
+      || (await icarus.laya.predict({ text }, { flow_pick: {} })).answers?.flow_pick?.choice;
+    if (!wantsFlow && (!pickHint || pickHint === 'none')) return null;
+    if (!wantsFlow && pickHint && pickHint !== 'none' && gated.route !== 'MANAGER' && gated.lane_choice !== 'manager') {
+      // Soft: only auto-start flow when language clearly matches (Laya already said so)
+    }
+
+    const advanced = await flowIntake.advance(projectId, agent, text, {
+      flowId: wantsFlow ? existing.flow_id : (pickHint !== 'none' ? pickHint : undefined),
+    });
+    if (!advanced.ask && !advanced.confirm) return null;
+
+    if (advanced.confirm) {
+      const ask = await this._createAsk(projectId, agent.id, {
+        text: advanced.confirm.text,
+        options: advanced.confirm.options,
+        recommended: advanced.confirm.recommended,
+        kind: 'flow_confirm',
+        from_layer: 'user',
+        speak_text: advanced.confirm.text,
+        payload: {
+          flow_id: advanced.confirm.flow_id,
+          slots: advanced.confirm.slots,
+        },
+      });
+      this._pulse(projectId, agent.id);
+      return {
+        agent_id: agent.id,
+        job_id: null,
+        reply: ask.speak_text || ask.text,
+        handed_off: false,
+        ask,
+        flow: advanced.intake,
+      };
+    }
+
+    const ask = await this._createAsk(projectId, agent.id, advanced.ask);
+    this._pulse(projectId, agent.id);
+    return {
+      agent_id: agent.id,
+      job_id: null,
+      reply: ask.speak_text || ask.text,
+      handed_off: false,
+      ask,
+      flow: advanced.intake,
+    };
+  }
+
+  async _runFlowConfirm(projectId, agent, ask, payload, yes) {
+    const { FlowIntakeService } = require('./FlowIntakeService');
+    const flowIntake = new FlowIntakeService(this.agents);
+    if (!yes) {
+      await flowIntake.cancel(projectId, agent);
+      const reply = 'Cancelled that setup. What instead?';
+      await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+      this._pulse(projectId, agent.id);
+      return { ask, reply, cancelled: true };
+    }
+    const flowId = payload.flow_id;
+    const slots = payload.slots || {};
+    let result = { ok: true, flow_id: flowId };
+    try {
+      if (flowId === 'new_project_app' || flowId === 'iac_spool') {
+        result = await this._flowNewProjectApp(projectId, agent, slots);
+      } else if (flowId === 'new_worker_fleet') {
+        result = await this._flowNewWorkerFleet(projectId, agent, slots);
+      } else if (flowId === 'safe_self_update') {
+        result = await this._flowSafeSelfUpdate(projectId, agent, slots);
+      } else if (flowId === 'safe_deps_upgrade') {
+        result = await this._flowSafeDepsUpgrade(projectId, agent, slots);
+      } else if (flowId === 'browse_learn_ingest') {
+        result = {
+          ok: true,
+          reply: `Queued learn for “${slots.topic || 'topic'}”. I’ll fetch then ASK before ingest.`,
+          pending: false,
+          wake: { learn: true, topic: slots.topic, source: slots.source },
+        };
+        setImmediate(() => {
+          this.runManager(projectId, agent.id, {
+            text: `learn and ingest: ${slots.topic || ''} ${slots.source || ''}`,
+            report: { flow: 'browse_learn_ingest', slots },
+          }).catch(() => {});
+        });
+      } else if (flowId === 'heal_computer_browser') {
+        result = {
+          ok: true,
+          reply: `Healing ${slots.target || 'computer'} — I’ll ASK before restart, then resume workers.`,
+          wake: { heal: true, target: slots.target, symptom: slots.symptom },
+        };
+        setImmediate(() => {
+          this.runManager(projectId, agent.id, {
+            text: `heal ${slots.target || 'computer'}: ${slots.symptom || ''}`,
+            report: { flow: 'heal_computer_browser', slots },
+          }).catch(() => {});
+        });
+      } else {
+        result = { ok: true, note: `flow ${flowId} recorded`, slots };
+      }
+    } catch (e) {
+      result = { ok: false, error: e.message || String(e) };
+    }
+    await flowIntake.markDone(projectId, agent);
+    const reply = result.ok
+      ? (result.reply || `Flow ${flowId} applied.`)
+      : `Flow failed: ${result.error}`;
+    if (!result.pending) {
+      await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+    }
+    this._pulse(projectId, agent.id);
+    return { ask: result.ask || ask, result, reply };
+  }
+
+  async _flowNewProjectApp(projectId, agent, slots) {
+    const Iac = require('./IacShop');
+    const models = slots.models || 'User';
+    const stack = {
+      kind: 'project-stack',
+      wanted: [
+        'api_manager', 'db_manager', 'app_manager', 'tunnel_manager', 'function_manager',
+        'auth_manager', 'logs_manager', 'metrics_manager',
+      ],
+      defaults: {
+        auth_scope: 'project',
+        request_logging: true,
+        error_hooks: true,
+        metrics: true,
+      },
+      data_apis: [{
+        name: String(slots.intent || 'app').replace(/\W+/g, '_').slice(0, 40) || 'app',
+        engine: /postgres/i.test(slots.db || '') ? 'postgresql'
+          : /mongo/i.test(slots.db || '') ? 'mongodb' : 'sqlite3',
+        document: {
+          models: typeof models === 'string'
+            ? { Item: { fields: { name: 'string', notes: 'string' }, note: models } }
+            : models,
+        },
+        auth: { scope: 'project' },
+        logging: { to: 'logs_manager', requests: true, errors: true },
+      }],
+      tunnels: slots.domain ? [{ name: 'app', hostname: slots.domain }] : [],
+      apps: [{
+        name: 'fe',
+        scaffold: slots.fe || 'admin_crud',
+        open_ide: true,
+      }],
+    };
+    await Iac.put(projectId, stack);
+    // ASK already done via flow_confirm — apply
+    const applied = await Iac.apply(projectId);
+    try {
+      const { IdeLive } = require('./IdeLiveService');
+      IdeLive.emitStack(projectId, { action: 'apply', stack_kind: 'project-stack', ok: !!applied.ok });
+    } catch { /* */ }
+    return {
+      ok: !!applied.ok,
+      reply: applied.ok
+        ? `Project stack applied (Data API + auth/logging defaults + tunnel ${slots.domain || 'pending'}). Open Icarus IDE for FE.`
+        : `Apply returned ${applied.status}`,
+      applied,
+      stack,
+    };
+  }
+
+  async _flowNewWorkerFleet(projectId, agent, slots) {
+    const Iac = require('./IacShop');
+    const stack = {
+      kind: 'project-stack',
+      wanted: ['queue_manager', 'worker_manager', 'compute_manager', 'logs_manager'],
+      defaults: { request_logging: true, error_hooks: true },
+      queues: [{
+        name: String(slots.job || 'jobs').replace(/\W+/g, '_').slice(0, 40) || 'jobs',
+        engine: slots.engine || 'standard',
+        concurrency: Number(slots.concurrency) || 1,
+        payload: slots.payload || null,
+      }],
+    };
+    await Iac.put(projectId, stack);
+    const applied = await Iac.apply(projectId);
+    try {
+      const { IdeLive } = require('./IdeLiveService');
+      IdeLive.emitStack(projectId, { action: 'apply', stack_kind: 'queues', ok: !!applied.ok });
+    } catch { /* */ }
+    return {
+      ok: !!applied.ok,
+      reply: applied.ok
+        ? `Queue fleet configured (${stack.queues[0].name}). Workers can consume now.`
+        : `Apply returned ${applied.status}`,
+      applied,
+      stack,
+    };
+  }
+
+  async _flowSafeSelfUpdate(projectId, agent, slots) {
+    const claim = String(slots.claim || 'aerekos-cloud');
+    const goal = String(slots.goal || 'safe self-update');
+    const worker = await this.spawnWorker(projectId, agent.id, {
+      persona: 'dev',
+      objective: `SAFE SELF-UPDATE: ${goal}. Branch icarus/self-*, open_pr, wait manager approve_pr. Deploy only after Merge; on health fail rollback.`,
+      claim_prefix: claim,
+    });
+    return {
+      ok: true,
+      reply: `Safe self-update worker spawned on claim ${claim}. Branch → open_pr → manager review → you Merge; rollback on health fail.`,
+      worker,
+      health_check: slots.health_check || 'compose',
+    };
+  }
+
+  async _flowSafeDepsUpgrade(projectId, agent, slots) {
+    const { SafeDepsUpgradeService: safeDeps } = require('./SafeDepsUpgradeService');
+    const { settings } = await this._ctx(projectId, agent.id);
+    const tree = String(slots.tree || 'aerekos/aerekos-cloud');
+    const ecosystem = String(slots.ecosystem || 'npm');
+    const keeper = safeDeps.isKeeperTarget({ projectId, tree });
+    if (keeper.denied) {
+      return { ok: false, reply: `Blocked keeper/prod tree (${keeper.reason}).`, denied: true };
+    }
+    const preview = safeDeps.planUpgrade({
+      tree,
+      ecosystem,
+      workspaceRoot: settings.workspace_root || process.cwd(),
+      projectId,
+    });
+    const outdatedN = (preview.outdated || []).length;
+    const worker = await this.spawnWorker(projectId, agent.id, {
+      persona: 'dev',
+      objective: `SAFE DEPS UPGRADE (${ecosystem}): ${tree}. Branch icarus/deps-*, bump outdated (${outdatedN}), run_checks, open_pr — never auto-merge. Rolling apply via IaC/cicd if present; rollback on fail.`,
+      claim_prefix: tree,
+    });
+    setImmediate(() => {
+      this.runManager(projectId, agent.id, {
+        text: `safe deps upgrade ${tree}`,
+        report: { flow: 'safe_deps_upgrade', slots: { ...slots, preview } },
+      }).catch(() => {});
+    });
+    return {
+      ok: true,
+      pending: false,
+      reply: preview.ok
+        ? `Deps scan on ${tree}: ${outdatedN} outdated. Worker on branch icarus/deps-* → PR → you merge (never auto-merge).`
+        : `Deps flow queued on ${tree} (${preview.error || preview.reason || 'scan blocked'}).`,
+      preview,
+      worker,
+      auto_merge: false,
+    };
+  }
+
+  async _safeDepsUpgradeManager(projectId, agent, slots, settings) {
+    const PlatformToolkit = require('./PlatformToolkit');
+    const tree = String(slots.tree || '.');
+    const dryRun = slots.apply !== true;
+    const { result } = await PlatformToolkit.execute(projectId, agent.id, 'safe_deps_upgrade', {
+      tree,
+      ecosystem: slots.ecosystem || 'npm',
+      dry_run: dryRun,
+      apply: slots.apply === true,
+    }, {
+      approved: slots.apply === true,
+      runtime: this,
+      settings,
+      agent,
+    });
+    const n = (result?.outdated || result?.plan?.outdated || []).length;
+    const reply = result?.denied
+      ? `Deps upgrade blocked: ${result.reason}`
+      : dryRun
+        ? `Dry-run: ${n} outdated packages in ${tree}. Branch would be ${result?.branch || 'icarus/deps-*'}.`
+        : (result?.ok
+          ? `Deps upgrade on ${result.branch || 'branch'} — PR opened; no auto-merge.`
+          : `Deps upgrade failed: ${result?.error || 'checks or rollback'}`);
+    await this.agents.addMessage(projectId, agent.id, { role: 'assistant', content: reply, layer: 'user' });
+    this._pulse(projectId, agent.id);
+    return { reply, result, report: { flow: 'safe_deps_upgrade', slots } };
+  }
+
+  async _emitIdeFile(projectId, agentId, payload) {
+    try {
+      const { IdeLive } = require('./IdeLiveService');
+      IdeLive.emitFile(projectId, agentId, payload);
+    } catch { /* */ }
+  }
+
+  /** Drain tool calls from a finished/pending manager job (best-effort). */
+  async _managerToolLoop(projectId, agentId, job, settings) {
+    if (!job) return;
+    const { extractToolCalls } = require('./workspaceTools');
+    let result = job.result || job.response || job;
+    // If job is async id, try to load once
+    if (job.id && this.jobs?.get) {
+      try {
+        const fresh = await this.jobs.get(job.id, projectId);
+        if (fresh) result = fresh.result || fresh.response || fresh;
+      } catch { /* */ }
+    }
+    const calls = extractToolCalls(result);
+    // Manager-safe auto tools (read/status/plan/update board). Mutating still HITL via approve path.
+    const AUTO = new Set([
+      'aerekos_status', 'aerekos_search_docs', 'project_services', 'update_work',
+      'plan_query', 'plan_ready', 'plan_subgraph', 'explain_why', 'file_read', 'file_list',
+      'grep', 'semantic_search', 'web_search', 'web_fetch', 'iac_schema', 'iac_diff',
+      'spawn_worker', 'report_user', 'preview',
+    ]);
+    for (const c of calls.slice(0, 8)) {
+      if (c.name === 'approve_pr' && c.args?.self) continue;
+      const auto = AUTO.has(c.name);
+      await this.executeApprovedTool(projectId, agentId, {
+        name: c.name,
+        args: c.args || {},
+        actor: `manager:${agentId}`,
+        approved: auto,
+        persona: 'manager',
+        mode: 'agent',
+      });
+    }
   }
 }
 

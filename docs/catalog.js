@@ -144,17 +144,26 @@ const managers = [
 
   // --- Compute -------------------------------------------------------------
   {
-    name: 'compute_manager', aws: 'ECS / Fargate', category: 'Compute', port: 3100, status: 'implemented',
-    summary: 'Run containerized tasks (dockerode): create/list/get/stop/delete project-scoped tasks with port maps and labels.',
-    proxyBase: '/api/v1', capabilities: ['containers', 'tasks', 'docker'],
+    name: 'compute_manager', aws: 'Kubernetes (aerekos Compute)', category: 'Compute', port: 3100, status: 'implemented',
+    summary: 'aerekos Compute — our Kubernetes-class orchestrator: Deployments, rolling updates, abort/rollback; Docker node agent for Pods.',
+    proxyBase: '/api/v1', capabilities: ['deployments', 'containers', 'tasks', 'docker', 'orchestrator'],
     endpoints: [
-      { method: 'POST', path: '/api/v1/tasks', summary: 'Create a task' },
-      { method: 'GET', path: '/api/v1/tasks', summary: 'List tasks (?refresh=1 to reconcile)' },
+      { method: 'PUT', path: '/api/v1/deployments/:id', summary: 'Apply declarative Deployment' },
+      { method: 'GET', path: '/api/v1/deployments/:id', summary: 'Get Deployment + status' },
+      { method: 'POST', path: '/api/v1/deployments/:id/reconcile', summary: 'Reconcile once (abort on deadline)' },
+      { method: 'POST', path: '/api/v1/deployments/:id/pause', summary: 'Pause rollout' },
+      { method: 'POST', path: '/api/v1/deployments/:id/resume', summary: 'Resume rollout' },
+      { method: 'POST', path: '/api/v1/deployments/:id/rollback', summary: 'Rollback to revision' },
+      { method: 'POST', path: '/api/v1/tasks', summary: 'Create a task (legacy)' },
+      { method: 'GET', path: '/api/v1/tasks', summary: 'List tasks' },
       { method: 'GET', path: '/api/v1/tasks/:id', summary: 'Get a task' },
       { method: 'POST', path: '/api/v1/tasks/:id/stop', summary: 'Stop a task' },
       { method: 'DELETE', path: '/api/v1/tasks/:id', summary: 'Delete a task' }
     ],
-    env: [{ name: 'SKIP_DOCKER', default: '0', desc: 'Metadata-only mode (no Docker daemon)' }]
+    env: [
+      { name: 'SKIP_DOCKER', default: '0', desc: 'Metadata-only mode (no Docker daemon)' },
+      { name: 'COMPUTE_E2E_DOCKER', default: '0', desc: 'Enable dockerode apply in reconcile e2e' }
+    ]
   },
   {
     name: 'queue_manager', aws: 'SQS', category: 'Compute', port: 3101, status: 'implemented',
@@ -378,19 +387,26 @@ const managers = [
     proxyBase: '/api/v1', crud: { segment: 'pipelines' }, capabilities: ['ci-cd', 'pipelines']
   },
   {
-    name: 'code_as_infra', aws: 'CloudFormation', category: 'Dev tools', port: 3120, status: 'implemented',
-    summary: 'Infrastructure-as-code modules / snippets (kind + content).',
+    name: 'code_as_infra', aws: 'CloudFormation', category: 'Dev tools', port: 3120, status: 'experimental',
+    summary: 'Experimental — module CRUD is being folded into conductor stack revisions (`/api/projects/:id/stack`). Prefer StackService as single writer.',
     proxyBase: '/api/v1', crud: { segment: 'modules' }, capabilities: ['iac', 'modules']
   },
   {
     name: 'api_manager', aws: 'API Gateway', category: 'Dev tools', port: 3124, status: 'implemented',
-    summary: 'Gateway route definitions (method/public_path/backend_url).',
-    proxyBase: '/api/v1', crud: { segment: 'endpoints' }, capabilities: ['api-gateway', 'routing']
+    summary: 'API Gateway routes + hosted Data API (schema→CRUD, hooks→function_manager, scale). Icarus Flows configure via stack data_apis.',
+    proxyBase: '/api/v1', crud: { segment: 'endpoints' }, capabilities: ['api-gateway', 'routing', 'data-api'],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/data-apis/apply', summary: 'Apply model schema → CRUD Data API' },
+      { method: 'GET', path: '/api/v1/data/:app/:Model', summary: 'List/read Data API records' },
+    ],
   },
   {
     name: 'app_manager', aws: 'Amplify / App Runner', category: 'Dev tools', port: 3125, status: 'implemented',
-    summary: 'App project metadata (repo_url/build_command).',
-    proxyBase: '/api/v1', crud: { segment: 'apps' }, capabilities: ['apps', 'deploys']
+    summary: 'App metadata + FE scaffold (POST /apps/scaffold) for Icarus IDE; deploy via compute/cicd/tunnel.',
+    proxyBase: '/api/v1', crud: { segment: 'apps' }, capabilities: ['apps', 'deploys', 'scaffold'],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/apps/scaffold', summary: 'Scaffold FE starter files for Icarus IDE' },
+    ],
   },
   {
     name: 'mcp_manager', aws: 'Bedrock Agents (tools)', category: 'Dev tools', port: 3123, status: 'implemented',
@@ -405,10 +421,18 @@ const managers = [
   // --- AI ------------------------------------------------------------------
   {
     name: 'ai_manager', aws: 'Bedrock', category: 'AI', port: 3126, status: 'needs-keys',
-    summary: 'Place GPU engines; intelligence jobs; Icarus shop (user layer / manager / workers) and dynamic connectors. Poll + WS ai:live, ai:agent.ask, ai:agent.pulse, ai:agent.done.',
+    summary: 'Icarus console (/icarus): talk + Laya decisions + guided Flows, live plan graph, Fleet, Models, Apps, Icarus IDE live. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:ide.* + ai:agent.*.',
+    consolePath: '/icarus',
+    docsGuide: 'guides/icarus.md',
     proxyBase: '/api/v1', crud: { segment: 'intelligence' }, capabilities: ['ai', 'intelligence', 'stt', 'tts', 'agents', 'connectors'],
     needsKeys: 'LLM endpoint/URL + provider keys (e.g. Ollama URL) to run inference.',
     endpoints: [
+      { method: 'GET', path: '/api/v1/icarus/plans', summary: 'List Icarus plan graphs for a project' },
+      { method: 'GET', path: '/api/v1/icarus/plans/:planId', summary: 'Get one plan' },
+      { method: 'GET', path: '/api/v1/icarus/plans/:planId/scrub', summary: 'Time-travel subgraph scrub' },
+      { method: 'GET', path: '/api/v1/icarus/ready', summary: 'Ready tasks for a plan' },
+      { method: 'GET', path: '/api/v1/icarus/tasks/:taskId/trace', summary: 'Task tools + why/trace' },
+      { method: 'GET', path: '/api/v1/icarus/status', summary: 'Icarus graph/runtime status' },
       { method: 'GET', path: '/api/v1/engines', summary: 'Fleet AI engine placements + catalog' },
       { method: 'GET', path: '/api/v1/engines/catalog', summary: 'Placeable engine kinds (vLLM, STT, Kokoro, XTTS, Ollama, cache)' },
       { method: 'POST', path: '/api/v1/engines', summary: 'Place { kind, worker_id } on a GPU worker (no auto-start for vLLM/XTTS/Ollama)' },
@@ -700,7 +724,8 @@ for (const m of managers) {
 
 const STATUS_LABEL = {
   implemented: 'Implemented',
-  'needs-keys': 'Implemented · needs provider keys for live calls'
+  'needs-keys': 'Implemented · needs provider keys for live calls',
+  experimental: 'Experimental · not a GA dataplane; use stack revision APIs'
 };
 
 const CATEGORIES = ['Control plane', 'Core', 'Compute', 'Observability', 'Identity', 'Edge', 'Integrations', 'Dev tools', 'AI', 'Platform', 'Storage & Content', 'Management', 'Database'];

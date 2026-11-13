@@ -31,10 +31,9 @@ import { DatabasesList } from './screens/DatabaseManager/DatabasesList';
 import { DatabaseDetails } from './screens/DatabaseManager/DatabaseDetails';
 import { CreateDatabase } from './screens/DatabaseManager/CreateDatabase';
 import { ManagerConsole } from './screens/ManagerConsole/ManagerConsole';
-import { AIManager } from './screens/AIManager/AIManager';
 import { AIManagerStudio } from './screens/AIManager/AIManagerStudio';
-import { AiAgentsScreen } from './screens/AIManager/AiAgentsScreen';
 import { AgentTaskDetails } from './screens/AIManager/AgentTaskDetails';
+import { IcarusShell } from './screens/Icarus/IcarusShell';
 import { AiProviderForm } from './screens/AIManager/AiProviderForm';
 import { IntelligenceForm } from './screens/AIManager/IntelligenceForm';
 import { RagCollectionForm } from './screens/AIManager/RagCollectionForm';
@@ -74,7 +73,7 @@ const { getScreenFromPath, getPathFromScreen } = require('./utils/screenPath');
 const resolveNavigation = (screen, params = {}) => {
   if (screen === 'managerConsole' && params.serviceName) {
     const serviceName = String(params.serviceName).replace(/\/$/, '');
-    if (serviceName === 'ai_manager') return { screen: 'aiManager', params: {} };
+    if (serviceName === 'ai_manager') return { screen: 'icarus', params: { section: 'chat' } };
     const meta = getServiceMeta(serviceName);
     if (meta?.route) return { screen: meta.route, params: {} };
   }
@@ -125,6 +124,11 @@ const AppContent = () => {
         setCurrentScreen(screen);
         setScreenParams(params);
         setPreviousScreen('dashboard');
+        // Canonicalize legacy AI Manager bookmarks into /icarus…
+        const canonical = getPathFromScreen(screen, params);
+        if (canonical && canonical !== window.location.pathname) {
+          window.history.replaceState({ screen, params }, '', canonical);
+        }
       } else if (!loading) {
         // When logged out, ensure URL is /login
         if (window.location.pathname !== '/login') {
@@ -247,38 +251,55 @@ const AppContent = () => {
         return <Dashboard navigation={navigation} />;
       case 'managerConsole':
         return <ManagerConsole navigation={navigation} route={{ params: screenParams }} />;
+      case 'icarus':
+        return <IcarusShell key="icarus" navigation={navigation} route={{ params: { section: 'chat', ...screenParams } }} />;
+      case 'icarusFleet':
+        return <IcarusShell key="icarusFleet" navigation={navigation} route={{ params: { section: 'fleet', tab: 'engines', ...screenParams } }} />;
+      case 'icarusModels':
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'llm', ...screenParams } }} />;
+      case 'icarusApps':
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'intelligence', ...screenParams } }} />;
+      case 'icarusSkills':
+        return <IcarusShell key="icarusSkills" navigation={navigation} route={{ params: { section: 'skills', ...screenParams } }} />;
+      case 'icarusFriends':
+        return <IcarusShell key="icarusFriends" navigation={navigation} route={{ params: { section: 'friends', ...screenParams } }} />;
+      case 'icarusConnectors':
+        return <IcarusShell key="icarusConnectors" navigation={navigation} route={{ params: { section: 'connectors', ...screenParams } }} />;
+      case 'icarusCron':
+        return <IcarusShell key="icarusCron" navigation={navigation} route={{ params: { section: 'cron', ...screenParams } }} />;
+      case 'icarusAdvanced':
+        return <IcarusShell key="icarusAdvanced" navigation={navigation} route={{ params: { section: 'advanced', ...screenParams } }} />;
       case 'aiManager':
-        return <AIManager navigation={navigation} />;
       case 'aiAgents':
-        return <AiAgentsScreen navigation={navigation} />;
+        return <IcarusShell key="icarus-redirect" navigation={navigation} route={{ params: { section: 'chat', ...screenParams } }} />;
       case 'aiAgentTask':
         return <AgentTaskDetails navigation={navigation} route={{ params: screenParams }} />;
       case 'aiEngines':
-        return <AIManagerStudio key="aiEngines" navigation={navigation} route={{ params: { section: 'engines', ...screenParams } }} />;
+        return <IcarusShell key="icarusFleet" navigation={navigation} route={{ params: { section: 'fleet', tab: 'engines', ...screenParams } }} />;
       case 'aiEndpoints':
-        return <AIManagerStudio key="aiEndpoints" navigation={navigation} route={{ params: { section: 'endpoints', ...screenParams } }} />;
+        return <IcarusShell key="icarusFleet" navigation={navigation} route={{ params: { section: 'fleet', tab: 'endpoints', ...screenParams } }} />;
       case 'aiLlm':
-        return <AIManagerStudio key="aiLlm" navigation={navigation} route={{ params: { section: 'llm', ...screenParams } }} />;
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'llm', ...screenParams } }} />;
       case 'aiTts':
-        return <AIManagerStudio key="aiTts" navigation={navigation} route={{ params: { section: 'tts', ...screenParams } }} />;
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'tts', ...screenParams } }} />;
       case 'aiStt':
-        return <AIManagerStudio key="aiStt" navigation={navigation} route={{ params: { section: 'stt', ...screenParams } }} />;
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'stt', ...screenParams } }} />;
       case 'aiEmbeddings':
-        return <AIManagerStudio key="aiEmbeddings" navigation={navigation} route={{ params: { section: 'embeddings', ...screenParams } }} />;
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'embeddings', ...screenParams } }} />;
       case 'aiBenchmarks':
-        return <AIManagerStudio key="aiBenchmarks" navigation={navigation} route={{ params: { section: 'benchmarks', ...screenParams } }} />;
+        return <IcarusShell key="icarusModels" navigation={navigation} route={{ params: { section: 'models', tab: 'benchmarks', ...screenParams } }} />;
       case 'aiIntelligence':
-        return <AIManagerStudio key="aiIntelligence" navigation={navigation} route={{ params: { section: 'intelligence', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'intelligence', ...screenParams } }} />;
       case 'aiRag':
-        return <AIManagerStudio key="aiRag" navigation={navigation} route={{ params: { section: 'rag', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'rag', ...screenParams } }} />;
       case 'aiMemory':
-        return <AIManagerStudio key="aiMemory" navigation={navigation} route={{ params: { section: 'memory', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'memory', ...screenParams } }} />;
       case 'aiJobs':
-        return <AIManagerStudio key="aiJobs" navigation={navigation} route={{ params: { section: 'jobs', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'jobs', ...screenParams } }} />;
       case 'aiFinetunes':
-        return <AIManagerStudio key="aiFinetunes" navigation={navigation} route={{ params: { section: 'finetunes', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'finetunes', ...screenParams } }} />;
       case 'aiAccess':
-        return <AIManagerStudio key="aiAccess" navigation={navigation} route={{ params: { section: 'appaccess', ...screenParams } }} />;
+        return <IcarusShell key="icarusApps" navigation={navigation} route={{ params: { section: 'apps', tab: 'appaccess', ...screenParams } }} />;
       case 'aiProviderForm':
         return <AiProviderForm navigation={navigation} route={{ params: screenParams }} />;
       case 'aiIntelligenceForm':

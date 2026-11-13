@@ -18,6 +18,8 @@ const WAVES = [
   'wave-data-graphql.js',
   'wave-quota-storage.js',
   'wave-search-cli.js',
+  'friends-share.js',
+  'friends-federation.js',
 ];
 
 function main() {

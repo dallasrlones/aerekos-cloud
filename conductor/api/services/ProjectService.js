@@ -2,7 +2,7 @@ const ProjectRepository = require('../repos/ProjectRepository');
 const WorkerSocketService = require('./WorkerSocketService');
 const ServiceManager = require('./ServiceManager');
 const WorkerRepository = require('../repos/WorkerRepository');
-const { Service, ProjectService: ProjectServiceModel } = require('../models');
+const { Service, ProjectService: ProjectServiceModel, ProjectMember } = require('../models');
 
 /**
  * Project Service - Business logic for project operations
@@ -46,7 +46,8 @@ class ProjectService {
       name: projectData.name.trim(),
       description: projectData.description || '',
       enabled: projectData.enabled !== undefined ? (projectData.enabled ? 1 : 0) : 1,
-      config: JSON.stringify(cfg)
+      config: JSON.stringify(cfg),
+      created_by: projectData.created_by ? String(projectData.created_by) : '',
     });
 
     try {
@@ -241,10 +242,11 @@ class ProjectService {
    * @returns {Promise<Array>} Array of projects
    */
   async listProjects(options = {}) {
-    const projects = await this.projectRepository.findAll(options);
-    
+    const { actorId, actorRole, ...repoOptions } = options || {};
+    const projects = await this.projectRepository.findAll(repoOptions);
+
     // Enrich with counts
-    const enrichedProjects = await Promise.all(
+    let enrichedProjects = await Promise.all(
       projects.map(async (project) => {
         const workers = await this.projectRepository.getWorkers(project.id);
         const services = await this.projectRepository.getServices(project.id);
@@ -269,6 +271,22 @@ class ProjectService {
         };
       })
     );
+
+    // E43: non-admins only see projects they own/member, or open projects they created.
+    if (actorRole !== 'admin' && actorId) {
+      const uid = String(actorId);
+      const visible = [];
+      for (const project of enrichedProjects) {
+        const members = await ProjectMember.findAll({ where: { project_id: String(project.id) } });
+        if (!members.length) {
+          const createdBy = project.created_by ? String(project.created_by) : '';
+          if (!createdBy || createdBy === uid) visible.push(project);
+          continue;
+        }
+        if (members.some((m) => String(m.user_id) === uid)) visible.push(project);
+      }
+      enrichedProjects = visible;
+    }
 
     return enrichedProjects;
   }

@@ -37,4 +37,14 @@ export const setupService = {
     const res = await api.get('/api/setup/packs');
     return res.data?.packs || [];
   },
+
+  /** Dry-run (default) dependency enable plan via BFF. */
+  async provisionDeps(projectId, service, opts = {}) {
+    const res = await api.post('/api/services/provision-deps', {
+      project_id: projectId,
+      service,
+      dry_run: opts.dryRun !== false,
+    });
+    return res.data?.plan || res.data;
+  },
 };

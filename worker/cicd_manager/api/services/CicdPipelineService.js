@@ -319,11 +319,38 @@ class CicdPipelineService {
         e.status = 400;
         throw e;
       }
+      // git_manager AUTH_REQUIRED needs auth_manager JWT (agent UUID Bearer 401s).
+      // Mint client_credentials (same path conductor uses for gated proxy).
+      let fleetHdr = authHeaders(projectId);
+      try {
+        const { getServiceToken } = require('../../../shared/authManagerClient');
+        const svcTok = await getServiceToken();
+        if (svcTok) fleetHdr = { ...fleetHdr, Authorization: `Bearer ${svcTok}` };
+      } catch { /* keep agent headers */ }
+      if (!String(fleetHdr.Authorization || '').startsWith('Bearer ey')) {
+        // Fallback: mint conductor client directly (compose may set AUTH_CLIENT_*).
+        const authBase = (process.env.AUTH_MANAGER_URL || 'http://aerekos-auth_manager:3116').replace(/\/$/, '');
+        const clientId = process.env.AUTH_CLIENT_ID || process.env.AUTH_MANAGER_CLIENT_ID || 'conductor';
+        const clientSecret = process.env.AUTH_CLIENT_SECRET || process.env.CONDUCTOR_CLIENT_SECRET || process.env.AUTH_MANAGER_SECRET || '';
+        if (clientSecret) {
+          try {
+            const tok = await axios.post(
+              `${authBase}/api/v1/auth/token`,
+              { grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope: 'services' },
+              { timeout: 10000, validateStatus: () => true }
+            );
+            if (tok.status < 400 && tok.data?.access_token) {
+              fleetHdr = { ...fleetHdr, Authorization: `Bearer ${tok.data.access_token}` };
+            }
+          } catch { /* keep agent headers */ }
+        }
+      }
+      // Direct to git_manager (conductor proxy can mangle binary bundles).
       const gitBase = (process.env.GIT_MANAGER_URL || 'http://aerekos-git_manager:3130').replace(/\/$/, '');
       const archive = await axios.get(
         `${gitBase}/api/v1/repos/${encodeURIComponent(repoId)}/bundle`,
         {
-          headers: authHeaders(projectId),
+          headers: fleetHdr,
           timeout: 120000,
           responseType: 'arraybuffer',
           validateStatus: () => true,

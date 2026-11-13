@@ -511,6 +511,10 @@ services:
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
+      # Fleet bundle: mint auth_manager JWT (agent UUID alone 401s on git_manager)
+      - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-conductor}
+      - AUTH_CLIENT_SECRET=${CONDUCTOR_CLIENT_SECRET:-aerekos-auth-manager-dev-secret-change-me}
+      - CONDUCTOR_CLIENT_SECRET=${CONDUCTOR_CLIENT_SECRET:-aerekos-auth-manager-dev-secret-change-me}
     ports:
       - "3119:3119"
     volumes:

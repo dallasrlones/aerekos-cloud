@@ -14,8 +14,20 @@ const axios = require('axios');
 let cache = null; // { token, exp }
 
 function gatedServices() {
-  const raw = process.env.AUTH_MANAGER_GATED_SERVICES || 'ai_manager';
-  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  const raw = process.env.AUTH_MANAGER_GATED_SERVICES || [
+    'ai_manager', 'key_manager', 'api_manager', 'storage_manager', 'db_manager',
+    'secrets_manager', 'compute_manager', 'queue_manager', 'webhook_manager',
+    'git_manager', 'cicd_manager', 'schedule_manager', 'domain_manager',
+    'iam_manager', 'registry_manager', 'mcp_manager', 'security_manager',
+    'graphql_manager', 'search_manager', 'cert_manager', 'config_manager',
+    'event_manager', 'backup_manager',
+  ].join(',');
+  const set = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  // Always mint for these even if env list is stale on a lean fleet.
+  for (const name of ['key_manager', 'cicd_manager', 'queue_manager', 'schedule_manager']) {
+    set.add(name);
+  }
+  return set;
 }
 
 async function ensureClientSecret() {

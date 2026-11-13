@@ -1,5 +1,8 @@
 # Conductor host core stack — conductor + UI + worker + locally-enabled managers only.
 # Platform control-plane extras: docker-compose.platform.yml (same network; never --remove-orphans).
+# Fleet mesh (Headscale Layer A): docker compose -f docker-compose.headscale.yml up -d --no-deps
+#   — or: docker compose -f docker-compose.core.yml --profile headscale up -d headscale
+#   Store HEADSCALE_API_KEY in secrets_manager; set HEADSCALE_URL + HEADSCALE_BASE_DOMAIN on conductor.
 #
 # Mixed-stack homelab (conductor from docker-compose.yml, managers from this file):
 # managers cannot DNS-resolve `aerekos-conductor` on a different Docker network.
@@ -20,10 +23,13 @@ services:
       - PORT=3000
       - DATABASE_PATH=/app/data/conductor.db
       - CONDUCTOR_INTERNAL_BASE_URL=${CONDUCTOR_INTERNAL_BASE_URL:-http://aerekos-conductor:3000}
+      # JWT_SECRET / TOKEN_SECRET: compose placeholder only — NOT valid for production (prodGuards exit on change-me-*).
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - TOKEN_SECRET=${TOKEN_SECRET:-change-me-in-production}
+      # Non-dev / production: enable IAM policy checks on conductor proxy (human JWT). Homelab dev: IAM_ENFORCE_PROXY=false
+      - IAM_ENFORCE_PROXY=${IAM_ENFORCE_PROXY:-true}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
-      - AUTH_MANAGER_GATED_SERVICES=${AUTH_MANAGER_GATED_SERVICES:-ai_manager,api_manager,storage_manager,db_manager,secrets_manager,compute_manager,queue_manager,webhook_manager,git_manager}
+      - AUTH_MANAGER_GATED_SERVICES=${AUTH_MANAGER_GATED_SERVICES:-ai_manager,api_manager,storage_manager,db_manager,secrets_manager,compute_manager,queue_manager,webhook_manager,git_manager,key_manager,cicd_manager,schedule_manager,domain_manager,iam_manager,registry_manager,mcp_manager,security_manager,graphql_manager,search_manager,cert_manager,config_manager,event_manager,backup_manager}
       - CONDUCTOR_CLIENT_SECRET_NAME=${CONDUCTOR_CLIENT_SECRET_NAME:-conductor.client_secret}
       - SECRETS_MANAGER_URL=${SECRETS_MANAGER_URL:-http://secrets_manager:3107/api/v1}
       - DEFAULT_PROJECT_ID=${DEFAULT_PROJECT_ID:-}
@@ -40,6 +46,9 @@ services:
       - "${CONDUCTOR_PORT:-3000}:3000"
     volumes:
       - conductor-data:/app/data
+      # Required for loadWorkerShared (metrics, quota, notify seams). Overlay
+      # docker-compose.conductor-shared.yml is redundant once this is present.
+      - ./worker/shared:/app/worker-shared:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
       interval: 15s
@@ -146,6 +155,8 @@ services:
       - PORT=3002
       - SERVICE_NAME=key_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - MASTER_KEY=${KEY_MANAGER_MASTER_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     volumes:
       - key_manager-data:/app/key_manager/data
@@ -216,6 +227,8 @@ services:
       # HMAC secret from .env.
       - PUBLIC_URL=${STORAGE_PUBLIC_URL:-http://192.168.0.141:3003}
       - SIGNED_URL_SECRET=${STORAGE_SIGNED_URL_SECRET:-}
+      - MOCK_KEY_MANAGER=${STORAGE_MOCK_KEY_MANAGER:-false}
+      - SIGNED_URL_MAX_TTL=${STORAGE_SIGNED_URL_MAX_TTL:-86400}
     ports:
       - "3003:3003"
     volumes:
@@ -258,9 +271,9 @@ services:
       - PORT=3107
       - SERVICE_NAME=secrets_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
-      - SERVICE_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+      - SERVICE_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - MOCK_KEY_MANAGER=${SECRETS_MOCK_KEY_MANAGER:-false}
     ports:
       - "3107:3107"
@@ -338,6 +351,8 @@ services:
       - PORT=3134
       - SERVICE_NAME=backup_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
     ports:
       - "3134:3134"
     volumes:
@@ -358,6 +373,8 @@ services:
       - PORT=3141
       - SERVICE_NAME=graphql_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
     ports:
       - "3141:3141"
     volumes:
@@ -378,6 +395,8 @@ services:
       - PORT=3144
       - SERVICE_NAME=search_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
     ports:
       - "3144:3144"
     volumes:
@@ -398,6 +417,8 @@ services:
       - PORT=3120
       - SERVICE_NAME=code_as_infra
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
     ports:
       - "3120:3120"
     volumes:
@@ -418,6 +439,9 @@ services:
       - PORT=3100
       - SERVICE_NAME=compute_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+      - JWT_SECRET=${JWT_SECRET}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
     ports:
       - "3100:3100"
@@ -440,6 +464,8 @@ services:
       - PORT=3104
       - SERVICE_NAME=logs_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
     ports:
       - "3104:3104"
@@ -461,6 +487,8 @@ services:
       - PORT=3105
       - SERVICE_NAME=metrics_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
     ports:
       - "3105:3105"
@@ -482,6 +510,8 @@ services:
       - PORT=3119
       - SERVICE_NAME=cicd_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
     ports:
       - "3119:3119"
@@ -503,6 +533,8 @@ services:
       - PORT=3130
       - SERVICE_NAME=git_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - GIT_AUTH_TOKEN=${GIT_AUTH_TOKEN:-}
       - PUBLIC_GIT_URL=${PUBLIC_GIT_URL:-}
@@ -528,6 +560,8 @@ services:
       - PORT=3129
       - SERVICE_NAME=registry_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
     ports:
       - "3129:3129"
@@ -550,6 +584,8 @@ services:
       - PORT=3133
       - SERVICE_NAME=download_manager
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       # Real torrent engine (qBittorrent WebAPI). Files are written to the shared
       # qbit_downloads volume: qBittorrent saves under /downloads/<item>, the
@@ -575,6 +611,21 @@ services:
       start_period: 20s
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - aerekos
+
+  headscale:
+    image: headscale/headscale:0.23.0
+    container_name: aerekos-headscale
+    profiles: [headscale]
+    restart: unless-stopped
+    command: serve
+    ports:
+      - "${HEADSCALE_BIND:-192.168.0.141:8080}:8080"
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/headscale:/etc/headscale:ro
+      - headscale-data:/var/lib/headscale
     networks:
       - aerekos
 
@@ -607,6 +658,7 @@ networks:
     name: aerekos-cloud_aerekos
 
 volumes:
+  headscale-data:
   conductor-data:
   worker-data:
   key_manager-data:

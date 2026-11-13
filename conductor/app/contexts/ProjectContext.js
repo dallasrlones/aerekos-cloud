@@ -283,6 +283,12 @@ export const ProjectProvider = ({ children }) => {
    */
   const deleteProject = async (projectId) => {
     setError(null);
+    const target = projects.find((p) => p.id === projectId);
+    if (projectId === SYSTEM_PROJECT_ID || String(target?.name || '').toLowerCase() === 'system') {
+      const msg = 'System project cannot be deleted';
+      setError(msg);
+      return { success: false, error: msg, code: 'SYSTEM_PROJECT_IMMUTABLE' };
+    }
     
     try {
       const result = await projectService.deleteProject(projectId);

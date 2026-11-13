@@ -39,6 +39,8 @@ services:
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - SKIP_SERVICE_REGISTRATION=true
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - PORT=3101
       - SERVICE_NAME=queue_manager
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://aerekos:aerekos@rabbitmq:5672}
@@ -48,6 +50,12 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [aerekos]
     depends_on: [rabbitmq, redis]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3101/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   function_manager:
     build: { context: ./worker, dockerfile: function_manager/Dockerfile }
@@ -74,9 +82,12 @@ services:
       - CONDUCTOR_URL=${CONDUCTOR_INTERNAL_URL:-http://host.docker.internal:3300}
       - CONDUCTOR_TOKEN=${WORKER_TOKEN:-aerekos-dev-token}
       - SKIP_SERVICE_REGISTRATION=true
+      - AUTH_MANAGER_URL=${AUTH_MANAGER_URL:-http://aerekos-auth_manager:3116}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - PORT=3102
       - SERVICE_NAME=schedule_manager
-    ports: ["3102:3102"]
+    # Host 3202: key_manager already binds 3102 on prod-mini.
+    ports: ["3202:3102"]
     volumes: [schedule_manager-data:/app/schedule_manager/data]
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [aerekos]

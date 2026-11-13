@@ -123,9 +123,23 @@ class ProjectService {
    * @throws {Error} If project not found or deletion fails
    */
   async deleteProject(id) {
+    const { isSystemProject } = require('../config/systemProject');
+    if (isSystemProject(id)) {
+      const err = new Error('System project cannot be deleted');
+      err.status = 403;
+      err.code = 'SYSTEM_PROJECT_IMMUTABLE';
+      throw err;
+    }
+
     const project = await this.projectRepository.findById(id);
     if (!project) {
       throw new Error('Project not found');
+    }
+    if (String(project.name || '').toLowerCase() === 'system') {
+      const err = new Error('System project cannot be deleted');
+      err.status = 403;
+      err.code = 'SYSTEM_PROJECT_IMMUTABLE';
+      throw err;
     }
 
     // Get all deployments for this project
@@ -703,6 +717,39 @@ class ProjectService {
       method: sent ? 'websocket' : 'queued'
     };
   }
+  /**
+   * Ensure the immutable platform `system` project exists (id + name fixed).
+   * Safe to call repeatedly at boot.
+   */
+  async ensureSystemProject() {
+    const { SYSTEM_PROJECT_ID, SYSTEM_PROJECT_NAME } = require('../config/systemProject');
+    const byId = await this.projectRepository.findById(SYSTEM_PROJECT_ID);
+    if (byId) {
+      if (String(byId.name || '').toLowerCase() !== SYSTEM_PROJECT_NAME) {
+        await this.projectRepository.update(SYSTEM_PROJECT_ID, { name: SYSTEM_PROJECT_NAME });
+      }
+      return byId;
+    }
+    const byName = await this.projectRepository.findByName(SYSTEM_PROJECT_NAME);
+    if (byName) {
+      // Name taken by wrong id — leave it; do not delete. Log and return.
+      console.warn('[ProjectService] system project exists with unexpected id', byName.id);
+      return byName;
+    }
+    const now = new Date().toISOString();
+    return await this.projectRepository.create({
+      id: SYSTEM_PROJECT_ID,
+      name: SYSTEM_PROJECT_NAME,
+      description: 'Platform system project',
+      enabled: 1,
+      config: JSON.stringify({ default_environment: 'prod' }),
+      created_by: 'platform',
+      created_at: now,
+      updated_at: now,
+    });
+  }
+
+
 }
 
 // Export singleton instance

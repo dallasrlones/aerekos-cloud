@@ -175,7 +175,21 @@ const adonisRoutes = require('./api/routes/adonis');
 const federationRoutes = require('./api/routes/federation');
 
 // API v1 routes
+try {
+  const platformRoutes = require('./api/routes/platform');
+  app.use('/api/v1/platform', platformRoutes);
+  app.use('/api/platform', platformRoutes);
+} catch (err) {
+  console.warn('[boot] platform routes skipped:', err.message);
+}
 app.use('/api/v1/adonis', adonisRoutes);
+try {
+  const campaignRoutes = require('./api/routes/campaign');
+  app.use('/api/v1/campaign', campaignRoutes);
+  app.use('/api/campaign', campaignRoutes);
+} catch (err) {
+  console.warn('[boot] campaign routes skipped:', err.message);
+}
 app.use('/api/v1/federation', federationRoutes);
 app.use('/api/federation', federationRoutes);
 app.use('/api/adonis', adonisRoutes);
@@ -352,11 +366,33 @@ async function startServer() {
     // Initialize WebSocket server
     WorkerSocketService.initialize(server);
 
+    try {
+      const ProjectService = require('./api/services/ProjectService');
+      await ProjectService.ensureSystemProject();
+      console.log('✓ system project ensured');
+    } catch (err) {
+      console.warn('system project ensure failed:', err.message);
+    }
+
     server.listen(PORT, () => {
       console.log(`Conductor API server running on port ${PORT}`);
       console.log(`WebSocket server initialized`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Database: ${process.env.DATABASE_PATH || './data/conductor.db'}`);
+
+      try {
+        const { platformWatchdog } = require('./api/services/PlatformWatchdog');
+        platformWatchdog.start();
+      } catch (err) {
+        console.warn('[platform-watchdog] start skipped:', err.message);
+      }
+
+      try {
+        const { alertService } = require('./api/services/AlertService');
+        alertService.start();
+      } catch (err) {
+        console.warn('[AlertService] start skipped:', err.message);
+      }
 
       // Adopt the JWT signing secret from the key manager (single source of
       // truth shared with auth_manager). The read path runs through this

@@ -66,6 +66,13 @@ class ProjectRepository {
     if (!project) {
       throw new Error('Project not found');
     }
+    const { isSystemProject } = require('../config/systemProject');
+    if (isSystemProject(id, project.name)) {
+      const err = new Error('System project cannot be deleted');
+      err.status = 403;
+      err.code = 'SYSTEM_PROJECT_IMMUTABLE';
+      throw err;
+    }
     await Project.delete(id);
     return true;
   }

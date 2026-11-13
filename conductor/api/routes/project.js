@@ -211,8 +211,8 @@ router.post('/', authenticate, async (req, res, next) => {
       sm.proxyServiceRequest(
         'network_manager',
         'POST',
-        '/api/v1/networks',
-        { project_id: project.id, name: 'default' },
+        '/api/v1/networks/ensure-default',
+        { project_id: project.id },
         {},
         project.id,
       ).catch((err) => console.warn('[projects] default network:', err.message));
@@ -328,6 +328,15 @@ router.delete('/:id', authenticate, async (req, res, next) => {
         error: {
           message: error.message,
           status: 404
+        }
+      });
+    }
+    if (error.code === 'SYSTEM_PROJECT_IMMUTABLE' || error.message === 'System project cannot be deleted') {
+      return res.status(403).json({
+        error: {
+          message: 'System project cannot be deleted',
+          code: 'SYSTEM_PROJECT_IMMUTABLE',
+          status: 403
         }
       });
     }

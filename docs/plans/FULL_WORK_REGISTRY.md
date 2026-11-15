@@ -56,7 +56,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | pending | | closeout DoD |
 | `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |
-| `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout; 12 tests |
+| `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759; 12 tests |
 | `mgr-notebook_manager` | manager | `worker/notebook_manager` | pending | | closeout DoD |
 | `mgr-notify_manager` | manager | `worker/notify_manager` | pending | | closeout DoD |
 | `mgr-push_manager` | manager | `worker/push_manager` | pending | | closeout DoD |

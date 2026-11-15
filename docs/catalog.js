@@ -838,11 +838,12 @@ const managers = [
   },
   {
     name: 'transfer_manager', aws: 'Transfer Family', category: 'Storage & Content', port: 3148, status: 'implemented',
-    summary: 'SFTP endpoints that put/get objects through storage_manager.',
+    summary: 'Endpoints CRUD + put/get via storage_manager (no live SFTP); live conductor e2e parked; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'endpoints' }, capabilities: ["sftp","transfer"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/endpoints/:id/put', summary: 'Write an object via storage_manager' },
-      { method: 'POST', path: '/api/v1/endpoints/:id/get', summary: 'Read an object via storage_manager' }
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default sftp endpoint if missing' },
+      { method: 'POST', path: '/api/v1/endpoints/:id/put', summary: 'Write an object via storage_manager (needs CONDUCTOR_URL)' },
+      { method: 'POST', path: '/api/v1/endpoints/:id/get', summary: 'Read an object via storage_manager (needs CONDUCTOR_URL)' }
     ]
   },
   {

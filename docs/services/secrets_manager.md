@@ -16,6 +16,9 @@ Encrypted secrets (AES-256-GCM envelope via key_manager). List never returns pla
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/api/v1/info` | Service metadata |
 | `POST` | `/api/v1/secrets` | Create a secret ({ name, value }, optional environment) |
 | `GET` | `/api/v1/secrets` | List secrets (no values; optional environment) |
 | `GET` | `/api/v1/secrets/values` | Name→plaintext map for an environment |

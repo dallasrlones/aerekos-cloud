@@ -8,12 +8,18 @@ Base: `{VERB} {CONDUCTOR}/api/services/secrets_manager{path}`
 
 ## Endpoints
 
+- `GET /health` — Liveness (SQLite)
+- `GET /ready` — Readiness
+- `GET /api/v1/info` — Service metadata
 - `POST /api/v1/secrets` — Create a secret ({ name, value }, optional environment)
 - `GET /api/v1/secrets` — List secrets (no values; optional environment)
 - `GET /api/v1/secrets/values` — Name→plaintext map for an environment
 - `GET /api/v1/secrets/:id` — Get a secret (?reveal=1 for value)
 - `PATCH /api/v1/secrets/:id` — Update a secret
 - `DELETE /api/v1/secrets/:id` — Delete a secret
+
+Capabilities: `secrets`, `encryption`. Tutorial: none (standalone); conductor ServiceGuide under Key Manager → Service secrets.
+Never enable `MOCK_KEY_MANAGER` when `NODE_ENV=production`.
 
 Do not hit production project `ea370977-3aff-4c76-95a6-a0c50fd2bce7` from e2e.
 email/sms/slack/push are queued; outbound send disabled.

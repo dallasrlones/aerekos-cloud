@@ -14,8 +14,8 @@ async function registerWithConductor() {
       port,
       health_endpoint: '/health',
       ready_endpoint: '/ready',
-      capabilities: ["secrets","rotation_hooks"],
-      metadata: { description: 'secrets_manager service' }
+      capabilities: ['secrets', 'encryption'],
+      metadata: { description: 'Project-scoped secrets; AES-256-GCM envelope via key_manager' }
     }, { headers: { 'Content-Type': 'application/json' }, timeout: 10000 });
     console.log(`[${name}] Registered: ${response.data.service_id}`);
     if (response.data.service_token) process.env.SERVICE_TOKEN = response.data.service_token;

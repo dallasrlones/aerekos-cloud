@@ -65,7 +65,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-registry_manager` | manager | `worker/registry_manager` | pending | | closeout DoD |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | pending | | closeout DoD |
 | `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |
-| `mgr-secrets_manager` | manager | `worker/secrets_manager` | in_progress | | Wave 1 salvage c0d0b06; finish DoD |
+| `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | | Wave 1 closeout on `work/mgr-secrets_manager` (salvage c0d0b06→a9d5b4e); OpenAPI+tests+docs honesty; live proxy checklist manual |
 | `mgr-security_manager` | manager | `worker/security_manager` | pending | | closeout DoD |
 | `mgr-slack_manager` | manager | `worker/slack_manager` | pending | | closeout DoD |
 | `mgr-sms_manager` | manager | `worker/sms_manager` | pending | | closeout DoD |

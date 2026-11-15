@@ -64,7 +64,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | done | live e2e needs conductor | Wave 3 closeout ef6dd9b; 12 tests |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager | Wave 2 closeout 7761122/8f07368; 9 tests |
-| `mgr-search_manager` | manager | `worker/search_manager` | in_progress |  | Wave 6 |
+| `mgr-search_manager` | manager | `worker/search_manager` | done | live e2e needs conductor | Wave 6 closeout 8a9dcfd6; 11 tests |
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
 | `mgr-security_manager` | manager | `worker/security_manager` | in_progress |  | Wave 6 |
 | `mgr-slack_manager` | manager | `worker/slack_manager` | in_progress |  | Wave 6 |

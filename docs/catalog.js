@@ -794,11 +794,12 @@ const managers = [
   },
   {
     name: 'search_manager', aws: 'OpenSearch', category: 'Database', port: 3144, status: 'implemented',
-    summary: 'SQLite FTS search. POST /query returns real hits (empty only when the index is empty).',
+    summary: 'Indexes CRUD + FTS5 index/query (real hits; empty only when no docs); live conductor e2e parked; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'indexes' }, capabilities: ["search", "fts"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/index', summary: 'Index documents' },
-      { method: 'POST', path: '/api/v1/query', summary: 'FTS query → { hits }' }
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default docs index if missing' },
+      { method: 'POST', path: '/api/v1/index', summary: 'Index documents into FTS5' },
+      { method: 'POST', path: '/api/v1/query', summary: 'FTS query → { hits } (empty only when index has no docs)' }
     ]
   },
   {

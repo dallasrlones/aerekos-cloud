@@ -123,4 +123,4 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`search_manager`](search_manager.md) | OpenSearch | 3144 | implemented | SQLite FTS search. |
+| [`search_manager`](search_manager.md) | OpenSearch | 3144 | implemented | Indexes CRUD + FTS5 index/query; live e2e parked; ManagerConsole (no ServiceGuide). |

@@ -1005,6 +1005,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/worker_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/worker_manager/api/v1/sync:
+    post:
+      summary: Sync annotations from conductor workers
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/worker_manager/api/v1/annotations:
+    post:
+      summary: Create an annotation
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List annotations (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/worker_manager/api/v1/annotations/{id}:
+    get:
+      summary: Get one annotation
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an annotation
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an annotation
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/worker_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/worker_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/workflow_manager/api/v1/info:
     get:
       summary: Service metadata (info)

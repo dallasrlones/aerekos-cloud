@@ -667,8 +667,14 @@ const managers = [
   },
   {
     name: 'event_manager', aws: 'EventBridge', category: 'Integrations', port: 3132, status: 'implemented',
-    summary: 'Event buses.',
-    proxyBase: '/api/v1', crud: { segment: 'buses' }, capabilities: ["events","bus"]
+    summary: 'Event buses + rules + put events. ensure-defaults seeds default/aerekos.fleet. Tutorial none. No prod SKIP_OUTBOUND.',
+    proxyBase: '/api/v1', crud: { segment: 'buses' }, capabilities: ["events","bus"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default + aerekos.fleet buses' },
+      { method: 'POST', path: '/api/v1/events', summary: 'Put event → 202 { event, deliveries }' },
+      { method: 'POST', path: '/api/v1/rules', summary: 'Create a rule' },
+      { method: 'GET', path: '/api/v1/rules', summary: 'List rules (?project_id= / bus_id)' },
+    ]
   },
   {
     name: 'download_manager', aws: 'MediaConvert + ingest', category: 'Storage & Content', port: 3133, status: 'implemented',

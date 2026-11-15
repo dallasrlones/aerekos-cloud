@@ -340,52 +340,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/email_manager/api/v1/info:
+  /api/services/event_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/email_manager/api/v1/messages:
+  /api/services/event_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a queued message
+      summary: Seed default + aerekos.fleet buses
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/events:
+    post:
+      summary: Put event → 202 { event, deliveries }
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/rules:
+    post:
+      summary: Create a rule
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List messages (?project_id=)
+      summary: List rules (?project_id= / bus_id)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/email_manager/api/v1/messages/{id}:
+  /api/services/event_manager/api/v1/buses:
+    post:
+      summary: Create a bus
+      responses:
+        '200':
+          description: Success (shape varies by manager)
     get:
-      summary: Get one message
+      summary: List buses (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/buses/{id}:
+    get:
+      summary: Get one bus
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a message
+      summary: Update a bus
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a message
+      summary: Delete a bus
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/email_manager/api/v1/messages/{id}/send:
-    post:
-      summary: Attempt SMTP send / stay queued without secrets
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/email_manager/health:
+  /api/services/event_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/email_manager/ready:
+  /api/services/event_manager/ready:
     get:
       summary: Readiness
       responses:

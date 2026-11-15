@@ -46,7 +46,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
 | `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |
 | `mgr-event_manager` | manager | `worker/event_manager` | pending | | closeout DoD |
-| `mgr-function_manager` | manager | `worker/function_manager` | pending | | closeout DoD |
+| `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout; 8 tests; health/docs/OpenAPI |
 | `mgr-git_manager` | manager | `worker/git_manager` | pending | | closeout DoD |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |

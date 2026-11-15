@@ -181,14 +181,80 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/compute_manager/ready:
+  /api/services/function_manager/api/v1/info:
     get:
-      summary: "Readiness (SQLite); proxy may use /api/services/{name}/ready"
+      summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-        '503':
-          description: not_ready
+  /api/services/function_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default hello function if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions:
+    post:
+      summary: Create a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List functions (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}:
+    get:
+      summary: Get one function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}/event-sources:
+    get:
+      summary: List EventSource mappings
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Attach a queue (provision inbox+DLQ if missing)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}/event-sources/{sid}:
+    delete:
+      summary: Detach a queue (does not delete it)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{name}/invoke:
+    post:
+      summary: Invoke a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/poll:
+    post:
+      summary: Drain one poll cycle for the project
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource
@@ -336,64 +402,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/networks:
-    post:
-      summary: Create a project Docker bridge network
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List networks (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/networks/ensure-default:
-    post:
-      summary: Ensure logical network named default
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/networks/{id}:
-    get:
-      summary: Get one network
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete network
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/mesh:
-    get:
-      summary: Headscale mesh status
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/api/v1/mesh/preauth:
-    post:
-      summary: Mint mesh preauth key
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/network_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)
@@ -454,57 +462,6 @@ paths:
   /api/services/queue_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/api/v1/schedules:
-    post:
-      summary: Create a schedule (cron + webhook|queue target)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List schedules (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/api/v1/schedules/{id}:
-    get:
-      summary: Get a schedule
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a schedule
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a schedule
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/api/v1/schedules/{id}/run:
-    post:
-      summary: Run now
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/health:
-    get:
-      summary: "Liveness (isLiveness; port 3102 collides with key_manager)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/schedule_manager/ready:
-    get:
-      summary: Readiness (SQLite); conductor proxy skips projectId (isLiveness)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -619,63 +576,6 @@ paths:
   /api/services/storage_manager/ready:
     get:
       summary: Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed default rag index if empty
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/indexes:
-    post:
-      summary: Create an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List indexes (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/indexes/{id}:
-    get:
-      summary: Get one index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/upsert:
-    post:
-      summary: Upsert vectors
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/api/v1/query:
-    post:
-      summary: Query nearest neighbors
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vector_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)

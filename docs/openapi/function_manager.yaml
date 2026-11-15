@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: function_manager (Lambda analog)
+  version: 1.0.0
+  description: |
+    Project-scoped functions: CRUD, sync/async invoke, EventSource attach/detach, inbox poller.
+    Conductor proxy prefix: /api/services/function_manager
+servers:
+  - url: http://localhost:3139
+    description: Direct local
+  - url: http://localhost:3000/api/services/function_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, aws, status, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default hello function when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/functions:
+    post:
+      summary: Create function
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                runtime:
+                  type: string
+                  default: node20
+                handler:
+                  type: string
+                  default: index.handler
+                trigger:
+                  description: '{ queue: true|false|string } — default provisions {name}-inbox'
+                  type: object
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List functions
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/functions/{id}:
+    get:
+      summary: Get function
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+    patch:
+      summary: Update function
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                runtime:
+                  type: string
+                handler:
+                  type: string
+                timeout_ms:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete function
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+  /api/v1/functions/{id}/event-sources:
+    get:
+      summary: List EventSource mappings
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Attach a queue (provision inbox+DLQ if missing)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                ref:
+                  type: string
+                queue:
+                  type: string
+                engine:
+                  type: string
+      responses:
+        '201':
+          description: '{ event_source, inbox_queue }'
+  /api/v1/functions/{id}/event-sources/{sid}:
+    delete:
+      summary: Detach a queue (does not delete the queue)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - in: path
+          name: sid
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ detached, inbox_queue }'
+  /api/v1/functions/{name}/invoke:
+    post:
+      summary: Invoke a function by name
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                payload:
+                  type: object
+                invocation_type:
+                  type: string
+                  enum: [RequestResponse, Event]
+                  default: RequestResponse
+      responses:
+        '200':
+          description: RequestResponse result
+        '202':
+          description: Event queued
+  /api/v1/poll:
+    post:
+      summary: Drain one poll cycle for the project
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: poll result
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

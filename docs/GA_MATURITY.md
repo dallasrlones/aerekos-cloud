@@ -26,7 +26,7 @@ Counts: **47** GA · **8** needs-keys · **1** preview (managers only).
 
 | Manager | Port | Category | Catalog | **Maturity** | E2E (`e2e/catalog.js`) | Provider keys |
 |---------|------|----------|---------|--------------|-------------------------|---------------|
-| `key_manager` | 3002 | Core | implemented | **GA** | liveness / proxy | — |
+| `key_manager` | 3102 | Core | implemented | **GA** | liveness / proxy | — |
 | `storage_manager` | 3003 | Core | implemented | **GA** | liveness / proxy | — |
 | `db_manager` | 3004 | Core | implemented | **GA** | liveness / proxy | — |
 | `compute_manager` | 3100 | Compute | implemented | **GA** | liveness / proxy | — |

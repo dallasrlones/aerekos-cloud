@@ -1,6 +1,6 @@
 # key_manager — production plan
 
-**Port:** 3002 · **AWS analog:** KMS · **Category:** Core · **Tier:** production-ready
+**Port:** 3102 · **AWS analog:** KMS · **Category:** Core · **Tier:** production-ready
 
 **Navigation:** [← iam_manager](./iam_manager.md) · [Index](./README.md) · [secrets_manager →](./secrets_manager.md)  
 **Platform auth:** [platform_app_access.md](./platform_app_access.md)  

@@ -7,7 +7,7 @@
 process.env.NODE_ENV = 'test';
 process.env.SERVICE_NAME = 'key_manager';
 process.env.SERVICE_VERSION = '1.0.0';
-process.env.PORT = '3002';
+process.env.PORT = '3102';
 process.env.CONDUCTOR_URL = 'http://localhost:3000';
 process.env.MASTER_KEY = 'a1b2c3d4e5f67890123456789012345678901234567890123456789012345678';
 process.env.DATABASE_PATH = ':memory:'; // Use in-memory database for tests

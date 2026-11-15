@@ -13,7 +13,7 @@ describe('Port Detection', () => {
       listen: jest.fn((port, callback) => {
         callback();
       }),
-      address: jest.fn(() => ({ port: 3002 })),
+      address: jest.fn(() => ({ port: 3102 })),
       close: jest.fn((callback) => {
         callback();
       }),
@@ -22,10 +22,10 @@ describe('Port Detection', () => {
     
     net.createServer.mockReturnValue(mockServer);
     
-    const port = await detectAvailablePort(3002);
+    const port = await detectAvailablePort(3102);
     
-    expect(port).toBe(3002);
-    expect(mockServer.listen).toHaveBeenCalledWith(3002, expect.any(Function));
+    expect(port).toBe(3102);
+    expect(mockServer.listen).toHaveBeenCalledWith(3102, expect.any(Function));
     expect(mockServer.close).toHaveBeenCalled();
   });
   
@@ -51,7 +51,7 @@ describe('Port Detection', () => {
           callback();
         }
       }),
-      address: jest.fn(() => ({ port: 3003 })),
+      address: jest.fn(() => ({ port: 3103 })),
       close: jest.fn((callback) => {
         callback();
       }),
@@ -72,15 +72,15 @@ describe('Port Detection', () => {
     // Mock recursive call
     const originalDetect = detectAvailablePort;
     detectAvailablePort.mockImplementationOnce(async (startPort) => {
-      if (startPort === 3002) {
+      if (startPort === 3102) {
         // Simulate port in use, try next
-        return await originalDetect(3003);
+        return await originalDetect(3103);
       }
-      return 3003;
+      return 3103;
     });
     
-    const port = await detectAvailablePort(3002);
+    const port = await detectAvailablePort(3102);
     
-    expect(port).toBeGreaterThanOrEqual(3002);
+    expect(port).toBeGreaterThanOrEqual(3102);
   });
 });

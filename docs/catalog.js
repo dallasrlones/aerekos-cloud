@@ -270,10 +270,38 @@ const managers = [
     env: [{ name: 'MOCK_KEY_MANAGER', default: 'true (compose)', desc: 'Local dev key instead of key_manager' }]
   },
   {
-    name: 'auth_manager', aws: 'Cognito', category: 'Identity', port: 3116, status: 'needs-keys',
-    summary: 'OIDC provider metadata (issuer/client_id/config). Keep client_secret in secrets_manager.',
-    proxyBase: '/api/v1', crud: { segment: 'providers' }, capabilities: ['oidc', 'identity-providers'],
-    needsKeys: 'OIDC client_secret (store in secrets_manager) to complete real auth flows.'
+    name: 'auth_manager', aws: 'Cognito', category: 'Identity', port: 3116, status: 'implemented',
+    summary: 'OIDC provider metadata, app credentials (client_credentials), project users (password grant), JWT issue/verify. IdP client_secret stays in secrets_manager.',
+    proxyBase: '/api/v1', capabilities: ['oidc', 'identity-providers', 'credentials', 'users', 'tokens'],
+    endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/providers', summary: 'Create OIDC provider metadata' },
+      { method: 'GET', path: '/api/v1/providers', summary: 'List providers' },
+      { method: 'GET', path: '/api/v1/providers/:id', summary: 'Get provider' },
+      { method: 'PATCH', path: '/api/v1/providers/:id', summary: 'Update provider' },
+      { method: 'DELETE', path: '/api/v1/providers/:id', summary: 'Delete provider' },
+      { method: 'POST', path: '/api/v1/credentials', summary: 'Create app credential' },
+      { method: 'GET', path: '/api/v1/credentials', summary: 'List credentials' },
+      { method: 'GET', path: '/api/v1/credentials/:id', summary: 'Get credential' },
+      { method: 'PATCH', path: '/api/v1/credentials/:id', summary: 'Update credential' },
+      { method: 'DELETE', path: '/api/v1/credentials/:id', summary: 'Delete credential' },
+      { method: 'POST', path: '/api/v1/credentials/:id/rotate', summary: 'Rotate client_secret' },
+      { method: 'POST', path: '/api/v1/users', summary: 'Create project user' },
+      { method: 'GET', path: '/api/v1/users', summary: 'List users' },
+      { method: 'GET', path: '/api/v1/users/:id', summary: 'Get user' },
+      { method: 'PATCH', path: '/api/v1/users/:id', summary: 'Update user' },
+      { method: 'DELETE', path: '/api/v1/users/:id', summary: 'Delete user' },
+      { method: 'POST', path: '/api/v1/auth/token', summary: 'client_credentials → access_token' },
+      { method: 'POST', path: '/api/v1/auth/login', summary: 'Password grant → user JWT' },
+      { method: 'POST', path: '/api/v1/auth/verify', summary: 'Verify token' },
+      { method: 'POST', path: '/api/v1/auth/introspect', summary: 'RFC 7662-style introspect' }
+    ],
+    env: [
+      { name: 'AUTH_MANAGER_SECRET', default: '(KMS preferred)', desc: 'Boot fallback signing secret; prod uses auth_manager.signing_secret via secrets_manager' },
+      { name: 'CONDUCTOR_CLIENT_SECRET', default: '(KMS preferred)', desc: 'conductor client_credentials peer secret' }
+    ]
   },
 
   // --- Edge ----------------------------------------------------------------

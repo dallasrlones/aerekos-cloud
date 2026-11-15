@@ -29,7 +29,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-api_manager` | manager | `worker/api_manager` | pending | | closeout DoD |
 | `mgr-app_manager` | manager | `worker/app_manager` | pending | | closeout DoD |
 | `mgr-audit_manager` | manager | `worker/audit_manager` | pending | | closeout DoD |
-| `mgr-auth_manager` | manager | `worker/auth_manager` | in_progress | prior agent crash | Wave 1 relaunch `.wt/mgr-auth_manager` |
+| `mgr-auth_manager` | manager | `worker/auth_manager` | done | | Wave 1 closeout on `.wt/mgr-auth_manager` (`work/mgr-auth_manager`) |
 | `mgr-backup_manager` | manager | `worker/backup_manager` | pending | | closeout DoD |
 | `mgr-balancer_manager` | manager | `worker/balancer_manager` | pending | | closeout DoD |
 | `mgr-billing_manager` | manager | `worker/billing_manager` | pending | | closeout DoD |

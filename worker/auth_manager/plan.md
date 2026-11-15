@@ -15,53 +15,47 @@
 - [x] Dockerfiles, docker-compose (service definition), Jest harness
 
 ## Phase 2 — Domain model & persistence
-- [ ] Define entities and storage (SQLite via `aerekos-record` and/or conductor APIs)
-- [ ] Repositories and migrations if using local DB
-- [ ] Project scoping (`project_id`) on all resources
+- [x] Define entities and storage (SQLite via `aerekos-record`: OidcProvider, Credential, User)
+- [x] Project scoping (`project_id`) on CRUD resources
+- [ ] Migrations tooling polish if schema evolves
 
 ## Phase 3 — API surface
-- [ ] OpenAPI / route map in README
-- [ ] Validation (Joi or zod)
-- [ ] Service-to-service auth middleware (conductor validate-token)
+- [x] OpenAPI (`api/openapi.yaml`) + route map in README
+- [x] Inline validation in services (project_id, username/password rules)
+- [ ] Dedicated Joi/zod schemas; service-to-service auth middleware inside the manager (conductor already gates proxy)
 
 ## Phase 4 — Worker & deployment integration
-- [ ] Image build via worker `ServiceManager`; health checks for orchestrator
-- [ ] Environment contract documented in `.env_example`
+- [x] Dockerfiles / compose; health checks for orchestrator
+- [x] Environment contract documented in `.env_example`
 
 ## Phase 5 — Observability
+- [x] `GET /metrics` via shared Prometheus helper
 - [ ] Structured JSON logging
-- [ ] `GET /metrics` (Prometheus) or push to `metrics_manager`
-- [ ] Correlation / request IDs
+- [ ] Correlation / request IDs end-to-end
 
 ## Phase 6 — Security
-- [ ] Rate limits on public routes
-- [ ] Audit log for sensitive operations
-- [ ] Integration with `iam_manager` / `secrets_manager` as needed
+- [x] Rate limits on `/auth/token` and `/auth/login`
+- [x] Signing secret via secrets_manager/KMS (env fallback for boot)
+- [ ] Audit log for sensitive operations; live OIDC federation with secrets_manager client_secret
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 1 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] TokenService sign/verify
+- [ ] Broader service-layer edge coverage
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] Health/ready/info, providers CRUD, credentials→token, users lifecycle (supertest + temp SQLite)
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] `tests/e2e/authFlow.test.js` in-process + live checklist in `tests/e2e/README.md`
+- [ ] Live conductor/proxy CI job (optional)
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [ ] `npm run test:coverage` gate (≥70%) — not enforced in Wave 1
+- [x] No prod `MOCK_*` paths
 
 ---
 

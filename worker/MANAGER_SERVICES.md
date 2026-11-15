@@ -39,7 +39,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |
 | `sms_manager` | 3114 | `/api/v1/messages` | Queued; outbound send disabled |
 | `slack_manager` | 3115 | `/api/v1/messages` | Queued; outbound send disabled |
-| `auth_manager` | 3116 | `/api/v1/providers` | OIDC *metadata*; keep **client_secret** in `secrets_manager` |
+| `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
 | `cdn_manager` | 3118 | `/api/v1/rules` | CDN-style rules (config only) |
 | `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |

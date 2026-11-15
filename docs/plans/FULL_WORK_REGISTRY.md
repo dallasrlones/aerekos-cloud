@@ -91,7 +91,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-cli` | cross | platform | in_progress |  | Wave 9 |
 | `x-openapi` | cross | platform | in_progress |  | Wave 9 |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
-| `x-cross-service` | cross | platform | done | live peer e2e matrix parked | Wave 9 closeout: pass doc `docs/plans/cross-service-consumption.md`; wired `schedule_manager`→`queue_manager` via conductor (no localhost default); next: cicd `*_MANAGER_URL` fallbacks, notify Phase 2, audit emit, live edge e2e |
+| `x-cross-service` | cross | platform | done | live peer e2e matrix parked | Wave 9 closeout 59cc2c6b; pass doc docs/plans/cross-service-consumption.md; schedule_manager→queue_manager via conductor; next: cicd *_MANAGER_URL fallbacks, notify Phase 2, audit emit, live edge e2e |
 | `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-platform` | cross | platform | in_progress |  | Wave 9 |
 | `x-git-iac-all-projects` | cross | platform | pending | | All projects on git_manager + IaC |

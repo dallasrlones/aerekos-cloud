@@ -16,11 +16,12 @@ Bare repos, Smart HTTP transport, push events.
 
 | Area | Status |
 |------|--------|
-| Implementation | production-ready |
-| Console UI | ManagerConsole only |
-| Tests | reposApi + e2e Tier 5 git transport |
-| Direct-port auth | Mostly none — see [platform_app_access.md](./platform_app_access.md) P1 |
+| Implementation | production-ready (Wave 3 closeout stamped) |
+| Console UI | GitManager IntegrationHub (no ServiceGuide) |
+| Tests | unit+integration (20); live e2e Tier 5 parked (conductor / real git) |
+| Direct-port auth | Optional `GIT_AUTH_TOKEN`; see [platform_app_access.md](./platform_app_access.md) P1 |
 | Project scoping | Yes |
+| OpenAPI | `worker/git_manager/api/openapi.yaml` |
 
 ### Known gaps
 

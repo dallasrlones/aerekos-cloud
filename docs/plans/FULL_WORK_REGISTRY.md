@@ -47,7 +47,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |
 | `mgr-event_manager` | manager | `worker/event_manager` | pending | | closeout DoD |
 | `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |
-| `mgr-git_manager` | manager | `worker/git_manager` | in_progress | | Wave 3 |
+| `mgr-git_manager` | manager | `worker/git_manager` | done | live e2e needs conductor; Smart HTTP direct-port only | Wave 3 closeout: health/proxy, unit+integration (20), README+docs honesty, OpenAPI, SDK/CLI, tutorial none, no prod SKIP_GIT |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |

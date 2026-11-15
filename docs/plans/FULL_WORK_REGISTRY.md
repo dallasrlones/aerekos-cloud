@@ -107,14 +107,14 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `epic-aerekos-record` | epic | docs/todo.md | done |  | Wave 10 scaffold e640fccd; packages/aerekos-record stub |
 | `epic-memory-crud-ui` | epic | docs/todo.md | done |  | Wave 10 scaffold df15c4a7; MemoryCrudScaffold.jsx placeholder |
 | `epic-personality-context` | epic | docs/todo.md | done |  | Wave 10 scaffold eb601c0c; see docs/plans/epics/personality-context.md |
-| `epic-gary-tan-report` | epic | docs/todo.md | pending | | Gary Tan second-brain/harness report MD |
-| `epic-aerekos-drive` | epic | docs/todo.md | pending | | Drive + Docs/Sheets/Slides + collab suite |
-| `epic-media-manager` | epic | docs/todo.md | pending | | audio/video/image media managers v0 |
-| `epic-forms-manager` | epic | docs/todo.md | pending | | forms_manager + notify/events |
-| `epic-integrations-manager` | epic | docs/todo.md | pending | | custom integrations + event triggers |
-| `epic-ui-system-nav` | epic | docs/todo.md | pending | | System nav, orbit home, envs, Icarus create envs |
-| `epic-cicd-git-json` | epic | docs/todo.md | pending | | Easy git-repo CI/CD config story |
-| `epic-agent-flows` | epic | docs/todo.md | pending | | System/project/custom flows + IaC |
+| `epic-gary-tan-report` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-aerekos-drive` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-media-manager` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-forms-manager` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-integrations-manager` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-ui-system-nav` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-cicd-git-json` | epic | docs/todo.md | in_progress |  | Wave 11 |
+| `epic-agent-flows` | epic | docs/todo.md | in_progress |  | Wave 11 |
 | `epic-agents-manager` | epic | docs/todo.md | pending | | Agent builder SDK/UI/tool e2e/cron/tv-music |
 | `epic-ai-manager-shop` | epic | docs/todo.md | pending | | AI ops shop + tool_call_manager |
 | `epic-api-app-tdd` | epic | docs/todo.md | pending | | TV/Music api+app + tutorial-driven e2e |
@@ -132,3 +132,4 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 **Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.
 6. **Wave 9:** ops-conductor, x-sdk, x-cli, x-openapi, x-tutorials, x-cross-service, x-user-system-safe, x-cross-platform
 7. **Wave 10:** x-git-iac-all-projects, x-pr-review-ux, epic-icarus-tasks, epic-smart-memory, epic-finetune-embed, epic-aerekos-record, epic-memory-crud-ui, epic-personality-context
+8. **Wave 11:** epic-gary-tan-report, epic-aerekos-drive, epic-media-manager, epic-forms-manager, epic-integrations-manager, epic-ui-system-nav, epic-cicd-git-json, epic-agent-flows

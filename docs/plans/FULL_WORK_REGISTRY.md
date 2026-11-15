@@ -24,10 +24,10 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `mgr-ai_manager` | manager | `worker/ai_manager` | done | live LLM keys; OpenAPI parked | Wave 2 closeout ff2e6ed/7a2fdc1; 6 scoped tests |
+| `mgr-ai_manager` | manager | `worker/ai_manager` | in_progress | | Wave 2 |
 | `mgr-analytics_manager` | manager | `worker/analytics_manager` | pending | | closeout DoD |
-| `mgr-api_manager` | manager | `worker/api_manager` | pending | | closeout DoD |
-| `mgr-app_manager` | manager | `worker/app_manager` | pending | | closeout DoD |
+| `mgr-api_manager` | manager | `worker/api_manager` | in_progress | | Wave 3 |
+| `mgr-app_manager` | manager | `worker/app_manager` | in_progress | | Wave 3 |
 | `mgr-audit_manager` | manager | `worker/audit_manager` | pending | | closeout DoD |
 | `mgr-auth_manager` | manager | `worker/auth_manager` | done | | Wave 1 closeout 6c8054c; 13 tests |
 | `mgr-backup_manager` | manager | `worker/backup_manager` | pending | | closeout DoD |
@@ -35,10 +35,10 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-billing_manager` | manager | `worker/billing_manager` | pending | | closeout DoD |
 | `mgr-cdn_manager` | manager | `worker/cdn_manager` | pending | | closeout DoD |
 | `mgr-cert_manager` | manager | `worker/cert_manager` | pending | | closeout DoD |
-| `mgr-cicd_manager` | manager | `worker/cicd_manager` | pending | | closeout DoD |
-| `mgr-cluster_manager` | manager | `worker/cluster_manager` | done | live e2e needs conductor | Wave 2 closeout 0997d3b; 12 tests |
-| `mgr-code_as_infra` | manager | `worker/code_as_infra` | pending | | closeout DoD |
-| `mgr-compute_manager` | manager | `worker/compute_manager` | done | live e2e needs conductor | Wave 2 closeout 4a7d145/5d9396e; 49 tests |
+| `mgr-cicd_manager` | manager | `worker/cicd_manager` | in_progress | | Wave 3 |
+| `mgr-cluster_manager` | manager | `worker/cluster_manager` | in_progress | | Wave 2 |
+| `mgr-code_as_infra` | manager | `worker/code_as_infra` | in_progress | | Wave 3 |
+| `mgr-compute_manager` | manager | `worker/compute_manager` | in_progress | | Wave 2 |
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | pending | | closeout DoD |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
@@ -46,24 +46,24 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
 | `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |
 | `mgr-event_manager` | manager | `worker/event_manager` | pending | | closeout DoD |
-| `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |
-| `mgr-git_manager` | manager | `worker/git_manager` | pending | | closeout DoD |
+| `mgr-function_manager` | manager | `worker/function_manager` | in_progress | | Wave 2 |
+| `mgr-git_manager` | manager | `worker/git_manager` | in_progress | | Wave 3 |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | pending | | closeout DoD |
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |
-| `mgr-mcp_manager` | manager | `worker/mcp_manager` | pending | | closeout DoD |
+| `mgr-mcp_manager` | manager | `worker/mcp_manager` | in_progress | | Wave 3 |
 | `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |
-| `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759/870a48e |
+| `mgr-network_manager` | manager | `worker/network_manager` | in_progress | | Wave 2 |
 | `mgr-notebook_manager` | manager | `worker/notebook_manager` | pending | | closeout DoD |
 | `mgr-notify_manager` | manager | `worker/notify_manager` | pending | | closeout DoD |
 | `mgr-push_manager` | manager | `worker/push_manager` | pending | | closeout DoD |
 | `mgr-query_manager` | manager | `worker/query_manager` | pending | | closeout DoD |
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
-| `mgr-registry_manager` | manager | `worker/registry_manager` | pending | | closeout DoD |
-| `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager | Wave 2 closeout 7761122/8f07368; 9 tests |
+| `mgr-registry_manager` | manager | `worker/registry_manager` | in_progress | | Wave 3 |
+| `mgr-schedule_manager` | manager | `worker/schedule_manager` | in_progress | | Wave 2 |
 | `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
 | `mgr-security_manager` | manager | `worker/security_manager` | pending | | closeout DoD |
@@ -75,13 +75,13 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-trace_manager` | manager | `worker/trace_manager` | pending | | closeout DoD |
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | pending | | closeout DoD |
 | `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | pending | | closeout DoD |
-| `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout cbe5f91; 8 tests |
+| `mgr-vector_manager` | manager | `worker/vector_manager` | in_progress | | Wave 2 |
 | `mgr-vpn_manager` | manager | `worker/vpn_manager` | pending | | closeout DoD |
 | `mgr-waf_manager` | manager | `worker/waf_manager` | pending | | closeout DoD |
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
-| `mgr-websocket_manager` | manager | `worker/websocket_manager` | pending | | closeout DoD |
+| `mgr-websocket_manager` | manager | `worker/websocket_manager` | in_progress | | Wave 3 |
 | `mgr-worker_manager` | manager | `worker/worker_manager` | pending | | closeout DoD |
-| `mgr-workflow_manager` | manager | `worker/workflow_manager` | done | live e2e needs conductor | Wave 2 closeout 28e53d2; 6+4 tests |
+| `mgr-workflow_manager` | manager | `worker/workflow_manager` | in_progress | | Wave 2 |
 
 ## Cross-cutting
 

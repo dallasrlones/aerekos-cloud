@@ -78,9 +78,9 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout cbe5f91; 8 tests |
 | `mgr-vpn_manager` | manager | `worker/vpn_manager` | done | live e2e needs conductor; Headscale keys parked | Wave 7 closeout c0d85457; 13 tests |
 | `mgr-waf_manager` | manager | `worker/waf_manager` | done | live e2e needs conductor | Wave 7 closeout 8c0f9dd5; 10 tests |
-| `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
+| `mgr-webhook_manager` | manager | `worker/webhook_manager` | in_progress |  | Wave 8 |
 | `mgr-websocket_manager` | manager | `worker/websocket_manager` | done | live WSS/proxy parked | Wave 3 closeout 270246c/16e2155; 10 tests |
-| `mgr-worker_manager` | manager | `worker/worker_manager` | pending | | closeout DoD |
+| `mgr-worker_manager` | manager | `worker/worker_manager` | in_progress |  | Wave 8 |
 | `mgr-workflow_manager` | manager | `worker/workflow_manager` | done | live e2e needs conductor | Wave 2 closeout 28e53d2; 6+4 tests |
 
 ## Cross-cutting

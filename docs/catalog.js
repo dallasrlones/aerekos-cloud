@@ -668,10 +668,11 @@ const managers = [
   },
   {
     name: 'system_manager', aws: 'Systems Manager', category: 'Platform', port: 3127, status: 'implemented',
-    summary: 'Fleet patch board plus host OS/Docker check and update. Always on per device; no project enable.',
+    summary: 'Tasks CRUD + host OS/Docker check/update via conductor proxy; SSM analog; no prod SKIP_HOST_PATCH; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'tasks' }, capabilities: ['maintenance', 'tasks'],
     endpoints: [
-      { method: 'GET', path: '/api/v1/hosts/:workerId/check', summary: 'Host OS/Docker freshness' },
+      { method: 'POST', path: '/api/v1/tasks/:id/run', summary: 'Run task from spec_json (image or url)' },
+      { method: 'GET', path: '/api/v1/hosts/:workerId/check', summary: 'Host OS/Docker freshness (conductor proxy)' },
       { method: 'POST', path: '/api/v1/hosts/:workerId/check', summary: 'Re-probe host OS/Docker' },
       { method: 'POST', path: '/api/v1/hosts/:workerId/update', summary: 'Update host OS or Docker ({ target })' }
     ]

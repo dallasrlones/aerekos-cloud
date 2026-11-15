@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  title: system_manager (Systems Manager analog)
+  version: 1.0.0
+  description: |
+    Project-scoped maintenance task specs (CRUD /api/v1/tasks) in SQLite plus
+    host OS/Docker check+update routes that proxy to conductor
+    /api/workers/{workerId}/host/*. Not AWS SSM. SKIP_HOST_PATCH and other
+    skip-fakes are refused when NODE_ENV=production via assertNoSkipFakes.
+    Conductor proxy prefix: /api/services/system_manager
+servers:
+  - url: http://localhost:3127
+    description: Direct local
+  - url: http://localhost:3000/api/services/system_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/tasks:
+    post:
+      summary: Create a maintenance task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                spec_json:
+                  type: string
+                state:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List tasks (?project_id=)
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/tasks/{id}:
+    get:
+      summary: Get one task
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a task
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                spec_json:
+                  type: string
+                state:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Replace/update a task
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a task
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/tasks/{id}/run:
+    post:
+      summary: Run task from spec_json (image→compute_manager or url HTTP)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item } with updated state / last_run'
+        '400':
+          description: spec_json needs image or url
+  /api/v1/hosts/{workerId}/check:
+    get:
+      summary: Proxy host OS/Docker freshness check to conductor
+      parameters:
+        - $ref: '#/components/parameters/workerId'
+      responses:
+        '200':
+          description: Host check payload from worker
+        '503':
+          description: Worker offline or conductor unreachable
+    post:
+      summary: Re-probe host OS/Docker via conductor proxy
+      parameters:
+        - $ref: '#/components/parameters/workerId'
+      responses:
+        '200':
+          description: Host check payload from worker
+        '503':
+          description: Worker offline or conductor unreachable
+  /api/v1/hosts/{workerId}/update:
+    post:
+      summary: Proxy host OS or Docker update ({ target })
+      parameters:
+        - $ref: '#/components/parameters/workerId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target:
+                  type: string
+                  description: e.g. docker or os
+      responses:
+        '200':
+          description: Update result from worker
+        '503':
+          description: Worker offline or conductor unreachable
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    workerId:
+      in: path
+      name: workerId
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

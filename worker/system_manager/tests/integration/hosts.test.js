@@ -1,3 +1,5 @@
+'use strict';
+
 jest.mock('../../../shared/conductorProxy', () => ({
   proxy: jest.fn(),
   conductorBase: () => 'http://127.0.0.1:3000',
@@ -5,10 +7,22 @@ jest.mock('../../../shared/conductorProxy', () => ({
 }));
 
 const request = require('supertest');
-const { proxy } = require('../../../shared/conductorProxy');
-const app = require('../../index.js');
 
 describe('system_manager hosts', () => {
+  let app;
+  let proxy;
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.mock('../../../shared/conductorProxy', () => ({
+      proxy: jest.fn(),
+      conductorBase: () => 'http://127.0.0.1:3000',
+      authHeaders: () => ({}),
+    }));
+    proxy = require('../../../shared/conductorProxy').proxy;
+    app = require('../../index.js');
+  });
+
   beforeEach(() => {
     proxy.mockReset();
   });
@@ -53,5 +67,12 @@ describe('system_manager hosts', () => {
     const res = await request(app).post('/api/v1/hosts/w1/check');
     expect(res.status).toBe(503);
     expect(res.body.error.message).toBe('Worker is offline');
+  });
+
+  test('proxy throw becomes 503', async () => {
+    proxy.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const res = await request(app).get('/api/v1/hosts/w1/check');
+    expect(res.status).toBe(503);
+    expect(res.body.error.message).toMatch(/ECONNREFUSED|Conductor host proxy failed/);
   });
 });

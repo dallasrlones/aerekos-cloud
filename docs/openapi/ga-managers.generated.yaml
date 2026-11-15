@@ -106,6 +106,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default cert if project empty
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs:
+    post:
+      summary: Create a cert
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List certs (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs/mint:
+    post:
+      summary: Mint a self-signed PEM
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs/import:
+    post:
+      summary: Import a PEM bundle
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs/{id}:
+    get:
+      summary: Get one cert
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a cert
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a cert
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/code_as_infra/api/v1/info:
     get:
       summary: Service metadata (info)

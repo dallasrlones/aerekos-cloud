@@ -1,18 +1,22 @@
+'use strict';
+
 const request = require('supertest');
 const app = require('../../index.js');
-const Q = (id) => 'project_id='+encodeURIComponent(id);
+const Q = (id) => 'project_id=' + encodeURIComponent(id);
+
 describe('cert_manager crud', () => {
-  const pid = 'p-cert_manager-crud-'+Date.now();
+  const pid = 'p-cert_manager-crud-' + Date.now();
+
   test('create get update delete', async () => {
     const c = await request(app).post('/api/v1/certs').send({ project_id: pid, name: 'n1' });
     expect(c.status).toBe(201);
     const id = c.body.item.id;
-    const g = await request(app).get('/api/v1/certs/'+id+'?'+Q(pid));
+    const g = await request(app).get('/api/v1/certs/' + id + '?' + Q(pid));
     expect(g.status).toBe(200);
-    const u = await request(app).patch('/api/v1/certs/'+id+'?'+Q(pid)).send({ name: 'n2' });
+    const u = await request(app).patch('/api/v1/certs/' + id + '?' + Q(pid)).send({ name: 'n2' });
     expect(u.status).toBe(200);
     expect(u.body.item.name).toBe('n2');
-    const d = await request(app).delete('/api/v1/certs/'+id+'?'+Q(pid));
+    const d = await request(app).delete('/api/v1/certs/' + id + '?' + Q(pid));
     expect(d.status).toBe(200);
   });
 
@@ -27,5 +31,17 @@ describe('cert_manager crud', () => {
     expect(r.body.item.pem).toMatch(/BEGIN PRIVATE KEY/);
     expect(r.body.item.status).toBe('minted');
   });
-});
 
+  test('import stores PEM on the item', async () => {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
+    const r = await request(app).post('/api/v1/certs/import').send({
+      project_id: pid,
+      name: 'imported-web',
+      pem,
+      cn: 'import.example.test',
+    });
+    expect(r.status).toBe(201);
+    expect(r.body.item.pem).toMatch(/BEGIN CERTIFICATE/);
+    expect(r.body.item.status).toBe('imported');
+  });
+});

@@ -2,18 +2,24 @@
 
 > **Identity** · Implemented
 
-Import PEM or mint self-signed certificates. No Let's Encrypt.
+Import PEM or mint self-signed certificates. No Let's Encrypt / ACME in MVP. No production mocks (`assertNoSkipFakes` via `createManagerApp`). **Tutorial:** none standalone — console **ManagerConsole** (no dedicated CertManager ServiceGuide).
 
 - **Port:** `3137`
 - **AWS analog:** ACM
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/cert_manager{path}` (JWT or service token)
 - **Capabilities:** `certs`, `tls`
+- **OpenAPI:** `worker/cert_manager/api/openapi.yaml` (pack copy: `docs/openapi/cert_manager.yaml`)
+- **SDK/CLI:** generic `client.resource('cert_manager', 'certs')` / `client.proxy`; CLI `aerekos cert_manager certs …` / `aerekos call`
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/api/v1/info` | Service metadata |
+| `POST` | `/api/v1/ensure-defaults` | Seed `default` cert if project empty |
 | `POST` | `/api/v1/certs` | Create a cert ({ project_id, name, ... }) |
 | `GET` | `/api/v1/certs` | List certs (?project_id=) |
 | `GET` | `/api/v1/certs/:id` | Get one cert |
@@ -52,4 +58,4 @@ aerekos cert_manager certs list --project $PID
 
 ---
 
-_Generated from `docs/catalog.js`. Edit the catalog and run `make docs` to update._
+_Hand-aligned with `worker/cert_manager` for Wave 4 closeout honesty. Catalog CRUD also lives in `docs/catalog.js`; re-run `make docs` carefully so this page stays accurate._

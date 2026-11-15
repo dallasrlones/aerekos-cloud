@@ -688,9 +688,13 @@ const managers = [
   },
   {
     name: 'cert_manager', aws: 'ACM', category: 'Identity', port: 3137, status: 'implemented',
-    summary: 'Import PEM or mint self-signed certificates. No Let\'s Encrypt.',
+    summary: 'Import PEM or mint self-signed certificates. No Let\'s Encrypt. Tutorial: none. No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'certs' }, capabilities: ["certs","tls"],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default cert if empty' },
       { method: 'POST', path: '/api/v1/certs/mint', summary: 'Mint a self-signed PEM' },
       { method: 'POST', path: '/api/v1/certs/import', summary: 'Import a PEM bundle' }
     ]

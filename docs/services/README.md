@@ -49,7 +49,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`secrets_manager`](secrets_manager.md) | Secrets Manager | 3107 | implemented | Encrypted secrets (AES-256-GCM envelope via key_manager). |
 | [`auth_manager`](auth_manager.md) | Cognito | 3116 | needs-keys | OIDC provider metadata (issuer/client_id/config). |
 | [`config_manager`](config_manager.md) | AppConfig | 3136 | implemented | Config namespaces plus /evaluate. Tutorial: none. No prod mocks. |
-| [`cert_manager`](cert_manager.md) | ACM | 3137 | implemented | Import PEM or mint self-signed certificates. |
+| [`cert_manager`](cert_manager.md) | ACM | 3137 | implemented | Import PEM or mint self-signed. Tutorial: none. No prod mocks. |
 
 ## Edge
 

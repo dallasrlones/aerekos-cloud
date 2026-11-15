@@ -106,58 +106,64 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/api/v1/info:
+  /api/services/cert_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/api/v1/ensure-defaults:
+  /api/services/cert_manager/api/v1/ensure-defaults:
     post:
-      summary: Seed default meters if missing
+      summary: Seed default cert if project empty
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/api/v1/evaluate-quota:
+  /api/services/cert_manager/api/v1/certs:
     post:
-      summary: Evaluate quota (deny when over; never unlimited)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/billing_manager/api/v1/meters:
-    post:
-      summary: Create a meter
+      summary: Create a cert
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List meters (?project_id=)
+      summary: List certs (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/api/v1/meters/{id}:
+  /api/services/cert_manager/api/v1/certs/mint:
+    post:
+      summary: Mint a self-signed PEM
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs/import:
+    post:
+      summary: Import a PEM bundle
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/cert_manager/api/v1/certs/{id}:
     get:
-      summary: Get one meter
+      summary: Get one cert
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a meter
+      summary: Update a cert
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a meter
+      summary: Delete a cert
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/health:
+  /api/services/cert_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/billing_manager/ready:
+  /api/services/cert_manager/ready:
     get:
       summary: Readiness
       responses:

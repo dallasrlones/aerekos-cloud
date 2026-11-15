@@ -55,7 +55,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `backup_manager` | 3134 | `/api/v1/jobs` | Snapshots into `aerekos-backups` + restore |
 | `workflow_manager` | 3135 | `/api/v1/machines` | State machines subset; outbound notify skipped; tutorial none |
 | `config_manager` | 3136 | `/api/v1/namespaces` | Flags + `/evaluate` |
-| `cert_manager` | 3137 | `/api/v1/certs` | Import PEM or mint self-signed |
+| `cert_manager` | 3137 | `/api/v1/certs` | Import PEM or mint self-signed; no ACME; tutorial none |
 | `billing_manager` | 3138 | `/api/v1/meters` | Real quota (never unlimited stub) |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |

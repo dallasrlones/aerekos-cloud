@@ -76,7 +76,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | done | live e2e needs conductor; storage put/get + no live SFTP | Wave 7 closeout ce6aa35b; 10 tests |
 | `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | done | live e2e needs conductor; CF keys for live tunnels | Wave 7 closeout 61a0e3de; 15 tests |
 | `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout cbe5f91; 8 tests |
-| `mgr-vpn_manager` | manager | `worker/vpn_manager` | in_progress |  | Wave 7 |
+| `mgr-vpn_manager` | manager | `worker/vpn_manager` | done | live e2e needs conductor; Headscale keys parked | Wave 7 closeout c0d85457; 13 tests |
 | `mgr-waf_manager` | manager | `worker/waf_manager` | in_progress |  | Wave 7 |
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
 | `mgr-websocket_manager` | manager | `worker/websocket_manager` | done | live WSS/proxy parked | Wave 3 closeout 270246c/16e2155; 10 tests |

@@ -948,75 +948,64 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/info:
+  /api/services/vpn_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels:
+  /api/services/vpn_manager/api/v1/status:
+    get:
+      summary: Headscale hookup status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a tunnel (token once)
+      summary: Seed default laptop peer if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/peers:
+    post:
+      summary: Create a peer
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List tunnels (?project_id=)
+      summary: List peers (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels/{id}:
+  /api/services/vpn_manager/api/v1/peers/{id}:
     get:
-      summary: Get a tunnel
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a tunnel
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels/{id}/ingress:
-    get:
-      summary: Get ingress rules
+      summary: Get one peer
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Merge hostname into ingress
+      summary: Update a peer
       responses:
         '200':
           description: Success (shape varies by manager)
-    put:
-      summary: Replace ingress
+    delete:
+      summary: Delete a peer
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels/adopt-known:
+  /api/services/vpn_manager/api/v1/preauth-keys:
     post:
-      summary: Adopt known CF tunnel ids
+      summary: Create a Headscale preauth key (or not-hooked-up)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels/import:
-    post:
-      summary: Import from Cloudflare (may skip under SKIP_CLOUDFLARE)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/tunnel_manager/api/v1/tunnels/reconcile:
-    post:
-      summary: Reconcile local vs Cloudflare
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/tunnel_manager/health:
+  /api/services/vpn_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/tunnel_manager/ready:
+  /api/services/vpn_manager/ready:
     get:
       summary: Readiness
       responses:

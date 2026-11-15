@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: audit_manager (CloudTrail analog)
+  version: 1.0.0
+  description: |
+    Project-scoped audit events (name/actor/action/detail), ingest helper, ensure-defaults.
+    Conductor proxy prefix: /api/services/audit_manager
+servers:
+  - url: http://localhost:3149
+    description: Direct local
+  - url: http://localhost:3000/api/services/audit_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed bootstrap event when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/ingest:
+    post:
+      summary: Create an audit event from body (convenience writer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                actor:
+                  type: string
+                action:
+                  type: string
+                detail:
+                  description: string or object (object JSON-stringified)
+                  oneOf:
+                    - type: string
+                    - type: object
+      responses:
+        '201':
+          description: '{ item }' or '{ item: { skipped: true } }' when project_id missing
+  /api/v1/events:
+    post:
+      summary: Create an audit event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                actor:
+                  type: string
+                action:
+                  type: string
+                detail:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List events
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: optional substring filter
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/events/{id}:
+    get:
+      summary: Get one event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                actor:
+                  type: string
+                action:
+                  type: string
+                detail:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update an event (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

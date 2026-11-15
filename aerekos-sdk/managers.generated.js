@@ -8,7 +8,7 @@ module.exports = [
     "segment": null,
     "aws": "KMS",
     "category": "Core",
-    "port": 3002,
+    "port": 3102,
     "status": "implemented",
     "projectInPath": false
   },
@@ -36,7 +36,7 @@ module.exports = [
     "name": "compute_manager",
     "base": "/api/v1",
     "segment": null,
-    "aws": "ECS / Fargate",
+    "aws": "Kubernetes (aerekos Compute)",
     "category": "Compute",
     "port": 3100,
     "status": "implemented",
@@ -135,11 +135,11 @@ module.exports = [
   {
     "name": "auth_manager",
     "base": "/api/v1",
-    "segment": "providers",
+    "segment": null,
     "aws": "Cognito",
     "category": "Identity",
     "port": 3116,
-    "status": "needs-keys",
+    "status": "implemented",
     "projectInPath": false
   },
   {
@@ -259,7 +259,7 @@ module.exports = [
     "aws": "CloudFormation",
     "category": "Dev tools",
     "port": 3120,
-    "status": "implemented",
+    "status": "experimental",
     "projectInPath": false
   },
   {
@@ -569,7 +569,17 @@ module.exports = [
     "aws": "SNS mobile",
     "category": "Integrations",
     "port": 3153,
-    "status": "implemented",
+    "status": "needs-keys",
+    "projectInPath": false
+  },
+  {
+    "name": "notify_manager",
+    "base": "/api/v1",
+    "segment": "messages",
+    "aws": "SNS / SES / Chatbot (unified)",
+    "category": "Integrations",
+    "port": 3154,
+    "status": "needs-keys",
     "projectInPath": false
   }
 ];

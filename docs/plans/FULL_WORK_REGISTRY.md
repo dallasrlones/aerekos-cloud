@@ -87,7 +87,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `x-sdk` | cross | platform | in_progress |  | Wave 9 |
+| `x-sdk` | cross | platform | done | not full typed parity (34 svc-only); UI `adonis` vs catalog noise | Wave 9 closeout: notify catalog sync + client.notify + coverage tests; see docs/plans/sdk-manager-coverage.md |
 | `x-cli` | cross | platform | in_progress |  | Wave 9 |
 | `x-openapi` | cross | platform | in_progress |  | Wave 9 |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |

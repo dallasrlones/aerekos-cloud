@@ -930,6 +930,19 @@ const managers = [
       { method: 'POST', path: '/api/v1/send', summary: 'Attempt FCM send / stay queued (SKIP_PUSH / missing FCM → queue_only)' }
     ],
     needsKeys: 'Queued without FCM secrets. Do not retry live FCM send in e2e without keys.'
+  },
+  {
+    name: 'notify_manager', aws: 'SNS / SES / Chatbot (unified)', category: 'Integrations', port: 3154, status: 'needs-keys',
+    summary: 'Unified notify facade: messages + channels CRUD, send/test via notifyFacade. Mock by default in non-prod; legacy email/sms/slack/push remain until Phase 2.',
+    proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['notify', 'transactional', 'alerts'],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default message if missing' },
+      { method: 'GET', path: '/api/v1/providers', summary: 'Channel provider descriptors' },
+      { method: 'POST', path: '/api/v1/test', summary: 'Facade test send (mock by default)' },
+      { method: 'POST', path: '/api/v1/messages/:id/send', summary: 'Send via facade / stay queued' },
+      { method: '*', path: '/api/v1/channels', summary: 'Channel config CRUD' }
+    ],
+    needsKeys: 'Mock/queue-only without channel secrets. Do not retry live send in e2e without keys.'
   }
 ];
 

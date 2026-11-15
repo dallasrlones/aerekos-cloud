@@ -71,7 +71,8 @@ const PORTS = {
   status_manager: 3150,
   cluster_manager: 3151,
   vector_manager: 3152,
-  push_manager: 3153
+  push_manager: 3153,
+  notify_manager: 3154
 };
 
 const ALL_MANAGERS = Object.keys(PORTS);
@@ -129,7 +130,8 @@ const P4_MANAGERS = [
   { name: 'status_manager', seg: 'incidents', fields: {} },
   { name: 'cluster_manager', seg: 'clusters', fields: {} },
   { name: 'vector_manager', seg: 'indexes', fields: {} },
-  { name: 'push_manager', seg: 'subscriptions', fields: {} }
+  { name: 'push_manager', seg: 'subscriptions', fields: {} },
+  { name: 'notify_manager', seg: 'messages', fields: { channel: 'email', to_address: 'a@b.test', subject: 's', body: 'b', status: 'queued' } }
 ];
 
 module.exports = { PORTS, ALL_MANAGERS, P4_MANAGERS };

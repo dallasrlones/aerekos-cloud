@@ -93,6 +93,7 @@ const P4 = [
   { name: 'cluster_manager', segment: 'clusters', stackKey: 'clusters', extra: {} },
   { name: 'vector_manager', segment: 'indexes', stackKey: 'vector_indexes', extra: {} },
   { name: 'push_manager', segment: 'subscriptions', stackKey: 'push_subscriptions', extra: {} },
+  { name: 'notify_manager', segment: 'messages', stackKey: 'notify_messages', extra: { channel: 'email', to_address: 'dev@example.test', subject: 'hello', body: 'hi', status: 'queued' } },
 ];
 
 const CUSTOM = [

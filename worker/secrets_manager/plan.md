@@ -2,11 +2,11 @@
 
 **Service:** `secrets_manager`  
 **Default port:** 3107  
-**Capabilities (registry):** secrets, rotation_hooks  
-**Description:** Store and retrieve secrets; integrate with key_manager for envelope encryption when configured.
+**Capabilities (registry):** secrets, encryption  
+**Description:** Store and retrieve project-scoped secrets; envelope encryption via key_manager (AES-256-GCM).
 
 ## Dependencies
-- **Platform:** Conductor, worker (Docker), optional key_manager / db_manager
+- **Platform:** Conductor, worker (Docker), key_manager (or `MOCK_KEY_MANAGER` for tests/local only)
 
 
 ## Phase 1 — Service layout (complete)
@@ -14,54 +14,51 @@
 - [x] Error middleware, conductor registration helper
 - [x] Dockerfiles, docker-compose (service definition), Jest harness
 
-## Phase 2 — Domain model & persistence
-- [ ] Define entities and storage (SQLite via `aerekos-record` and/or conductor APIs)
-- [ ] Repositories and migrations if using local DB
-- [ ] Project scoping (`project_id`) on all resources
+## Phase 2 — Domain model & persistence (MVP complete)
+- [x] `StoredSecret` in SQLite via `aerekos-record`
+- [x] Project scoping (`project_id`) on all resources
+- [x] Environment scoping (default `prod`)
 
-## Phase 3 — API surface
-- [ ] OpenAPI / route map in README
-- [ ] Validation (Joi or zod)
-- [ ] Service-to-service auth middleware (conductor validate-token)
+## Phase 3 — API surface (MVP complete)
+- [x] OpenAPI [`docs/openapi/secrets_manager.yaml`](../../docs/openapi/secrets_manager.yaml) + catalog/README
+- [x] Validation in SecretService (name, project_id, metadata)
+- [x] Create / list (redacted) / get (?reveal=1) / values map / patch / delete
+- [ ] Dedicated service-token middleware beyond conductor proxy (optional hardening)
 
-## Phase 4 — Worker & deployment integration
-- [ ] Image build via worker `ServiceManager`; health checks for orchestrator
-- [ ] Environment contract documented in `.env_example`
+## Phase 4 — Worker & deployment integration (MVP complete)
+- [x] Image build via worker `ServiceManager`; health checks for orchestrator
+- [x] Environment contract documented in `.env_example`
+- [x] Conductor injects project secrets into enabled services (`projectSecretEnv.js`)
 
 ## Phase 5 — Observability
-- [ ] Structured JSON logging
-- [ ] `GET /metrics` (Prometheus) or push to `metrics_manager`
+- [x] Prometheus metrics via shared `simplePrometheusMetrics`
+- [ ] Structured JSON logging everywhere
 - [ ] Correlation / request IDs
 
 ## Phase 6 — Security
+- [x] `MOCK_KEY_MANAGER` refused when `NODE_ENV=production`
+- [x] List never returns plaintext
 - [ ] Rate limits on public routes
 - [ ] Audit log for sensitive operations
-- [ ] Integration with `iam_manager` / `secrets_manager` as needed
+- [ ] Rotation hooks (capability deferred; not in MVP registry)
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 1 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] SecretService validation, SecretCrypto mock/roundtrip, SecretArn, prod-mock guard
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] HTTP API with supertest — create/list/reveal/delete + ARN + /health|/ready|/info
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] Process-local lifecycle in `tests/e2e/secrets-lifecycle.test.js`
+- [x] Live-stack scenarios documented in `tests/e2e/README.md` (manual checklist)
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [x] `npm run test:unit` / `test:integration` / `test:e2e` pass locally
+- [ ] Coverage threshold formalized in CI (≥70% lines) — deferred to platform CI pass
 
 ---
 

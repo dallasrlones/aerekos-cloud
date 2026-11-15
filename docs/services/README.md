@@ -12,7 +12,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`key_manager`](key_manager.md) | KMS | 3102 | implemented | Key management service: symmetric/data keys, envelope encryption, rotation. |
+| [`key_manager`](key_manager.md) | KMS | 3002 | implemented | Key management service: symmetric/data keys, envelope encryption, rotation. |
 | [`storage_manager`](storage_manager.md) | S3 | 3003 | implemented | Object storage: buckets + objects with envelope encryption, multipart/chunked uploads, and signed URLs. |
 | [`db_manager`](db_manager.md) | RDS | 3004 | implemented | Managed database control plane: provision/start/stop/restart database containers, backups + restore, health and volumes. |
 
@@ -46,8 +46,8 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
 | [`iam_manager`](iam_manager.md) | IAM | 3106 | implemented | Roles, policies (allow/deny JSON documents), and role↔policy bindings. |
-| [`secrets_manager`](secrets_manager.md) | Secrets Manager | 3107 | implemented | Encrypted secrets (AES-256-GCM envelope via key_manager). |
-| [`auth_manager`](auth_manager.md) | Cognito | 3116 | implemented | OIDC provider metadata, app credentials (client_credentials), project users (password grant), JWT issue/verify. IdP client_secret stays in secrets_manager. |
+| [`secrets_manager`](secrets_manager.md) | Secrets Manager | 3107 | implemented | Encrypted secrets (AES-256-GCM envelope via key_manager). List never returns plaintext. |
+| [`auth_manager`](auth_manager.md) | Cognito | 3116 | needs-keys | OIDC provider metadata (issuer/client_id/config). |
 | [`config_manager`](config_manager.md) | AppConfig | 3136 | implemented | Config namespaces plus /evaluate against stored flags. |
 | [`cert_manager`](cert_manager.md) | ACM | 3137 | implemented | Import PEM or mint self-signed certificates. |
 

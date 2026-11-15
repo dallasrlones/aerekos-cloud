@@ -417,12 +417,12 @@ paths:
           description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/secrets:
     post:
-      summary: "Create a secret ({ name, value })"
+      summary: "Create a secret ({ name, value }, optional environment)"
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List secrets (no values)
+      summary: List secrets (no values; optional environment)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -439,6 +439,12 @@ paths:
           description: Success (shape varies by manager)
     delete:
       summary: Delete a secret
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/api/v1/secrets/values:
+    get:
+      summary: Name→plaintext map for an environment
       responses:
         '200':
           description: Success (shape varies by manager)

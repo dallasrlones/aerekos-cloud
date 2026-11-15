@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: Auth Manager API
+  version: 1.0.0
+  description: |
+    Project-scoped identity for aerekos-cloud: OIDC provider *metadata*, app
+    credentials (client_credentials), per-project users (password grant), and
+    JWT issue/verify. Signing secret prefers key_manager via secrets_manager
+    (`auth_manager.signing_secret`); env/dev fallbacks are for boot only.
+    Store real IdP client_secret in secrets_manager — this service keeps metadata only.
+servers:
+  - url: http://localhost:3116
+    description: Local development
+  - url: http://{conductor}/api/services/auth_manager
+    description: Via conductor proxy
+    variables:
+      conductor:
+        default: localhost:3000
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      tags: [Health]
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Unhealthy
+  /ready:
+    get:
+      summary: Readiness (SQLite)
+      tags: [Health]
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Not ready
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      tags: [Info]
+      responses:
+        '200':
+          description: Active service info
+  /api/v1/providers:
+    post:
+      summary: Create OIDC provider metadata
+      tags: [Providers]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id: { type: string }
+                name: { type: string }
+                provider_type: { type: string, example: oidc }
+                issuer: { type: string }
+                client_id: { type: string }
+                config_json: { type: string }
+      responses:
+        '201': { description: Created }
+        '400': { description: Validation error }
+        '409': { description: Name taken }
+    get:
+      summary: List providers
+      tags: [Providers]
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Provider list }
+  /api/v1/providers/{id}:
+    get:
+      summary: Get provider
+      tags: [Providers]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Provider }
+        '404': { description: Not found }
+    patch:
+      summary: Update provider
+      tags: [Providers]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete provider
+      tags: [Providers]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Deleted }
+  /api/v1/credentials:
+    post:
+      summary: Create app credential (returns client_secret once)
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id: { type: string }
+                name: { type: string }
+                allowed_resources:
+                  type: array
+                  items: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+      responses:
+        '201': { description: Created with client_id + client_secret }
+    get:
+      summary: List credentials (no secrets)
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Credential list }
+  /api/v1/credentials/{id}:
+    get:
+      summary: Get credential
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Credential }
+        '404': { description: Not found }
+    patch:
+      summary: Update credential
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete credential
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Deleted }
+  /api/v1/credentials/{id}/rotate:
+    post:
+      summary: Rotate client_secret (returns new secret once)
+      tags: [Credentials]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200': { description: Rotated }
+  /api/v1/users:
+    post:
+      summary: Create project user (password grant)
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, username, password]
+              properties:
+                project_id: { type: string }
+                username: { type: string, minLength: 3, maxLength: 40 }
+                password: { type: string, minLength: 5 }
+                name: { type: string }
+                display_color: { type: string }
+                enabled: { type: boolean }
+      responses:
+        '201': { description: Created }
+        '400': { description: Validation error }
+        '409': { description: Username taken }
+    get:
+      summary: List users
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: User list }
+  /api/v1/users/{id}:
+    get:
+      summary: Get user
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: User }
+        '404': { description: Not found }
+    patch:
+      summary: Update user
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200': { description: Updated }
+    delete:
+      summary: Delete user
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200': { description: Deleted }
+  /api/v1/auth/token:
+    post:
+      summary: client_credentials grant → access_token
+      description: |
+        Conductor proxies this without requiring inbound Bearer (chicken-and-egg).
+        Accepts built-in clients (AUTH_CLIENTS / conductor) or project app credentials.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, client_secret]
+              properties:
+                grant_type: { type: string, enum: [client_credentials], default: client_credentials }
+                client_id: { type: string }
+                client_secret: { type: string }
+                scope: { type: string }
+                audience: { type: string }
+      responses:
+        '200': { description: Token issued }
+        '401': { description: invalid_client }
+  /api/v1/auth/login:
+    post:
+      summary: Resource-owner password grant → user JWT
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                project_id: { type: string }
+      responses:
+        '200': { description: Login ok }
+        '401': { description: Invalid credentials }
+  /api/v1/auth/verify:
+    post:
+      summary: Verify bearer / body token
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+      responses:
+        '200': { description: '{ active, claims? }' }
+  /api/v1/auth/introspect:
+    post:
+      summary: RFC 7662-style introspect alias
+      tags: [Auth]
+      responses:
+        '200': { description: '{ active, ...claims }' }
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      tags: [Observability]
+      responses:
+        '200': { description: Text exposition }
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    ProjectIdQuery:
+      name: project_id
+      in: query
+      required: true
+      schema: { type: string }
+    ProjectId:
+      name: project_id
+      in: query
+      required: false
+      schema: { type: string }
+      description: Also accepted in body or X-Project-Id

@@ -89,7 +89,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 |----|------|------------|--------|---------|-------|
 | `x-sdk` | cross | platform | in_progress |  | Wave 9 |
 | `x-cli` | cross | platform | in_progress |  | Wave 9 |
-| `x-openapi` | cross | platform | in_progress |  | Wave 9 |
+| `x-openapi` | cross | platform | done |  | Wave 9 closeout PENDING_SHA; 58 workers: 57 packs + ai_manager parked; CORE_GA regen; check-openapi-pack.mjs |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-service` | cross | platform | in_progress |  | Wave 9 |
 | `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |

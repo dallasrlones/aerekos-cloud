@@ -2,7 +2,12 @@
 /**
  * Generate docs/openapi/ga-managers.generated.yaml from docs/catalog.js (CommonJS).
  *
- * Run: node scripts/oss/gen-openapi-from-catalog.mjs
+ * Emits conductor proxy paths for CORE_GA managers only (see CORE_GA set below).
+ * Per-manager contracts live in docs/openapi/<name>.yaml.
+ *
+ * Run:   node scripts/oss/gen-openapi-from-catalog.mjs
+ * Verify: node scripts/oss/check-openapi-pack.mjs --check-generated
+ * Docs:  docs/openapi/README.md
  */
 import fs from 'fs';
 import path from 'path';

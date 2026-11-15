@@ -127,6 +127,9 @@ const managers = [
     summary: 'Managed database control plane: provision/start/stop/restart engines (postgresql, mongodb, neo4j, elasticsearch, redis, sqlite3, lancedb), backups + restore, volumes, LanceDB vectors, constrained memory SQL.',
     proxyBase: '/api', capabilities: ['managed-db', 'backups', 'lifecycle', 'vectors', 'memory-sql'],
     endpoints: [
+      { method: 'GET', path: '/api/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/health', summary: 'Liveness (control-plane SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness (key_manager unless MOCK_KEY_MANAGER)' },
       { method: 'POST', path: '/api/databases', summary: 'Provision a database (project_id query only; type required)' },
       { method: 'GET', path: '/api/databases', summary: 'List databases' },
       { method: 'GET', path: '/api/databases/:name', summary: 'Get a database (includes arn)' },

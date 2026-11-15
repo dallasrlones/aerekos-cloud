@@ -14,6 +14,9 @@ Managed database control plane: provision/start/stop/restart engines (postgresql
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/api/info` | Service metadata |
+| `GET` | `/health` | Liveness (control-plane SQLite) |
+| `GET` | `/ready` | Readiness (key_manager via conductor unless MOCK_KEY_MANAGER) |
 | `POST` | `/api/databases` | Provision a database (project_id query only; type required) |
 | `GET` | `/api/databases` | List databases |
 | `GET` | `/api/databases/:name` | Get a database (includes arn) |

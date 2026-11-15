@@ -4,6 +4,7 @@ const cors = require('cors');
 const axios = require('axios');
 const { registerWithConductor } = require('./api/utils/serviceRegistration');
 const databaseRoutes = require('./api/routes/databases');
+const metaRoutes = require('./api/routes/meta');
 const errorHandler = require('./api/middleware/errorHandler');
 const EncryptionService = require('./api/services/EncryptionService');
 const { db } = require('./api/models');
@@ -93,6 +94,9 @@ app.get('/ready', async (req, res) => {
     });
   }
 });
+
+// Service metadata (no auth; matches OpenAPI CORE_GA /api/info)
+app.use('/api', metaRoutes);
 
 // API routes (require authentication)
 app.use('/api/databases', databaseRoutes);

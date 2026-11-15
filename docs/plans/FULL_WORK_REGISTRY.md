@@ -41,7 +41,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-compute_manager` | manager | `worker/compute_manager` | pending | | closeout DoD |
 | `mgr-config_manager` | manager | `worker/config_manager` | in_progress | | Wave 1 salvage 718c90c; finish DoD |
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | pending | | closeout DoD |
-| `mgr-db_manager` | manager | `worker/db_manager` | in_progress | | Wave 1 salvage 02a9961; finish DoD |
+| `mgr-db_manager` | manager | `worker/db_manager` | done | | Wave 1 closeout: health/proxy, `/api/info`, docs/OpenAPI, tests 61; e2e `e2e/db-rds.js` needs live conductor |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
 | `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |

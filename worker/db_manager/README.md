@@ -37,6 +37,7 @@ npm run dev
 
 | Area | Base path | Notes |
 |------|-----------|--------|
+| Info | `GET /api/info` | Service metadata (unauthenticated) |
 | Databases | `POST/GET/DELETE /api/databases` | Create/list/get/delete; engines: `postgresql`, `mongodb`, `neo4j`, `elasticsearch`, `redis`, `sqlite3`, `lancedb` |
 | Lifecycle | `POST /:name/start\|stop\|restart` | Docker engines |
 | Connection | `GET /:name/connection` | Decrypted connection info |

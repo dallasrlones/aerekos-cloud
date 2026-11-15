@@ -287,6 +287,12 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/db_manager/ready:
+    get:
+      summary: Readiness (key_manager unless MOCK_KEY_MANAGER)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/key_manager/api/info:
     get:
       summary: Service metadata (info)

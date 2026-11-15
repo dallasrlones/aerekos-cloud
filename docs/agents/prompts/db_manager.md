@@ -8,6 +8,9 @@ Base: `{VERB} {CONDUCTOR}/api/services/db_manager{path}`
 
 ## Endpoints
 
+- `GET /api/info` — Service metadata
+- `GET /health` — Liveness
+- `GET /ready` — Readiness (key_manager unless MOCK_KEY_MANAGER)
 - `POST /api/databases` — Provision a database (project_id query only; type required)
 - `GET /api/databases` — List databases
 - `GET /api/databases/:name` — Get a database (includes arn)

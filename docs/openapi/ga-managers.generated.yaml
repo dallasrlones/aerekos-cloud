@@ -414,6 +414,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/host_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/host_manager/api/v1/sync:
+    post:
+      summary: Sync hosts from conductor workers
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/host_manager/api/v1/hosts:
+    post:
+      summary: Create a host
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List hosts (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/host_manager/api/v1/hosts/{id}:
+    get:
+      summary: Get one host
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a host
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a host
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/host_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/host_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource

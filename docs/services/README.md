@@ -101,7 +101,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`host_manager`](host_manager.md) | EC2 / SSM inventory | 3122 | implemented | Host inventory synced from conductor /api/workers (not a second fleet to register by hand). |
+| [`host_manager`](host_manager.md) | EC2 / SSM inventory | 3122 | implemented | Hosts CRUD + sync from `/api/workers`; ManagerConsole (no ServiceGuide). |
 | [`worker_manager`](worker_manager.md) | SSM fleet / tags | 3128 | implemented | Worker/fleet labels synced from conductor /api/workers. |
 | [`system_manager`](system_manager.md) | Systems Manager | 3127 | implemented | Fleet patch board plus host OS/Docker check and update. |
 

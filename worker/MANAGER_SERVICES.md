@@ -45,7 +45,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |
 | `code_as_infra` | 3120 | `/api/v1/modules` | IaC modules/snippets CRUD; no apply engine (experimental) |
 | `crawler_manager` | 3121 | `/api/v1/jobs` | Jobs CRUD + `run`/`canary` (single-URL); live egress needs-keys |
-| `host_manager` | 3122 | `/api/v1/hosts` | Host inventory |
+| `host_manager` | 3122 | `/api/v1/hosts` | Host inventory CRUD + sync from `/api/workers`; live proxy parked |
 | `mcp_manager` | 3123 | `/api/v1/tools` | MCP tool registry |
 | `api_manager` | 3124 | `/api/v1/endpoints` | Gateway route definitions |
 | `app_manager` | 3125 | `/api/v1/apps` | App metadata + FE scaffold; deploy via compute/cicd/tunnel |

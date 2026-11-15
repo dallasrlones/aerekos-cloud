@@ -49,7 +49,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |
 | `mgr-git_manager` | manager | `worker/git_manager` | done | live e2e / Smart HTTP parked | Wave 3 closeout 5ffea59; 20 tests |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | in_progress | | Wave 5 |
-| `mgr-host_manager` | manager | `worker/host_manager` | in_progress | | Wave 5 |
+| `mgr-host_manager` | manager | `worker/host_manager` | done | live e2e / sync needs conductor | Wave 5 closeout; health+CRUD+sync-guard tests |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | in_progress | | Wave 5 |
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |

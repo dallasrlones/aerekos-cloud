@@ -505,6 +505,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default rag index if empty
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/indexes:
+    post:
+      summary: Create an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List indexes (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/indexes/{id}:
+    get:
+      summary: Get one index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/upsert:
+    post:
+      summary: Upsert vectors
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/api/v1/query:
+    post:
+      summary: Query nearest neighbors
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vector_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/workers:
     get:
       summary: List workers

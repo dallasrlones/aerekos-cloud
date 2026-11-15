@@ -340,74 +340,64 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/info:
+  /api/services/download_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/dns/zones:
-    get:
-      summary: List Cloudflare zones
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/dns/records:
+  /api/services/download_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a DNS record
+      summary: Seed inbox list + overnight window
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/quick-add:
+    post:
+      summary: Add URLs/magnets to a list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/lists:
+    post:
+      summary: Create a download list
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List DNS records (?project_id=&zone_id=)
+      summary: List lists (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/dns/records/{id}:
+  /api/services/download_manager/api/v1/lists/{id}:
     get:
-      summary: Get a DNS record
+      summary: Get one list
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a DNS record
+      summary: Update a list
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a DNS record
+      summary: Delete a list
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/dns/hostnames:
-    get:
-      summary: List hostname bindings
-      responses:
-        '200':
-          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/tick:
     post:
-      summary: Create a hostname binding
+      summary: Advance pending downloads
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/api/v1/dns/hostnames/{id}:
-    patch:
-      summary: Update a hostname binding
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a hostname binding
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/domain_manager/health:
+  /api/services/download_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/domain_manager/ready:
+  /api/services/download_manager/ready:
     get:
       summary: Readiness
       responses:

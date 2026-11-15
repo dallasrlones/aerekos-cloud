@@ -672,7 +672,7 @@ const managers = [
   },
   {
     name: 'download_manager', aws: 'MediaConvert + ingest', category: 'Storage & Content', port: 3133, status: 'implemented',
-    summary: 'Download lists.',
+    summary: 'Lists/items + qBittorrent/yt-dlp; tick scheduler. Tutorial none. No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'lists' }, capabilities: ["download","torrent","yt-dlp"]
   },
   {

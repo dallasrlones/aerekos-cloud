@@ -4,9 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "jest",
-    "test:unit": "jest --testPathPattern=tests/unit",
-    "test:integration": "jest --testPathPattern=tests/integration"
+    "test": "NODE_PATH=./node_modules jest",
+    "test:unit": "NODE_PATH=./node_modules jest --testPathPattern=tests/unit",
+    "test:integration": "NODE_PATH=./node_modules jest --testPathPattern=tests/integration"
   },
   "license": "ISC",
   "dependencies": {

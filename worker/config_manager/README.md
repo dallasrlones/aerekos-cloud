@@ -31,7 +31,7 @@ Project-scoped **config namespaces** (name + JSON `flags`) with `POST /api/v1/ev
 | `DELETE` | `/api/v1/namespaces/:id` | Delete |
 | `POST` | `/api/v1/evaluate` | `{ project_id, namespace?, flag? }` → `{ namespace, flag, value }` |
 
-OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml). Catalog mirror: [`docs/services/config_manager.md`](../../docs/services/config_manager.md).
+OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml) · pack copy [`docs/openapi/config_manager.yaml`](../../docs/openapi/config_manager.yaml). Catalog mirror: [`docs/services/config_manager.md`](../../docs/services/config_manager.md).
 
 ## SDK / CLI
 

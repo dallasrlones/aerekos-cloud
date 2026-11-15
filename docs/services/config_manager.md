@@ -9,7 +9,7 @@ Config namespaces plus `/evaluate` against stored flags. No production mocks. **
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/config_manager{path}` (JWT or service token)
 - **Capabilities:** `config`, `flags`
-- **OpenAPI:** `worker/config_manager/api/openapi.yaml`
+- **OpenAPI:** `worker/config_manager/api/openapi.yaml` (pack copy: `docs/openapi/config_manager.yaml`)
 
 ## Endpoints
 

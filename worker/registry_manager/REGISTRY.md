@@ -28,6 +28,9 @@ The **worker** runs `docker pull <image>` (via [dockerode](https://github.com/ap
 ## API surface (this service)
 
 - `GET /api/v1/registry/config` — public hints (`mode`, display URL, `auth_expected`). **No passwords.**
+- `CRUD /api/v1/registries` — per-project registry entries (`credential_ref` only; no secrets).
+- `CRUD /api/v1/artifacts` · `/api/v1/wanted` · project images / import / host inventory — see README OpenAPI.
+
 
 ## Hardening
 

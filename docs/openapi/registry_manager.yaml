@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: registry_manager (ECR analog)
+  version: 1.0.0
+  description: |
+    Per-project registry metadata (no pull secrets), public config hints,
+    artifacts, wanted image pulls, and project-scoped image picker.
+    Conductor proxy prefix: /api/services/registry_manager
+servers:
+  - url: http://localhost:3129
+    description: Direct local
+  - url: http://localhost:3000/api/services/registry_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/registry/config:
+    get:
+      summary: Public registry config (no secrets)
+      responses:
+        '200':
+          description: '{ registry: { mode, public_base_url, default_namespace, auth_expected, docs } }'
+  /api/v1/registries:
+    post:
+      summary: Create registry entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name, registry_url]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                registry_url:
+                  type: string
+                type:
+                  type: string
+                  enum: [local, docker_hub, harbor, embedded, custom]
+                namespace:
+                  type: string
+                username:
+                  type: string
+                credential_ref:
+                  type: string
+                  description: Reference only — never a password body field
+      responses:
+        '201':
+          description: '{ registry }'
+        '400':
+          description: validation error
+        '409':
+          description: name already exists in project
+    get:
+      summary: List registry entries
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ registries }'
+  /api/v1/registries/{id}:
+    get:
+      summary: Get registry entry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ registry }'
+        '404':
+          description: not found
+    patch:
+      summary: Update registry entry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ registry }'
+    delete:
+      summary: Delete registry entry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/artifacts:
+    get:
+      summary: List artifacts
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [docker, npm, pypi]
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Create artifact
+      responses:
+        '201':
+          description: '{ item }'
+  /api/v1/wanted:
+    get:
+      summary: List wanted images
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Create wanted image
+      responses:
+        '201':
+          description: '{ item }'
+  /api/v1/wanted/{id}:
+    patch:
+      summary: Update wanted image
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete wanted image
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/wanted/{id}/run-now:
+    post:
+      summary: Pull wanted image now (skipped under SKIP_DOCKER)
+      responses:
+        '200':
+          description: '{ item, ran, ... }'
+  /api/v1/images/project:
+    get:
+      summary: Project-scoped image picker (not host inventory dump)
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ images }'
+  /api/v1/images/import:
+    post:
+      summary: docker load -i tar (skipped under SKIP_DOCKER)
+      responses:
+        '201':
+          description: '{ imported, ref, ... }'
+  /api/v1/inventory:
+    get:
+      summary: Host docker images inventory
+      responses:
+        '200':
+          description: '{ images } or { images: [], skipped: true }'

@@ -5,8 +5,11 @@ require('./api/models');
 const db = require('./api/utils/dbClient');
 const { registerWithConductor } = require('./api/utils/serviceRegistration');
 const { setupPrometheus } = require('../shared/simplePrometheusMetrics');
+const { assertNoSkipFakes } = require('../shared/prodGuards');
 const routes = require('./api/routes');
 const errorHandler = require('./api/middleware/errorHandler');
+
+assertNoSkipFakes();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3129', 10);

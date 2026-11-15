@@ -670,6 +670,108 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/registry/config:
+    get:
+      summary: Public registry config (no secrets)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/registries:
+    post:
+      summary: Create a registry entry
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List registry entries (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/registries/{id}:
+    get:
+      summary: Get a registry entry
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a registry entry
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a registry entry
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/artifacts:
+    get:
+      summary: List artifacts
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Create artifact
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/wanted:
+    get:
+      summary: List wanted images
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Create wanted image
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/wanted/{id}:
+    patch:
+      summary: Update wanted image
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete wanted image
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/wanted/{id}/run-now:
+    post:
+      summary: Pull wanted image now
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/images/project:
+    get:
+      summary: Project-scoped image picker
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/images/import:
+    post:
+      summary: Import image tar via docker load
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/api/v1/inventory:
+    get:
+      summary: Host docker inventory
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/registry_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/info:
     get:
       summary: Service metadata (info)

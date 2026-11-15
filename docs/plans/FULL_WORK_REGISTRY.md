@@ -61,7 +61,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-notify_manager` | manager | `worker/notify_manager` | pending | | closeout DoD |
 | `mgr-push_manager` | manager | `worker/push_manager` | pending | | closeout DoD |
 | `mgr-query_manager` | manager | `worker/query_manager` | pending | | closeout DoD |
-| `mgr-queue_manager` | manager | `worker/queue_manager` | in_progress | | Wave 1 salvage c56ca6b; finish DoD |
+| `mgr-queue_manager` | manager | `worker/queue_manager` | done | | DoD 2026-11-15: health+proxy paths, unit/integration/e2e, README+docs honesty, OpenAPI/catalog, client.queue + aerekos call, ServiceGuide (no standalone tutorial), no prod mocks; capacity-wait UI 404 parked |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | pending | | closeout DoD |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | pending | | closeout DoD |
 | `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |

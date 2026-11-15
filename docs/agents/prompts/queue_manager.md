@@ -18,7 +18,7 @@ Base: `{VERB} {CONDUCTOR}/api/services/queue_manager{path}`
 - `DELETE /api/v1/queues/:name/messages/:messageId` — Delete (ack) a message
 - `POST /api/v1/queues/:name/messages/:messageId/visibility` — Change visibility
 
-SDK/CLI: generic proxy / `aerekos call`. Tutorial: console ServiceGuide only (no standalone tutorial).
+SDK: `client.queue.create|list|get|remove|send|receive`. CLI: `aerekos call` (no dedicated `aerekos queue` yet). Tutorial: console ServiceGuide only (no standalone tutorial).
 
 Do not hit production project `ea370977-3aff-4c76-95a6-a0c50fd2bce7` from e2e.
 Do not set `AEREKOS_QUEUE_PROVIDER=local_nats` for production paths.

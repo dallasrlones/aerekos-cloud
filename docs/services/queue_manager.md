@@ -9,7 +9,7 @@ Project-scoped queues: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream. At
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/queue_manager{path}` (JWT or service token)
 - **Capabilities:** `queues`, `messaging`
-- **SDK/CLI:** generic `client.proxy('queue_manager', …)` / `aerekos call queue_manager …` (no dedicated queues SDK yet)
+- **SDK/CLI:** `client.queue.create|list|get|remove|send|receive`; CLI via `aerekos call queue_manager …` (no dedicated `aerekos queue` subcommand yet)
 - **Tutorial:** console **ServiceGuide** on Queue Manager screen; no standalone tutorial doc
 - **Honesty:** receive is `POST …/messages/receive` only — conductor SystemHome `GET …/capacity-wait/messages` 404s are parked UI noise; this manager does not seed `capacity-wait`
 
@@ -52,7 +52,8 @@ curl -s -X POST \
 **SDK (Node)**
 
 ```js
-// generic proxy
+await client.queue.create(PID, { name: 'demo' });
+// or generic proxy:
 await client.proxy('queue_manager', { method: 'POST', path: '/api/v1/queues', projectId: PID, body: { name: 'demo' } });
 ```
 

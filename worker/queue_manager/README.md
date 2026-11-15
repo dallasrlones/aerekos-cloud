@@ -59,15 +59,12 @@ Queue name: 1–80 chars `[a-zA-Z0-9_-]`. Body max **256 KiB**. OpenAPI paths: `
 
 ## SDK / CLI
 
-No dedicated `client.queues` SDK surface yet — use generic proxy / `aerekos call`:
+SDK helper: `client.queue.create|list|get|remove|send|receive` (wraps the proxy). No dedicated `aerekos queue …` CLI yet — use `aerekos call` or the SDK:
 
 ```js
-await client.proxy('queue_manager', {
-  method: 'POST',
-  path: '/api/v1/queues',
-  projectId: PID,
-  body: { name: 'demo', engine: 'standard' },
-});
+await client.queue.create(PID, { name: 'demo', engine: 'standard' });
+await client.queue.send(PID, { name: 'demo', body: { ping: 1 } });
+const { Messages } = await client.queue.receive(PID, { name: 'demo', max: 1 });
 ```
 
 ```bash

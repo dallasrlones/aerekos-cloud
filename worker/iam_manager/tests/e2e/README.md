@@ -1,17 +1,23 @@
 # E2E tests — IAM Manager
 
-These are **manual / CI-job** scenarios until Playwright or a full docker-compose test harness is added.
+## Automated (local)
 
-## Prerequisites
-- Conductor and at least one worker running
-- This service built and registered (or `CONDUCTOR_URL` set for auto-register)
+```bash
+cd worker/iam_manager
+npm run test:e2e
+```
 
-## Scenarios (checklist)
-- [ ] **E2E-1:** Start `iam_manager` container; `GET /health` from another container on the same Docker network returns 200.
-- [ ] **E2E-2:** Conductor lists service in registry; proxy `/api/services/iam_manager/...` works if routing is enabled.
-- [ ] **E2E-3:** Graceful shutdown: SIGTERM finishes in-flight requests then exits.
-- [ ] **E2E-4:** Invalid auth (when implemented) returns 401/403 consistently.
-- [ ] **E2E-5:** Load test: baseline latency under expected RPS (define SLO in plan.md).
+Runs `iamFlow.test.js` against the Express app with a temp SQLite DB (`tests/setup.js`). Covers health → create policy/role → attach → evaluate allow/deny → cleanup. No conductor required.
 
-## Automating
-Add `tests/e2e/*.spec.js` with Playwright or run supertest against `docker compose` URLs in CI (`test:e2e:ci` script).
+## Live stack (platform)
+
+When conductor + worker are up:
+
+- `e2e/tier6-app-access.js` — policy evaluate allow/deny through the conductor proxy
+- `e2e/wave2-tunnel-compute-iam.js` — IAM evaluate smoke via SDK `client.proxy`
+
+## Manual checklist (optional ops)
+
+- [ ] **E2E-M1:** Container `GET /health` on the worker Docker network returns 200
+- [ ] **E2E-M2:** Conductor registry lists `iam_manager`; proxy path works with JWT
+- [ ] **E2E-M3:** With `IAM_ENFORCE_PROXY=true`, denied actions return 403 `IamDenied`

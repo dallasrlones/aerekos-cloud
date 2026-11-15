@@ -51,7 +51,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | in_progress | | Wave 5 |
 | `mgr-host_manager` | manager | `worker/host_manager` | in_progress | | Wave 5 |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |
-| `mgr-iot_manager` | manager | `worker/iot_manager` | in_progress | | Wave 5 |
+| `mgr-iot_manager` | manager | `worker/iot_manager` | done | live e2e needs conductor; MQTT broker parked | Wave 5 closeout; health+CRUD+publish-skip+prod-guard tests |
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | in_progress | | Wave 5 |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | done | live e2e needs conductor | Wave 3 closeout 9f8575b |

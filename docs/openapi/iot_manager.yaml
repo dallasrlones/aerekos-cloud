@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  title: iot_manager (IoT Core analog)
+  version: 1.0.0
+  description: |
+    Project-scoped IoT thing records (name/topic/status) plus POST /api/v1/publish
+    that optionally marks a matching thing online and fans out via websocket_manager.
+    SKIP_OUTBOUND skips the websocket proxy call in tests/dev only — refused when
+    NODE_ENV=production (assertNoSkipFakes extra).
+    Conductor proxy prefix: /api/services/iot_manager
+    No production skip-fake flags; createManagerApp → assertNoSkipFakes() on boot.
+servers:
+  - url: http://localhost:3140
+    description: Direct local
+  - url: http://localhost:3000/api/services/iot_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default thing (device-1) when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/publish:
+    post:
+      summary: Publish payload (fan-out via websocket_manager; may skip under SKIP_OUTBOUND)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                topic:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: '{ ok, topic, payload, thing?, skipped? }'
+  /api/v1/things:
+    post:
+      summary: Create a thing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                topic:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List things
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/things/{id}:
+    get:
+      summary: Get one thing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a thing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                topic:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a thing (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a thing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

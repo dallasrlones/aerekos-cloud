@@ -57,6 +57,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `config_manager` | 3136 | `/api/v1/namespaces` | Flags + `/evaluate` |
 | `cert_manager` | 3137 | `/api/v1/certs` | Import PEM or mint self-signed; no ACME; tutorial none |
 | `billing_manager` | 3138 | `/api/v1/meters` | Real quota (never unlimited stub) |
+| `iot_manager` | 3140 | `/api/v1/things` + `/publish` | Things CRUD + websocket fan-out; MQTT broker parked |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
 | `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |

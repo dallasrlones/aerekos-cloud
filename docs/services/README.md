@@ -59,7 +59,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`domain_manager`](domain_manager.md) | Route 53 | 3111 | needs-keys | Cloudflare DNS records (CRUD per zone + project). |
 | [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | Cache rules CRUD + CF purge; Cache Rulesets write parked. |
 | [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |
-| [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | IoT things. |
+| [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | Things CRUD + publish (websocket fan-out); MQTT parked; ManagerConsole (no ServiceGuide). |
 | [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | WAF rules. |
 | [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Headscale preauth keys when HEADSCALE_URL is set; otherwise not-hooked-up. |
 

@@ -756,11 +756,12 @@ const managers = [
   },
   {
     name: 'graphql_manager', aws: 'AppSync', category: 'Dev tools', port: 3141, status: 'implemented',
-    summary: 'GraphQL APIs compiled from Data API models. POST /execute runs queries against those models.',
+    summary: 'GraphQL APIs compiled from Data API models; subset execute via api_manager. Tutorial none.',
     proxyBase: '/api/v1', crud: { segment: 'apis' }, capabilities: ["graphql", "execute"],
     endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default app schema if missing' },
       { method: 'POST', path: '/api/v1/compile', summary: 'Compile schema from Data API models' },
-      { method: 'POST', path: '/api/v1/execute', summary: 'Execute a GraphQL query/mutation against Data API' }
+      { method: 'POST', path: '/api/v1/execute', summary: 'Execute subset GraphQL against Data API' },
     ]
   },
   {

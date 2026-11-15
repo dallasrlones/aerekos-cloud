@@ -1,26 +1,34 @@
 # graphql_manager — AppSync
 
-> **Dev tools** · Implemented
+> **Dev tools** · Implemented · live execute needs conductor + api_manager
 
-GraphQL APIs compiled from Data API models. POST /execute runs queries against those models.
+Project-scoped GraphQL API metadata plus compile/execute against Data API models. Subset GraphQL only (no subscriptions / full AppSync). **Tutorial / ServiceGuide:** none standalone — console generic **ManagerConsole** (no dedicated `CONSOLE_GUIDES` entry). No production skip-fake mocks (`assertNoSkipFakes` via `createManagerApp`).
 
 - **Port:** `3141`
 - **AWS analog:** AppSync
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/graphql_manager{path}` (JWT or service token)
 - **Capabilities:** `graphql`, `execute`
+- **OpenAPI:** `worker/graphql_manager/api/openapi.yaml` (pack copy: `docs/openapi/graphql_manager.yaml`)
+- **SDK/CLI:** `client.resource('graphql_manager', 'apis')`; CLI `aerekos graphql_manager apis …` / `aerekos call`
+
+> ⚠️ **Live execute:** Conductor + `api_manager` Data API required for non-mocked `/execute` and ensure-defaults apply.
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/health` | Liveness |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/api/v1/info` | Service metadata |
+| `POST` | `/api/v1/ensure-defaults` | Seed default `app` schema |
+| `POST` | `/api/v1/compile` | Compile schema from Data API models |
+| `POST` | `/api/v1/execute` | Execute a GraphQL query/mutation against Data API |
 | `POST` | `/api/v1/apis` | Create a api ({ project_id, name, ... }) |
 | `GET` | `/api/v1/apis` | List apis (?project_id=) |
 | `GET` | `/api/v1/apis/:id` | Get one api |
 | `PATCH` | `/api/v1/apis/:id` | Update a api |
 | `DELETE` | `/api/v1/apis/:id` | Delete a api |
-| `POST` | `/api/v1/compile` | Compile schema from Data API models |
-| `POST` | `/api/v1/execute` | Execute a GraphQL query/mutation against Data API |
 
 ## Examples
 
@@ -48,8 +56,9 @@ console.log(await r.list(PID));
 ```bash
 aerekos graphql_manager apis create --project $PID --data '{"name":"demo"}'
 aerekos graphql_manager apis list --project $PID
+aerekos call graphql_manager POST "/api/v1/execute" --project $PID --data '{"name":"app","query":"{ users { id name } }"}'
 ```
 
 ---
 
-_Generated from `docs/catalog.js`. Edit the catalog and run `make docs` to update._
+_Hand-aligned with `worker/graphql_manager` for Wave 5 closeout honesty. Catalog CRUD also lives in `docs/catalog.js`; re-run `make docs` carefully so this page stays accurate._

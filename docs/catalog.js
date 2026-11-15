@@ -830,9 +830,19 @@ const managers = [
   },
   {
     name: 'vpn_manager', aws: 'Client VPN', category: 'Edge', port: 3147, status: 'implemented',
-    summary: 'Headscale preauth keys when HEADSCALE_URL is set; otherwise not-hooked-up.',
+    summary: 'Peers CRUD + Headscale preauth keys when HEADSCALE_URL/API_KEY set; otherwise not-hooked-up. ManagerConsole (no ServiceGuide). No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'peers' }, capabilities: ["vpn"],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/api/v1/status', summary: 'Headscale hookup status' },
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default laptop peer if missing' },
+      { method: 'POST', path: '/api/v1/peers', summary: 'Create a peer' },
+      { method: 'GET', path: '/api/v1/peers', summary: 'List peers (?project_id=)' },
+      { method: 'GET', path: '/api/v1/peers/:id', summary: 'Get one peer' },
+      { method: 'PATCH', path: '/api/v1/peers/:id', summary: 'Update a peer' },
+      { method: 'DELETE', path: '/api/v1/peers/:id', summary: 'Delete a peer' },
       { method: 'POST', path: '/api/v1/preauth-keys', summary: 'Create a Headscale preauth key (or not-hooked-up)' }
     ]
   },

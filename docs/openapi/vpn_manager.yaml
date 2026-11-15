@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: vpn_manager (Client VPN analog)
+  version: 1.0.0
+  description: |
+    Project-scoped VPN peer rows (name/config/status) plus Headscale preauth keys
+    when HEADSCALE_URL + HEADSCALE_API_KEY are set; otherwise GET /api/v1/status and
+    POST /api/v1/preauth-keys report not-hooked-up (503 on create). Naming analog only —
+    not AWS Client VPN. Shared skip-fake flags refused when NODE_ENV=production via
+    assertNoSkipFakes (index + createManagerApp).
+    Conductor proxy prefix: /api/services/vpn_manager
+servers:
+  - url: http://localhost:3147
+    description: Direct local
+  - url: http://localhost:3000/api/services/vpn_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/status:
+    get:
+      summary: Headscale hookup status (hooked_up / missing env)
+      responses:
+        '200':
+          description: '{ hooked_up, missing? | login_server? }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default laptop peer if missing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+  /api/v1/preauth-keys:
+    post:
+      summary: Create a Headscale preauth key (503 when not hooked up)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                reusable:
+                  type: boolean
+                ephemeral:
+                  type: boolean
+                expiration:
+                  type: string
+                aclTags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Headscale preauth key payload
+        '503':
+          description: '{ hooked_up: false, missing: [...] }'
+  /api/v1/peers:
+    post:
+      summary: Create a peer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                config:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List peers
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/peers/{id}:
+    get:
+      summary: Get one peer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a peer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                config:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    put:
+      summary: Update a peer (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a peer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found

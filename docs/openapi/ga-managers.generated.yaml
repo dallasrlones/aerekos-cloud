@@ -948,6 +948,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/status:
+    get:
+      summary: Headscale hookup status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default laptop peer if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/peers:
+    post:
+      summary: Create a peer
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List peers (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/peers/{id}:
+    get:
+      summary: Get one peer
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a peer
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a peer
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/api/v1/preauth-keys:
+    post:
+      summary: Create a Headscale preauth key (or not-hooked-up)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/vpn_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/workflow_manager/api/v1/info:
     get:
       summary: Service metadata (info)

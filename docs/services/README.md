@@ -61,7 +61,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |
 | [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | Things CRUD + publish (websocket fan-out); MQTT parked; ManagerConsole (no ServiceGuide). |
 | [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | WAF rules. |
-| [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Headscale preauth keys when HEADSCALE_URL is set; otherwise not-hooked-up. |
+| [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Peers CRUD + Headscale preauth when URL/key set; otherwise not-hooked-up; no prod mocks. |
 
 ## Integrations
 

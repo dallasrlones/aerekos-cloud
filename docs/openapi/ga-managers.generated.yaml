@@ -720,6 +720,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/query_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed sample query if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/api/v1/sql:
+    post:
+      summary: Run SQL against per-project SQLite (may skip under SKIP_DUCKDB)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/api/v1/queries:
+    post:
+      summary: Create a query
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List queries (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/api/v1/queries/{id}:
+    get:
+      summary: Get one query
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a query
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a query
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/query_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)

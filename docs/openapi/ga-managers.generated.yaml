@@ -106,75 +106,58 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/info:
+  /api/services/balancer_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/ensure-defaults:
+  /api/services/balancer_manager/api/v1/targets:
     post:
-      summary: Seed default vault for project
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/vaults:
-    post:
-      summary: Create a vault
+      summary: Create a target hint
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List vaults (?project_id=)
+      summary: List targets (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/vaults/{id}:
+  /api/services/balancer_manager/api/v1/targets/health:
     get:
-      summary: Get one vault
+      summary: Probe target health (optional ?pool=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets/{id}:
+    get:
+      summary: Get one target
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a vault
+      summary: Update a target
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a vault
+      summary: Delete a target
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/jobs:
-    post:
-      summary: Run a backup job
-      responses:
-        '200':
-          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets/{id}/health:
     get:
-      summary: List backup jobs
+      summary: Probe one target health
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/jobs/{id}:
-    get:
-      summary: Job metadata + signed download URL
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/backup_manager/api/v1/jobs/{id}/restore:
-    post:
-      summary: Restore a snapshot
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/backup_manager/health:
+  /api/services/balancer_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/backup_manager/ready:
+  /api/services/balancer_manager/ready:
     get:
       summary: Readiness
       responses:

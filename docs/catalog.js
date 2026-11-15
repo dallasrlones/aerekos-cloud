@@ -395,8 +395,23 @@ const managers = [
   },
   {
     name: 'balancer_manager', aws: 'ELB', category: 'Edge', port: 3109, status: 'implemented',
-    summary: 'Load-balancer target hints (addresses). No cloud LB provisioning in MVP.',
-    proxyBase: '/api/v1', crud: { segment: 'targets' }, capabilities: ['load-balancing', 'targets']
+    summary: 'Load-balancer target hints (addresses) with optional HTTP health probes. No cloud LB provisioning in MVP.',
+    proxyBase: '/api/v1', crud: { segment: 'targets' }, capabilities: ['load-balancing', 'targets'],
+    endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/targets', summary: 'Create a target hint' },
+      { method: 'GET', path: '/api/v1/targets', summary: 'List targets' },
+      { method: 'GET', path: '/api/v1/targets/:id', summary: 'Get a target' },
+      { method: 'PATCH', path: '/api/v1/targets/:id', summary: 'Update a target' },
+      { method: 'DELETE', path: '/api/v1/targets/:id', summary: 'Delete a target' },
+      { method: 'GET', path: '/api/v1/targets/health', summary: 'Probe target health' },
+      { method: 'GET', path: '/api/v1/targets/:id/health', summary: 'Probe one target' }
+    ],
+    env: [
+      { name: 'SKIP_HEALTH', default: '0', desc: 'Skip live probes (tests only; refused in production)' }
+    ]
   },
 
   // --- Integrations & comms ------------------------------------------------

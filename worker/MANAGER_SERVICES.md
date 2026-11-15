@@ -34,7 +34,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 |---------|------|------------|----------------------|
 | `metrics_manager` | 3105 | `/api/v1/series` | Stored metric samples |
 | `security_manager` | 3108 | `/api/v1/findings` | Security finding rows |
-| `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
+| `balancer_manager` | 3109 | `/api/v1/targets` | Target hints + health probes (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |
 | `sms_manager` | 3114 | `/api/v1/messages` | Queued; outbound send disabled |

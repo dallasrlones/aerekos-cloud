@@ -8,7 +8,7 @@ const validateServiceToken = require('./api/middleware/auth');
 const { db } = require('./api/models');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3102;
 
 // Middleware
 app.use(cors());
@@ -88,6 +88,26 @@ app.get('/ready', async (req, res) => {
   }
 });
 
+// Service metadata (unauthenticated; matches catalog OpenAPI pack)
+app.get('/api/info', (req, res) => {
+  res.status(200).json({
+    service: process.env.SERVICE_NAME || 'key_manager',
+    version: process.env.SERVICE_VERSION || '1.0.0',
+    status: 'active',
+    port: Number(process.env.PORT || PORT),
+  });
+});
+
+// Service metadata (unauthenticated; matches catalog OpenAPI pack)
+app.get('/api/info', (req, res) => {
+  res.status(200).json({
+    service: process.env.SERVICE_NAME || 'key_manager',
+    version: process.env.SERVICE_VERSION || '1.0.0',
+    status: 'active',
+    port: Number(process.env.PORT || PORT),
+  });
+});
+
 // Metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
@@ -116,7 +136,7 @@ app.use('/api/keys', keyRoutes);
 // Error handling
 app.use(errorHandler);
 
-// Start server
+// Start server (skip when imported by tests)
 async function startService() {
   try {
     // Register with conductor first
@@ -140,4 +160,8 @@ async function startService() {
   }
 }
 
-startService();
+if (require.main === module) {
+  startService();
+}
+
+module.exports = app;

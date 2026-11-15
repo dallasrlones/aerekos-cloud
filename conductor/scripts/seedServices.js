@@ -25,7 +25,7 @@ async function seedServices() {
         docker_image: 'aerekos-key_manager:latest',
         enabled: 0,
         config: JSON.stringify({
-          ports: { '3002': '3002' }
+          ports: { '3102': '3102' }
         })
       },
       {
@@ -222,7 +222,7 @@ async function ensureMissingDefaultServices() {
       name: 'key_manager',
       docker_image: 'aerekos-key_manager:latest',
       enabled: 0,
-      config: JSON.stringify({ ports: { '3002': '3002' } })
+      config: JSON.stringify({ ports: { '3102': '3102' } })
     },
     {
       name: 'storage_manager',

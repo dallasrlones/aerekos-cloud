@@ -11,11 +11,11 @@ describe('Service Registration', () => {
     process.env.CONDUCTOR_URL = 'http://localhost:3000';
     process.env.SERVICE_NAME = 'key_manager';
     process.env.SERVICE_VERSION = '1.0.0';
-    process.env.PORT = '3002';
+    process.env.PORT = '3102';
   });
   
   test('should register successfully with conductor', async () => {
-    detectAvailablePort.mockResolvedValue(3002);
+    detectAvailablePort.mockResolvedValue(3102);
     
     axios.post.mockResolvedValue({
       data: {
@@ -34,7 +34,7 @@ describe('Service Registration', () => {
       expect.objectContaining({
         name: 'key_manager',
         version: '1.0.0',
-        port: 3002,
+        port: 3102,
         health_endpoint: '/health',
         ready_endpoint: '/ready',
         capabilities: expect.arrayContaining(['key_management', 'encryption', 'key_rotation'])
@@ -45,7 +45,7 @@ describe('Service Registration', () => {
   });
   
   test('should handle registration failure gracefully', async () => {
-    detectAvailablePort.mockResolvedValue(3002);
+    detectAvailablePort.mockResolvedValue(3102);
 
     const err = new Error('Request failed with status code 500');
     err.response = {
@@ -58,7 +58,7 @@ describe('Service Registration', () => {
   });
   
   test('should handle 404 (endpoint not found) gracefully', async () => {
-    detectAvailablePort.mockResolvedValue(3002);
+    detectAvailablePort.mockResolvedValue(3102);
     
     axios.post.mockRejectedValue({
       response: {

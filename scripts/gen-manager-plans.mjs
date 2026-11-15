@@ -94,7 +94,7 @@ const MANAGERS = {
     ],
   },
   key_manager: {
-    port: 3002, aws: 'KMS', category: 'Core', tier: 'production-ready',
+    port: 3102, aws: 'KMS', category: 'Core', tier: 'production-ready',
     summary: 'Symmetric keys, envelope encryption, rotation. Backs storage + secrets.',
     appAccess: 'admin-only', arn: null,
     scopes: ['N/A — internal KMS'],

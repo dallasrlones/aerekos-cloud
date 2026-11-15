@@ -200,7 +200,18 @@ paths:
           description: Success (shape varies by manager)
   /api/services/key_manager/api/keys/{name}:
     get:
-      summary: Get a key (no secret material)
+      summary: Get a key (includes key_material for authorized callers)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a key (all versions)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/keys/{name}/archive:
+    post:
+      summary: Archive a key (mark inactive)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -213,6 +224,12 @@ paths:
   /api/services/key_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/ready:
+    get:
+      summary: Readiness (DB + MASTER_KEY); conductor proxy skips projectId (isLiveness)
       responses:
         '200':
           description: Success (shape varies by manager)

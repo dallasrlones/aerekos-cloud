@@ -12,7 +12,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`key_manager`](key_manager.md) | KMS | 3002 | implemented | Key management service: symmetric/data keys, envelope encryption, rotation. |
+| [`key_manager`](key_manager.md) | KMS | 3102 | implemented | Key management service: symmetric/data keys, envelope encryption, rotation. |
 | [`storage_manager`](storage_manager.md) | S3 | 3003 | implemented | Object storage: buckets + objects with envelope encryption, multipart/chunked uploads, and signed URLs. |
 | [`db_manager`](db_manager.md) | RDS | 3004 | implemented | Managed database control plane: provision/start/stop/restart database containers, backups + restore, health and volumes. |
 

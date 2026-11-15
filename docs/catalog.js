@@ -93,16 +93,26 @@ const conductor = {
 const managers = [
   // --- Core ----------------------------------------------------------------
   {
-    name: 'key_manager', aws: 'KMS', category: 'Core', port: 3002, status: 'implemented',
+    name: 'key_manager', aws: 'KMS', category: 'Core', port: 3102, status: 'implemented',
     summary: 'Key management service: symmetric/data keys, envelope encryption, rotation. Backs storage + secrets encryption.',
     proxyBase: '/api', capabilities: ['kms', 'encryption', 'keys'],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite); conductor proxy skips projectId (isLiveness)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness (DB + MASTER_KEY); conductor proxy skips projectId (isLiveness)' },
+      { method: 'GET', path: '/api/info', summary: 'Service metadata (unauthenticated)' },
       { method: 'POST', path: '/api/keys', summary: 'Create a key ({ name, type, algorithm })' },
       { method: 'GET', path: '/api/keys', summary: 'List keys' },
-      { method: 'GET', path: '/api/keys/:name', summary: 'Get a key (no secret material)' },
-      { method: 'POST', path: '/api/keys/:name/rotate', summary: 'Rotate a key' }
+      { method: 'GET', path: '/api/keys/:name', summary: 'Get a key (includes key_material for authorized callers)' },
+      { method: 'POST', path: '/api/keys/:name/rotate', summary: 'Rotate a key' },
+      { method: 'POST', path: '/api/keys/:name/archive', summary: 'Archive a key (mark inactive)' },
+      { method: 'DELETE', path: '/api/keys/:name', summary: 'Delete a key (all versions)' }
     ],
-    env: [{ name: 'MASTER_KEY', default: '-', desc: '64 hex chars (AES-256 master key). Required.' }]
+    env: [
+      { name: 'PORT', default: '3102', desc: 'Listen port (matches conductor managerServicePorts)' },
+      { name: 'MASTER_KEY', default: '-', desc: '64 hex chars (AES-256 master key). Required; all-zero refused in production.' },
+      { name: 'CONDUCTOR_URL', default: '', desc: 'Conductor URL for auto-registration' },
+      { name: 'DATABASE_PATH', default: '/app/data/key_manager.db', desc: 'SQLite path for key store' }
+    ]
   },
   {
     name: 'storage_manager', aws: 'S3', category: 'Core', port: 3003, status: 'implemented',

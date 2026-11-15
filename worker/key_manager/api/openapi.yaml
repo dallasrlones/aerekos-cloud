@@ -5,7 +5,7 @@ info:
   description: Enterprise key management service for aerekos-cloud
 
 servers:
-  - url: http://localhost:3002
+  - url: http://localhost:3102
     description: Local development
   - url: https://conductor.example.com/api/services/key_manager
     description: Production (via conductor)
@@ -264,6 +264,27 @@ paths:
                 $ref: '#/components/schemas/Key'
         '404':
           description: Key not found
+
+  /api/info:
+    get:
+      summary: Service metadata
+      tags: [Health]
+      responses:
+        '200':
+          description: Active service info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  status:
+                    type: string
+                  port:
+                    type: integer
 
   /health:
     get:

@@ -106,6 +106,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/audit_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/audit_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed bootstrap event if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/audit_manager/api/v1/ingest:
+    post:
+      summary: Convenience writer for audit events
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/audit_manager/api/v1/events:
+    post:
+      summary: Create a event
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List events (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/audit_manager/api/v1/events/{id}:
+    get:
+      summary: Get one event
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a event
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a event
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/audit_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/code_as_infra/api/v1/info:
     get:
       summary: Service metadata (info)

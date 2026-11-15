@@ -784,8 +784,12 @@ const managers = [
   },
   {
     name: 'audit_manager', aws: 'CloudTrail', category: 'Observability', port: 3149, status: 'implemented',
-    summary: 'Audit events.',
-    proxyBase: '/api/v1', crud: { segment: 'events' }, capabilities: ["audit"]
+    summary: 'Audit events CRUD + ingest (CloudTrail analog). Tutorial: none — ManagerConsole / ObservabilityPanel.',
+    proxyBase: '/api/v1', crud: { segment: 'events' }, capabilities: ["audit"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed bootstrap event if missing' },
+      { method: 'POST', path: '/api/v1/ingest', summary: 'Convenience writer for audit events' }
+    ]
   },
   {
     name: 'status_manager', aws: 'Statuspage', category: 'Observability', port: 3150, status: 'implemented',

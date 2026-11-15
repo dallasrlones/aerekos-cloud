@@ -41,6 +41,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `slack_manager` | 3115 | `/api/v1/messages` | Queued; outbound send disabled |
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
+| `audit_manager` | 3149 | `/api/v1/events` + `/ingest` | Audit events (CloudTrail analog); tutorial none |
 | `cdn_manager` | 3118 | `/api/v1/rules` | CDN-style rules (config only) |
 | `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |
 | `code_as_infra` | 3120 | `/api/v1/modules` | IaC modules/snippets CRUD; no apply engine (experimental) |

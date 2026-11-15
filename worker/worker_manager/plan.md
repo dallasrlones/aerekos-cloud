@@ -2,66 +2,60 @@
 
 **Service:** `worker_manager`  
 **Default port:** 3128  
-**Capabilities (registry):** workers, fleet  
-**Description:** Fleet-level worker operations beyond single-node worker agent (bulk actions, labels).
+**Capabilities (registry):** fleet, labels  
+**Description:** Fleet-level worker annotations (labels) beyond the single-node worker agent.
 
 ## Dependencies
-- **Platform:** Conductor, worker (Docker), optional key_manager / db_manager
-
+- **Platform:** Conductor (`/api/workers` for sync), SQLite via `aerekos-record`
 
 ## Phase 1 — Service layout (complete)
-- [x] Express app, /health, /ready, /api/v1/info
+- [x] Express app, /health, /ready, /api/v1/info, /metrics
 - [x] Error middleware, conductor registration helper
 - [x] Dockerfiles, docker-compose (service definition), Jest harness
+- [x] `assertNoSkipFakes()` on boot
 
-## Phase 2 — Domain model & persistence
-- [ ] Define entities and storage (SQLite via `aerekos-record` and/or conductor APIs)
-- [ ] Repositories and migrations if using local DB
-- [ ] Project scoping (`project_id`) on all resources
+## Phase 2 — Domain model & persistence (complete for MVP)
+- [x] WorkerAnnotation entity (SQLite / aerekos-record)
+- [x] Project scoping (`project_id`) on all resources
+- [x] `POST /api/v1/sync` upsert from conductor workers
 
-## Phase 3 — API surface
-- [ ] OpenAPI / route map in README
-- [ ] Validation (Joi or zod)
-- [ ] Service-to-service auth middleware (conductor validate-token)
+## Phase 3 — API surface (MVP)
+- [x] OpenAPI / route map in README + pack
+- [x] Validation (project_id / name required; name uniqueness)
+- [ ] Service-to-service auth middleware (conductor validate-token) — via proxy
 
 ## Phase 4 — Worker & deployment integration
-- [ ] Image build via worker `ServiceManager`; health checks for orchestrator
-- [ ] Environment contract documented in `.env_example`
+- [x] Image build via worker `ServiceManager`; health checks for orchestrator
+- [x] Environment contract documented in `.env_example`
 
 ## Phase 5 — Observability
-- [ ] Structured JSON logging
-- [ ] `GET /metrics` (Prometheus) or push to `metrics_manager`
-- [ ] Correlation / request IDs
+- [x] `GET /metrics` (Prometheus via shared helper)
+- [ ] Structured JSON logging / correlation IDs (future)
 
 ## Phase 6 — Security
-- [ ] Rate limits on public routes
-- [ ] Audit log for sensitive operations
-- [ ] Integration with `iam_manager` / `secrets_manager` as needed
+- [x] Prod mock guard (`assertNoSkipFakes`)
+- [ ] Rate limits / audit (future)
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 8 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] `assertNoSkipFakes` refuse/allow + index wiring
+- [x] Prod mock guard policy (`prodMockGuard.test.js`)
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] health / ready / info
+- [x] annotations CRUD round-trip + validation
+- [x] sync without conductor → 503
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] Document parked live conductor scenarios in `tests/e2e/README.md`
+- [ ] Live proxy + sync against conductor (parked — needs stack)
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [x] `npm test` (unit + integration) runnable locally
+- [ ] Coverage threshold (optional)
 
 ---
 

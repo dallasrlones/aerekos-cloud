@@ -674,7 +674,7 @@ const managers = [
   },
   {
     name: 'worker_manager', aws: 'SSM fleet / tags', category: 'Platform', port: 3128, status: 'implemented',
-    summary: 'Worker/fleet labels synced from conductor /api/workers.',
+    summary: 'Worker/fleet annotations CRUD + sync from /api/workers; SSM naming analog only; live e2e parked; no prod mocks; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'annotations' }, capabilities: ['fleet', 'labels'],
     endpoints: [
       { method: 'POST', path: '/api/v1/sync', summary: 'Sync annotations from conductor workers' }

@@ -106,6 +106,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/config_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/config_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default app namespace if empty
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/config_manager/api/v1/namespaces:
+    post:
+      summary: Create a namespace
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List namespaces (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/config_manager/api/v1/namespaces/{id}:
+    get:
+      summary: Get one namespace
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a namespace
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a namespace
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/config_manager/api/v1/evaluate:
+    post:
+      summary: Evaluate flags from stored namespaces
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/config_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/compute_manager/api/v1/deployments/{id}:
     put:
       summary: Apply declarative Deployment

@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes({ extra: ['SKIP_OUTBOUND'] });
 require('./api/models');
 const db = require('./api/utils/dbClient');
 const { createManagerApp } = require('../shared/managerBootstrap');
@@ -15,6 +17,7 @@ const { app, listen } = createManagerApp({
     expressApp.use('/api/v1', router);
   },
 });
+
 
 if (require.main === module) listen();
 module.exports = app;

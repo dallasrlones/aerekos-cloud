@@ -560,6 +560,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/iot_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default thing if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/api/v1/publish:
+    post:
+      summary: Publish payload (websocket fan-out)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/api/v1/things:
+    post:
+      summary: Create a thing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List things (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/api/v1/things/{id}:
+    get:
+      summary: Get one thing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a thing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a thing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iot_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/key_manager/api/info:
     get:
       summary: Service metadata (info)

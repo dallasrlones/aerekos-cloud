@@ -751,9 +751,14 @@ const managers = [
   },
   {
     name: 'iot_manager', aws: 'IoT Core', category: 'Edge', port: 3140, status: 'implemented',
-    summary: 'IoT things.',
-    proxyBase: '/api/v1', crud: { segment: 'things' }, capabilities: ["iot","mqtt"]
+    summary: 'Things CRUD + publish (websocket fan-out); MQTT broker parked; ManagerConsole (no ServiceGuide).',
+    proxyBase: '/api/v1', crud: { segment: 'things' }, capabilities: ["iot","mqtt"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default thing if missing' },
+      { method: 'POST', path: '/api/v1/publish', summary: 'Publish payload (websocket fan-out; may skip under SKIP_OUTBOUND)' }
+    ]
   },
+
   {
     name: 'graphql_manager', aws: 'AppSync', category: 'Dev tools', port: 3141, status: 'implemented',
     summary: 'GraphQL APIs compiled from Data API models; subset execute via api_manager. Tutorial none.',

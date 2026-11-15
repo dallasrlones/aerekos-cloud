@@ -431,9 +431,9 @@ const managers = [
   },
   {
     name: 'email_manager', aws: 'SES', category: 'Integrations', port: 3113, status: 'needs-keys',
-    summary: 'Email messages (to/subject/body). Send when SMTP secrets exist; otherwise queue-only.',
+    summary: 'Email messages CRUD + send. SMTP when secrets exist; otherwise queue-only. ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['email'],
-    needsKeys: 'Queued only this pass. Do not retry live SMTP send.'
+    needsKeys: 'Queued without SMTP secrets. Do not retry live SMTP send in e2e without keys.'
   },
   {
     name: 'sms_manager', aws: 'SNS SMS', category: 'Integrations', port: 3114, status: 'needs-keys',

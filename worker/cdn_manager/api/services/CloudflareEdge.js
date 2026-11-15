@@ -10,6 +10,10 @@ function zone() {
   return process.env.CLOUDFLARE_ZONE_ID || '';
 }
 
+/**
+ * Live purge against Cloudflare when token + zone are set.
+ * Missing credentials → honest { purged: false } (not a mock success).
+ */
 async function purge({ prefixes, hosts, tags } = {}) {
   if (!token() || !zone()) {
     return { purged: false, reason: 'cloudflare token or zone missing' };
@@ -22,26 +26,33 @@ async function purge({ prefixes, hosts, tags } = {}) {
   return { purged: !!data.success, errors: data.errors || [] };
 }
 
+/**
+ * Cache Rules API write is parked (EDGE-PRO-4a). Never claim applied:true without a live call.
+ */
 async function putCacheRule({ name, expression, edge_ttl_seconds }) {
   if (!token() || !zone()) {
     return { applied: false, reason: 'cloudflare token or zone missing' };
   }
   return {
-    applied: true,
-    queued: true,
+    applied: false,
+    parked: true,
     name,
     expression,
     edge_ttl_seconds,
-    note: 'Use existing Cloudflare dashboard rules if API plan lacks Rulesets write.',
+    reason: 'CF Cache Rulesets write not implemented (EDGE-PRO-4a); use dashboard until wired',
   };
 }
 
+/**
+ * WAF/Access stay on the Cloudflare account. Intent-only — never fake applied:true.
+ */
 async function putWafNote({ name, rate_limit }) {
   return {
-    applied: true,
+    applied: false,
+    parked: true,
     name,
     rate_limit: rate_limit || 60,
-    note: 'WAF/Access stay on the existing Cloudflare account; this records intent only.',
+    reason: 'WAF/Access remain on Cloudflare account; this records intent only (EDGE-PRO)',
   };
 }
 

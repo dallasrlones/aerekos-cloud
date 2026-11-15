@@ -57,7 +57,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Create/delete Cloudflare tunnels (cloudflared) from the edge to private origins. |
 | [`domain_manager`](domain_manager.md) | Route 53 | 3111 | needs-keys | Cloudflare DNS records (CRUD per zone + project). |
-| [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | CDN-style cache rules (path pattern, origin, TTL). |
+| [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | Cache rules CRUD + CF purge; Cache Rulesets write parked. |
 | [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |
 | [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | IoT things. |
 | [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | WAF rules. |

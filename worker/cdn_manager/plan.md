@@ -6,66 +6,61 @@
 **Description:** CDN configuration and cache rule management (provider-pluggable).
 
 ## Dependencies
-- **Platform:** Conductor, worker (Docker), optional key_manager / db_manager
-
+- **Platform:** Conductor, worker (Docker), optional secrets_manager / domain_manager
+- **Pro edge:** Cloudflare token + zone (see `docs/plans/cdn_manager.md`)
 
 ## Phase 1 — Service layout (complete)
 - [x] Express app, /health, /ready, /api/v1/info
 - [x] Error middleware, conductor registration helper
 - [x] Dockerfiles, docker-compose (service definition), Jest harness
+- [x] `assertNoSkipFakes()` on boot
 
 ## Phase 2 — Domain model & persistence
-- [ ] Define entities and storage (SQLite via `aerekos-record` and/or conductor APIs)
-- [ ] Repositories and migrations if using local DB
-- [ ] Project scoping (`project_id`) on all resources
+- [x] `CdnRule` SQLite via `aerekos-record` (project_id, name, path_pattern, origin, cache_ttl_seconds)
+- [x] Project scoping (`project_id`) on all rule resources
 
 ## Phase 3 — API surface
-- [ ] OpenAPI / route map in README
-- [ ] Validation (Joi or zod)
-- [ ] Service-to-service auth middleware (conductor validate-token)
+- [x] OpenAPI / route map in README + `api/openapi.yaml`
+- [x] Rules CRUD + probe; purge / parked cache-rules / waf endpoints
+- [ ] Service-to-service auth middleware (conductor validate-token) — parked with live e2e
 
 ## Phase 4 — Worker & deployment integration
-- [ ] Image build via worker `ServiceManager`; health checks for orchestrator
-- [ ] Environment contract documented in `.env_example`
+- [x] Image build via worker `ServiceManager`; health checks for orchestrator
+- [x] Environment contract documented in `.env_example`
 
 ## Phase 5 — Observability
-- [ ] Structured JSON logging
-- [ ] `GET /metrics` (Prometheus) or push to `metrics_manager`
-- [ ] Correlation / request IDs
+- [x] `GET /metrics` (Prometheus via shared helper)
+- [ ] Structured JSON logging / correlation IDs — deferred
 
-## Phase 6 — Security
-- [ ] Rate limits on public routes
-- [ ] Audit log for sensitive operations
-- [ ] Integration with `iam_manager` / `secrets_manager` as needed
+## Phase 6 — Security / edge pro
+- [x] No prod mocks / skip-fake flags in production
+- [ ] EDGE-PRO-4a–4g CF Cache Rules write + EdgeManager CDN tab — parked
+
+## SDK / CLI / tutorial
+- SDK/CLI: generic proxy / `aerekos call` / `client.resource('cdn_manager', 'rules')` only
+- Tutorial / ServiceGuide: **none** (no `CONSOLE_GUIDES.cdn_manager`)
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 4 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] Prod mock guard / `assertNoSkipFakes` (`tests/unit/health.test.js`, `prodMockGuard.test.js`)
+- [x] CloudflareEdge honesty — no fake `applied:true` (`tests/unit/CloudflareEdge.test.js`)
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] `/health`, `/ready`, `/api/v1/info` (`tests/integration/health.test.js`)
+- [x] Rules CRUD + parked purge/cache-rules (`tests/integration/crud.test.js`)
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] Documented in `tests/e2e/README.md` — live proxy parked pending conductor
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [x] `npm test` (Node 20) green for unit + integration
 
 ---
 
 ## References
 - [new_service.md](../../new_service.md)
-- [backend_guidelines.md](../../backend_guidelines.md)
+- [docs/plans/cdn_manager.md](../../docs/plans/cdn_manager.md)
 - [testing_guidelines.md](../../testing_guidelines.md)

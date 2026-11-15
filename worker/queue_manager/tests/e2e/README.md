@@ -1,17 +1,21 @@
 # E2E tests — Queue Manager
 
-These are **manual / CI-job** scenarios until Playwright or a full docker-compose test harness is added.
+## Automated (Jest)
 
-## Prerequisites
-- Conductor and at least one worker running
-- This service built and registered (or `CONDUCTOR_URL` set for auto-register)
+```bash
+cd worker/queue_manager
+npm run test:e2e
+# or: npm test  (includes tests/e2e/*.test.js)
+```
 
-## Scenarios (checklist)
-- [ ] **E2E-1:** Start `queue_manager` container; `GET /health` from another container on the same Docker network returns 200.
-- [ ] **E2E-2:** Conductor lists service in registry; proxy `/api/services/queue_manager/...` works if routing is enabled.
-- [ ] **E2E-3:** Graceful shutdown: SIGTERM finishes in-flight requests then exits.
-- [ ] **E2E-4:** Invalid auth (when implemented) returns 401/403 consistently.
-- [ ] **E2E-5:** Load test: baseline latency under expected RPS (define SLO in plan.md).
+`queueFlow.test.js` runs the real Express app in-process (SQLite, `SKIP_BROKER=1`): health, create/send/receive/ack/delete, and asserts queues are **not** auto-created (including `capacity-wait`).
 
-## Automating
-Add `tests/e2e/*.spec.js` with Playwright or run supertest against `docker compose` URLs in CI (`test:e2e:ci` script).
+## Live stack (manual / CI job)
+
+- **E2E-live-1:** Start `queue_manager` container; `GET /health` on the Docker network returns 200.
+- **E2E-live-2:** Conductor proxy `/api/services/queue_manager/api/v1/...` with JWT or service token.
+- **E2E-live-3:** RabbitMQ / Redis engines only when `SKIP_BROKER` is unset and brokers are up (`RABBITMQ_URL` / `REDIS_URL`).
+
+## Parked: capacity-wait UI noise
+
+Conductor `SystemHome` may `GET .../queues/capacity-wait/messages`. This manager does **not** seed `capacity-wait`, and there is **no** `GET .../messages` route (receive is `POST .../messages/receive`). Treat 404s as a conductor UI / product gap — not a queue_manager create obligation.

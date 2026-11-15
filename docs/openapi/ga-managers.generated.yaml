@@ -181,6 +181,101 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/evaluate:
+    post:
+      summary: Evaluate allow/deny for action + resource
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/policies:
+    post:
+      summary: Create a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List policies
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/policies/{id}:
+    get:
+      summary: Get a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles:
+    post:
+      summary: Create a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List roles
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{id}:
+    get:
+      summary: Get a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{roleId}/policies:
+    post:
+      summary: Attach a policy to a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: "List a role's policies"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{roleId}/policies/{policyId}:
+    delete:
+      summary: Detach a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/key_manager/api/info:
     get:
       summary: Service metadata (info)

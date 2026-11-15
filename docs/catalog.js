@@ -241,6 +241,9 @@ const managers = [
     summary: 'Roles, allow/deny JSON policies, role↔policy bindings, and evaluate. Conductor enforces when IAM_ENFORCE_PROXY=true.',
     proxyBase: '/api/v1', capabilities: ['rbac', 'roles', 'policies'],
     endpoints: [
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
       { method: 'POST', path: '/api/v1/roles', summary: 'Create a role' },
       { method: 'GET', path: '/api/v1/roles', summary: 'List roles' },
       { method: 'GET', path: '/api/v1/roles/:id', summary: 'Get a role' },

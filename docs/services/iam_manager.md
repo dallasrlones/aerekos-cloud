@@ -48,14 +48,14 @@ curl -s -X POST \
   -d '{"project_id":"'$PID'","name":"demo"}'
 ```
 
-**SDK (Node)** — generic proxy (no dedicated `client.iam` helper yet)
+**SDK (Node)** — thin `client.iam.evaluate` → conductor `POST /api/iam/evaluate`; CRUD via proxy / `client.svc.iam_manager`
 
 ```js
-await client.proxy('iam_manager', {
-  method: 'POST',
-  path: '/api/v1/evaluate',
-  projectId: PID,
-  body: { project_id: PID, role_name: 'demo', action: 'storage:GetObject', resource_arn: ARN },
+await client.iam.evaluate({
+  project_id: PID,
+  role_name: 'demo',
+  action: 'storage:GetObject',
+  resource_arn: ARN,
 });
 ```
 

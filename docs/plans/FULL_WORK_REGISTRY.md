@@ -50,7 +50,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-git_manager` | manager | `worker/git_manager` | pending | | closeout DoD |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
-| `mgr-iam_manager` | manager | `worker/iam_manager` | in_progress | | Wave 1 salvage 2791fd9; finish DoD |
+| `mgr-iam_manager` | manager | `worker/iam_manager` | done | | Wave 1 closeout: health/proxy, OpenAPI pack, docs honesty, tests 17; live e2e needs conductor (`tier6-app-access` / `wave2-tunnel-compute-iam`) |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | pending | | closeout DoD |
 | `mgr-key_manager` | manager | `worker/key_manager` | in_progress | prior agent crash | Wave 1 relaunch `.wt/mgr-key_manager` |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |

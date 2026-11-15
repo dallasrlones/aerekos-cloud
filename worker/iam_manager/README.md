@@ -40,20 +40,33 @@ All CRUD/evaluate calls require **`project_id`** (query, body, or `X-Project-Id`
 
 ## SDK / CLI
 
-No dedicated typed SDK client or `aerekos iam …` verbs yet — use the generic proxy:
+Thin evaluate helper on the SDK (conductor shortcut, not full CRUD):
+
+```js
+await client.iam.evaluate({
+  project_id: PID,
+  role_name: 'reader',
+  action: 'storage:GetObject',
+  resource_arn: ARN,
+}); // POST /api/iam/evaluate
+```
+
+Roles/policies/bindings use the generic proxy (or `client.svc.iam_manager`):
 
 ```js
 await client.proxy('iam_manager', {
   method: 'POST',
-  path: '/api/v1/evaluate',
+  path: '/api/v1/roles',
   projectId: PID,
-  body: { project_id: PID, role_name: 'reader', action: 'storage:GetObject', resource_arn: ARN },
+  body: { project_id: PID, name: 'reader' },
 });
 ```
 
+No dedicated `aerekos iam …` CLI verbs — use `aerekos call`:
+
 ```bash
 aerekos call iam_manager POST "/api/v1/evaluate" --project $PID \
-  --data '{"project_id":"'"$PID"'","role_name":"reader","action":"storage:GetObject","resource":"'"$ARN"'"}'
+  --data '{"project_id":"'"$PID"'","role_name":"reader","action":"storage:GetObject","resource_arn":"'"$ARN"'"}'
 ```
 
 Catalog entry: `aerekos-sdk/managers.generated.js` → `iam_manager`.

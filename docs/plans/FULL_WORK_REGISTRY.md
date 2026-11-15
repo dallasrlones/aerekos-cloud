@@ -95,7 +95,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-user-system-safe` | cross | platform | done | db_manager + object-delete + unprotect gaps | Wave 9 closeout 0fbfef4b; SYSTEM_BUCKET_IMMUTABLE; docs/runbooks/system-safe-resources.md |
 | `x-cross-platform` | cross | platform | done | live registry/fleet image mirror + Orin AI pulls parked | Wave 9 closeout 5ae03d86; offline-images + make images-*; DOCKER.md |
 | `x-git-iac-all-projects` | cross | platform | done |  | Wave 10 closeout 930f7aa0; plan+ensure checklist; auto-provision hook next |
-| `x-pr-review-ux` | cross | platform | in_progress |  | Wave 10 |
+| `x-pr-review-ux` | cross | platform | done |  | Wave 10 closeout 67b97325; reviewRequired helper + docs; console UX next |
 
 ## Epics (from docs/todo.md)
 

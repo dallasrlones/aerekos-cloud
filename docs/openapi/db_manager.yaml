@@ -1,0 +1,127 @@
+openapi: 3.0.3
+info:
+  title: aerekos RDS (db_manager)
+  version: 1.0.0
+  description: |
+    Catalog-derived contract for db_manager.
+    Managed database control plane: provision/start/stop/restart engines (postgresql, mongodb, neo4j, elasticsearch, redis, sqlite3, lancedb), backups + restore, volumes, LanceDB vectors, constrained memory SQL.
+    Access via conductor: {VERB} {CONDUCTOR}/api/services/db_manager{path}
+    Thin pack from docs/catalog.js; prefer worker/db_manager/api/openapi.yaml when present.
+servers:
+  - url: http://localhost:3004
+    description: Local development
+  - url: /api/services/db_manager
+    description: Via conductor proxy
+paths:
+  /api/databases:
+    post:
+      summary: Provision a database (project_id query only; type required)
+      responses:
+        '200':
+          description: Success (shape varies)
+    get:
+      summary: List databases
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}:
+    get:
+      summary: Get a database (includes arn)
+      responses:
+        '200':
+          description: Success (shape varies)
+    delete:
+      summary: Delete
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/backups:
+    post:
+      summary: Create a backup
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/backups/{backupId}/restore:
+    post:
+      summary: Restore a backup
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/connection:
+    get:
+      summary: Connection info
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/health:
+    get:
+      summary: Health
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/memory/sql:
+    post:
+      summary: Constrained memory SQL (sqlite3)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/restart:
+    post:
+      summary: Restart
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/start:
+    post:
+      summary: Start
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/stop:
+    post:
+      summary: Stop
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/vectors:
+    delete:
+      summary: Delete vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/vectors/search:
+    post:
+      summary: Search vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/vectors/upsert:
+    post:
+      summary: Upsert vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/databases/{name}/volumes:
+    get:
+      summary: Volume / mount metadata
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: Success (shape varies)
+  /health:
+    get:
+      summary: Liveness (control-plane SQLite)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /ready:
+    get:
+      summary: Readiness (key_manager unless MOCK_KEY_MANAGER)
+      responses:
+        '200':
+          description: Success (shape varies)

@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: aerekos SQS (queue_manager)
+  version: 1.0.0
+  description: |
+    Catalog-derived contract for queue_manager.
+    Project-scoped queues: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream. At-least-once + visibility (default 30s). Optional DLQ. Does not auto-create capacity-wait. Default store SQLite; AEREKOS_QUEUE_PROVIDER=local_nats is in-memory non-prod only.
+    Access via conductor: {VERB} {CONDUCTOR}/api/services/queue_manager{path}
+    Thin pack from docs/catalog.js; prefer worker/queue_manager/api/openapi.yaml when present.
+servers:
+  - url: http://localhost:3101
+    description: Local development
+  - url: /api/services/queue_manager
+    description: Via conductor proxy
+paths:
+  /api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues:
+    post:
+      summary: "Create a queue (engine, dlq, visibility optional)"
+      responses:
+        '200':
+          description: Success (shape varies)
+    get:
+      summary: "List queues (engine, dlq, depth)"
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues/{name}:
+    get:
+      summary: Get a queue
+      responses:
+        '200':
+          description: Success (shape varies)
+    patch:
+      summary: Update visibility / dlq / max_receive
+      responses:
+        '200':
+          description: Success (shape varies)
+    delete:
+      summary: Delete a queue
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues/{name}/messages:
+    post:
+      summary: Send a message
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues/{name}/messages/{messageId}:
+    delete:
+      summary: Delete (ack) a message
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues/{name}/messages/{messageId}/visibility:
+    post:
+      summary: Change visibility
+      responses:
+        '200':
+          description: Success (shape varies)
+  /api/v1/queues/{name}/messages/receive:
+    post:
+      summary: Receive messages (POST only; no GET list)
+      responses:
+        '200':
+          description: Success (shape varies)
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: Success (shape varies)

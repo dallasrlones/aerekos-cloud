@@ -505,6 +505,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/workflow_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/workflow_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed hello machine if empty
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/workflow_manager/api/v1/machines:
+    post:
+      summary: Create a machine
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List machines (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/workflow_manager/api/v1/machines/{id}:
+    get:
+      summary: Get one machine
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a machine
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a machine
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/workflow_manager/api/v1/machines/{id}/run:
+    post:
+      summary: Run a machine (skips email/sms/slack/push when outbound disabled)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/workflow_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/workers:
     get:
       summary: List workers

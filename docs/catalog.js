@@ -637,10 +637,16 @@ const managers = [
   },
   {
     name: 'workflow_manager', aws: 'Step Functions', category: 'Compute', port: 3135, status: 'implemented',
-    summary: 'Run state machines (http, queue, wait, choice, function). Email/SMS/Slack steps are skipped.',
+    summary: 'State machines (subset ASL: http, queue, wait, choice, function). Outbound notify skipped. Tutorial: none. No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'machines' }, capabilities: ["workflow"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/machines/:id/run', summary: 'Run a machine (skips email/sms/slack steps)' }
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed hello machine if empty' },
+      { method: 'POST', path: '/api/v1/machines', summary: 'Create a machine' },
+      { method: 'GET', path: '/api/v1/machines', summary: 'List machines (?project_id=)' },
+      { method: 'GET', path: '/api/v1/machines/:id', summary: 'Get one machine' },
+      { method: 'PATCH', path: '/api/v1/machines/:id', summary: 'Update a machine' },
+      { method: 'DELETE', path: '/api/v1/machines/:id', summary: 'Delete a machine' },
+      { method: 'POST', path: '/api/v1/machines/:id/run', summary: 'Run a machine (skips email/sms/slack/push when outbound disabled)' }
     ]
   },
   {

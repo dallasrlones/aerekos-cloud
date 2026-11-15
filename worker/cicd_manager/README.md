@@ -1,18 +1,52 @@
 # CI/CD Manager
 
-Trigger and track build/deploy pipelines; integrates with worker deployments.
+**AWS analog:** CodePipeline · **Port:** `3119`
+
+Project-scoped **pipelines** (CRUD `/api/v1/pipelines`) with `POST …/run` (test / deploy / build-image / apply-stack / fleet) and `POST /api/v1/pipelines/run-for-repo` for git push matching. SQLite via `aerekos-record`. Deploy/build proxies to `compute_manager`; workflow YAML / checks via `git_manager`. Live CI runners executing arbitrary jobs are **out of scope** for MVP.
+
+No production mocks — `assertNoSkipFakes()` on boot refuses shared skip-fake flags when `NODE_ENV=production`.
 
 ## Status
 
-**MVP** — project-scoped CRUD on a SQLite-backed entity, plus `/health`, `/ready`, `/api/v1/info`, and `/metrics`. See [`../MANAGER_SERVICES.md`](../MANAGER_SERVICES.md) for the exact route this manager exposes. Live CI runners (executing pipelines) are **out of scope** for the MVP — see [`plan.md`](./plan.md) for follow-ups.
+**MVP / implemented** — pipelines CRUD, run actions, run-for-repo, `/health`, `/ready`, `/api/v1/info`, `/metrics`.
 
-## Quick start (local)
+**Tutorial:** none standalone. Console **CicdManager** screen (no in-app ServiceGuide).
+
+## Access
+
+- Direct: `http://localhost:3119/...`
+- Conductor proxy: `{CONDUCTOR}/api/services/cicd_manager{path}` (JWT or service token)
+
+## Paths
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/metrics` | Prometheus text |
+| `GET` | `/api/v1/info` | Metadata (`status: "active"`) |
+| `POST` | `/api/v1/pipelines` | Create (`project_id`, `name`, …) |
+| `GET` | `/api/v1/pipelines` | List (`?project_id=` · optional `environment`) |
+| `GET` | `/api/v1/pipelines/:id` | Get one |
+| `PATCH`/`PUT` | `/api/v1/pipelines/:id` | Update (e.g. link `target_container_id`) |
+| `DELETE` | `/api/v1/pipelines/:id` | Delete |
+| `POST` | `/api/v1/pipelines/:id/run` | Run (`action`: test / deploy / …) |
+| `POST` | `/api/v1/pipelines/run-for-repo` | Match + run for a repo push |
+
+OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml) · pack copy [`docs/openapi/cicd_manager.yaml`](../../docs/openapi/cicd_manager.yaml). Catalog mirror: [`docs/services/cicd_manager.md`](../../docs/services/cicd_manager.md).
+
+## SDK / CLI
+
+- **SDK (Node):** generic `client.resource('cicd_manager', 'pipelines')` or `client.proxy('cicd_manager', …)`. No typed `client.cicd` helper.
+- **CLI:** `aerekos cicd_manager pipelines list|get|create|update|delete --project $PID` · run via `aerekos call cicd_manager POST "/api/v1/pipelines/:id/run" …`
+
+## Quick start
 
 ```bash
 cd worker/cicd_manager
 cp .env_example .env
 npm install
-npm run dev
+npm start
 # curl http://localhost:3119/health
 ```
 
@@ -32,21 +66,13 @@ docker compose -f docker-compose.yml up --build
 
 | Layer | Command | Notes |
 |-------|---------|--------|
-| Unit | `npm run test:unit` | Extend `tests/unit/` |
-| Integration | `npm run test:integration` | supertest against exported app |
-| Coverage | `npm run test:coverage` | |
-| E2E | `tests/e2e/README.md` | Manual + optional CI |
+| Unit | `npm run test:unit` | deploy + runForRepo (mocked proxy) |
+| Integration | `npm run test:integration` | health/ready/info + pipelines CRUD |
+| All | `npm test` | unit + integration |
+| E2E | [`tests/e2e/README.md`](./tests/e2e/README.md) | live proxy parked; root `e2e/catalog.js` |
 
-## API (skeleton only)
+## Related
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /health | Liveness |
-| GET | /ready | Readiness |
-| GET | /api/v1/info | Metadata (`status: "active"` — see live `/api/v1/info`) |
-
-## Related services
-
-- **Conductor** — routing, registry, auth
-- **Worker** — container lifecycle
-- See root [`plan.md`](../../plan.md) for full platform map
+- Conductor registration / proxy · CicdManager console screen
+- `compute_manager` (build / replace-image) · `git_manager` (workflow blob / checks)
+- Root [`GOLDEN_PATH.md`](../../GOLDEN_PATH.md)

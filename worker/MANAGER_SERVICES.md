@@ -42,7 +42,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
 | `cdn_manager` | 3118 | `/api/v1/rules` | CDN-style rules (config only) |
-| `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |
+| `cicd_manager` | 3119 | `/api/v1/pipelines` (+ `/run`, `/run-for-repo`) | Pipelines CRUD + run actions; runners OOS |
 | `code_as_infra` | 3120 | `/api/v1/modules` | Snippets / small IaC blobs |
 | `crawler_manager` | 3121 | `/api/v1/jobs` | Crawl job metadata; add fetch with network later |
 | `host_manager` | 3122 | `/api/v1/hosts` | Host inventory |

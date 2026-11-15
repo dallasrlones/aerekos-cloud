@@ -469,8 +469,12 @@ const managers = [
   },
   {
     name: 'cicd_manager', aws: 'CodePipeline', category: 'Dev tools', port: 3119, status: 'implemented',
-    summary: 'Pipeline definitions (steps JSON + state). Real runners are future work.',
-    proxyBase: '/api/v1', crud: { segment: 'pipelines' }, capabilities: ['ci-cd', 'pipelines']
+    summary: 'Pipeline definitions (steps JSON + state) with run/run-for-repo. Real runners are future work.',
+    proxyBase: '/api/v1', crud: { segment: 'pipelines' }, capabilities: ['ci-cd', 'pipelines'],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/pipelines/:id/run', summary: 'Run pipeline action (test/deploy/build-image/apply-stack/fleet)' },
+      { method: 'POST', path: '/api/v1/pipelines/run-for-repo', summary: 'Match + run pipelines for a repo push' },
+    ],
   },
   {
     name: 'code_as_infra', aws: 'CloudFormation', category: 'Dev tools', port: 3120, status: 'experimental',

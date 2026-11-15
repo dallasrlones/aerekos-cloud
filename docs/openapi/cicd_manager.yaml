@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: cicd_manager (CodePipeline analog)
+  version: 1.0.0
+  description: |
+    Project-scoped CI/CD pipelines: CRUD, run (test/deploy/apply-stack/fleet), run-for-repo webhook path.
+    Live CI runners executing arbitrary jobs are out of scope for MVP — deploy/build proxy to compute_manager + git_manager.
+    Conductor proxy prefix: /api/services/cicd_manager
+    No production skip-fake flags; assertNoSkipFakes() on boot.
+servers:
+  - url: http://localhost:3119
+    description: Direct local
+  - url: http://localhost:3000/api/services/cicd_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/pipelines:
+    post:
+      summary: Create a pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                steps_json:
+                  type: string
+                  default: '[]'
+                state:
+                  type: string
+                  default: idle
+                environment:
+                  type: string
+                git_ref:
+                  type: string
+                repo_id:
+                  type: string
+                target_container_id:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List pipelines for a project
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - in: query
+          name: environment
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+        '400':
+          description: missing project_id
+  /api/v1/pipelines/run-for-repo:
+    post:
+      summary: Match pipelines for a repo push and run deploy/test/fleet as configured
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                repo_id:
+                  type: string
+                repo:
+                  type: string
+                ref:
+                  type: string
+                sha:
+                  type: string
+      responses:
+        '200':
+          description: run results for matched pipelines
+        '400':
+          description: validation error
+  /api/v1/pipelines/{id}:
+    get:
+      summary: Get one pipeline
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a pipeline
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '404':
+          description: not found
+        '409':
+          description: name taken
+    put:
+      summary: Update a pipeline (same as PATCH)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a pipeline
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found
+  /api/v1/pipelines/{id}/run:
+    post:
+      summary: Run a pipeline action (test, deploy, build-image, apply-stack, fleet)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                action:
+                  type: string
+                  description: test | deploy | build-image | apply-stack | fleet
+      responses:
+        '200':
+          description: '{ pipeline, action, ok, results }'
+        '400':
+          description: validation error
+        '404':
+          description: not found
+        '409':
+          description: target Cloud task required for deploy
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

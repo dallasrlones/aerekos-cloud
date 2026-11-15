@@ -90,7 +90,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-sdk` | cross | platform | in_progress |  | Wave 9 |
 | `x-cli` | cross | platform | in_progress |  | Wave 9 |
 | `x-openapi` | cross | platform | in_progress |  | Wave 9 |
-| `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
+| `x-tutorials` | cross | platform | done |  | Wave 9 closeout 6faa0f96; ServiceGuide/tutorial index + notify catalog/GA_MATURITY |
 | `x-cross-service` | cross | platform | in_progress |  | Wave 9 |
 | `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-platform` | cross | platform | in_progress |  | Wave 9 |

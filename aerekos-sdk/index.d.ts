@@ -90,6 +90,7 @@ export class AerekosClient {
   query: QueryApi;
   iot: IotApi;
   push: PushApi;
+  notify: NotifyApi;
   config: ConfigApi;
   backup: BackupApi;
   git: ThinProxyApi;
@@ -360,6 +361,16 @@ export class IotApi {
 }
 export class PushApi {
   send(projectId: string, body?: Record<string, unknown>): Promise<any>;
+}
+export class NotifyApi {
+  providers(projectId: string): Promise<any>;
+  list(projectId: string, query?: Record<string, any>): Promise<any>;
+  create(projectId: string, body?: Record<string, unknown>): Promise<any>;
+  get(projectId: string, id: string): Promise<any>;
+  update(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  remove(projectId: string, id: string): Promise<any>;
+  send(projectId: string, id: string, body?: Record<string, unknown>): Promise<any>;
+  test(projectId: string, body?: Record<string, unknown>): Promise<any>;
 }
 export class ConfigApi {
   get(projectId: string, query?: Record<string, any>): Promise<any>;

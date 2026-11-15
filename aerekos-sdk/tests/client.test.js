@@ -1,8 +1,10 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { AerekosClient, AerekosError } = require('../index.js');
+const { AerekosClient, AerekosError, MANAGERS } = require('../index.js');
 
 // Build a fake fetch that records the last call and returns a canned response.
 function fakeFetch(responder) {
@@ -180,4 +182,43 @@ test('data.query serializes where and include', async () => {
   assert.ok(lastQuery.url.includes('where='));
   assert.ok(lastQuery.url.includes('include=posts'));
   assert.ok(fetchImpl.calls[1].url.includes('/data-apis/app/scale'));
+});
+
+test('every catalog manager has client.svc / manager() accessors', () => {
+  const fetchImpl = fakeFetch(() => ({ body: {} }));
+  const client = new AerekosClient({ baseUrl: 'http://c:3000', token: 't', fetch: fetchImpl });
+  assert.ok(MANAGERS.length >= 50, `expected a full catalog, got ${MANAGERS.length}`);
+  for (const m of MANAGERS) {
+    assert.ok(client.svc[m.name], `missing client.svc.${m.name}`);
+    assert.strictEqual(client.manager(m.name).name, m.name);
+    assert.strictEqual(client.svc[m.name].descriptor.name, m.name);
+  }
+});
+
+test('every worker manager directory is in MANAGERS (SDK catalog sync)', () => {
+  const workerRoot = path.join(__dirname, '..', '..', 'worker');
+  const dirs = fs.readdirSync(workerRoot).filter((d) => {
+    const full = path.join(workerRoot, d);
+    return fs.statSync(full).isDirectory() && (d.endsWith('_manager') || d === 'code_as_infra');
+  }).sort();
+  const names = new Set(MANAGERS.map((m) => m.name));
+  const missing = dirs.filter((d) => !names.has(d));
+  assert.deepStrictEqual(
+    missing,
+    [],
+    `managers.generated.js / docs/catalog.js missing worker managers: ${missing.join(', ')}`
+  );
+});
+
+test('notify_manager typed helper targets proxy paths', async () => {
+  const fetchImpl = fakeFetch(() => ({ body: { ok: true, items: [] } }));
+  const client = new AerekosClient({ baseUrl: 'http://c:3000', token: 't', fetch: fetchImpl });
+  assert.ok(client.svc.notify_manager, 'notify_manager must be in catalog-driven svc map');
+  await client.notify.create('p-1', { name: 'demo', channel: 'email', to_address: 'a@b.test', subject: 'hi', body: 'hello' });
+  await client.notify.send('p-1', 'msg-1');
+  await client.notify.test('p-1', { channel: 'email' });
+  const urls = fetchImpl.calls.map((c) => c.url);
+  assert.ok(urls.some((u) => u.includes('/notify_manager/api/v1/messages')));
+  assert.ok(urls.some((u) => u.includes('/notify_manager/api/v1/messages/msg-1/send')));
+  assert.ok(urls.some((u) => u.includes('/notify_manager/api/v1/test')));
 });

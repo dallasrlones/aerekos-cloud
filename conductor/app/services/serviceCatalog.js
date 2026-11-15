@@ -106,6 +106,7 @@ export const SERVICE_CATALOG = [
   { name: 'cluster_manager', label: 'Clusters', category: 'compute', icon: 'cube-outline', description: 'Clusters.' },
   { name: 'vector_manager', label: 'Vector Indexes', category: 'ai', icon: 'git-commit-outline', description: 'Vector indexes.' },
   { name: 'push_manager', label: 'Push Notifications', category: 'integration', icon: 'notifications-outline', description: 'Send when FCM secret exists; otherwise queue-only.' },
+  { name: 'notify_manager', label: 'Notify (unified)', category: 'integration', icon: 'mail-outline', description: 'Unified email/sms/slack/push facade; mock in non-prod.' },
 ];
 
 const METAPHOR_BY_NAME = {

@@ -59,5 +59,6 @@ module.exports = {
   status_manager: { '3150': '3150' },
   cluster_manager: { '3151': '3151' },
   vector_manager: { '3152': '3152' },
-  push_manager: { '3153': '3153' }
+  push_manager: { '3153': '3153' },
+  notify_manager: { '3154': '3154' }
 };

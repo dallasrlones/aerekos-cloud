@@ -87,7 +87,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `x-sdk` | cross | platform | in_progress |  | Wave 9 |
+| `x-sdk` | cross | platform | done | not full typed parity (34 svc-only); UI `adonis` vs catalog noise | Wave 9 closeout 34c65b47; notify catalog sync + client.notify + coverage tests (12); see docs/plans/sdk-manager-coverage.md |
 | `x-cli` | cross | platform | done |  | Wave 9 closeout 4ddbfa52; gap matrix + health + help tests; cliParity still partial (E32 not in catalog) |
 | `x-openapi` | cross | platform | done |  | Wave 9 closeout 554261e5; 58 workers: 57 packs + ai_manager parked; CORE_GA regen; check-openapi-pack.mjs |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |

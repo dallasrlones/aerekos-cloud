@@ -14,8 +14,9 @@ Node SDK and CLI for conductor + catalog-driven manager accessors. **Every conso
 
 | Area | Status |
 |------|--------|
-| Catalog sync | `managers.generated.js` from `docs/catalog.js` |
-| Manager accessors | `aerekos {manager} {segment} list|create|get|…` |
+| Catalog sync | `managers.generated.js` from `docs/catalog.js` (58 managers; Wave 9 added `notify_manager`) |
+| Manager accessors | `client.svc.*` / CLI `aerekos {manager} {segment} list|create|get|…` |
+| Typed helpers | Subset only — **not full parity**; see [sdk-manager-coverage.md](./sdk-manager-coverage.md) |
 | Generic proxy | `aerekos call {manager} {METHOD} {path}` |
 | Health | `aerekos health [service] [--project P]` |
 | Config | `~/.aerekos/config.json` (mode 0600) |
@@ -25,6 +26,8 @@ Node SDK and CLI for conductor + catalog-driven manager accessors. **Every conso
 | **`cliParity` (E32)** | **Incomplete** — see [cli-manager-coverage.md](./cli-manager-coverage.md). No manager is `complete`; ~42 partial CRUD, ~15 thin (`call`-only), catalog field not shipped. |
 
 **Coverage audit:** [cli-manager-coverage.md](./cli-manager-coverage.md) (Wave 9 x-cli gap matrix).
+
+**Wave 9 closeout:** catalog↔worker sync for `notify_manager`, typed `client.notify`, coverage tests that fail if a worker manager lacks an SDK catalog accessor. Remaining typed-helper gaps stay documented — do not claim full parity.
 
 ---
 
@@ -149,6 +152,7 @@ await app.invoke('ai_manager', {
 
 ## Links
 
+- [sdk-manager-coverage.md](./sdk-manager-coverage.md) — Wave 9 gap matrix
 - [aerekos-sdk/README.md](../../aerekos-sdk/README.md)
 - [enterprise_standards.md](./enterprise_standards.md)
 - [e2e/run.js](../../e2e/run.js)

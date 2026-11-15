@@ -95,6 +95,7 @@ class AerekosClient {
     this.query = new QueryApi(this);
     this.iot = new IotApi(this);
     this.push = new PushApi(this);
+    this.notify = new NotifyApi(this);
     this.config = new ConfigApi(this);
     this.backup = new BackupApi(this);
     this.iac = new IacApi(this);
@@ -1500,6 +1501,62 @@ class PushApi {
   constructor(client) { this.c = client; }
   send(projectId, body) {
     return this.c.proxy('push_manager', { method: 'POST', path: '/api/v1/try', projectId, body: { project_id: projectId, ...body } });
+  }
+}
+
+/** notify_manager — unified email/sms/slack/push facade. */
+class NotifyApi {
+  constructor(client) { this.c = client; }
+  providers(projectId) {
+    return this.c.proxy('notify_manager', { path: '/api/v1/providers', projectId });
+  }
+  list(projectId, query = {}) {
+    return this.c.proxy('notify_manager', { path: '/api/v1/messages', projectId, query });
+  }
+  create(projectId, body) {
+    return this.c.proxy('notify_manager', {
+      method: 'POST',
+      path: '/api/v1/messages',
+      projectId,
+      body: { project_id: projectId, ...body },
+    });
+  }
+  get(projectId, id) {
+    return this.c.proxy('notify_manager', {
+      path: `/api/v1/messages/${encodeURIComponent(id)}`,
+      projectId,
+    });
+  }
+  update(projectId, id, body) {
+    return this.c.proxy('notify_manager', {
+      method: 'PATCH',
+      path: `/api/v1/messages/${encodeURIComponent(id)}`,
+      projectId,
+      body: { project_id: projectId, ...body },
+    });
+  }
+  remove(projectId, id) {
+    return this.c.proxy('notify_manager', {
+      method: 'DELETE',
+      path: `/api/v1/messages/${encodeURIComponent(id)}`,
+      projectId,
+    });
+  }
+  send(projectId, id, body = {}) {
+    return this.c.proxy('notify_manager', {
+      method: 'POST',
+      path: `/api/v1/messages/${encodeURIComponent(id)}/send`,
+      projectId,
+      body: { project_id: projectId, ...body },
+    });
+  }
+  test(projectId, body = {}) {
+    return this.c.proxy('notify_manager', {
+      method: 'POST',
+      path: '/api/v1/test',
+      projectId,
+      body: { project_id: projectId, ...body },
+    });
   }
 }
 

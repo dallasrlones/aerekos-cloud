@@ -63,7 +63,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-query_manager` | manager | `worker/query_manager` | pending | | closeout DoD |
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | pending | | closeout DoD |
-| `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager; live e2e needs conductor | Wave 2 closeout (SHA pending commit); unit+integration |
+| `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager; live e2e needs conductor | Wave 2 closeout 7761122; 9 tests |
 | `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
 | `mgr-security_manager` | manager | `worker/security_manager` | pending | | closeout DoD |

@@ -64,6 +64,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `search_manager` | 3144 | `/api/v1/indexes` + `/index` + `/query` | Indexes CRUD + FTS5 hits; live e2e parked; no prod mocks |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
+| `status_manager` | 3150 | `/api/v1/incidents` + `/public` | Incidents CRUD + public aggregate; live e2e parked; no prod mocks |
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `websocket_manager` | 3131 | `/api/v1/channels` + WSS `/ws` | Channel CRUD + HTTP publish; not conductor Socket.IO |
 | `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |

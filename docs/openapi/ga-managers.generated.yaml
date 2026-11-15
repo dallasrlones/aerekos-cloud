@@ -414,6 +414,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default app schema if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/compile:
+    post:
+      summary: Compile schema from Data API models
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/execute:
+    post:
+      summary: Execute subset GraphQL against Data API
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/apis:
+    post:
+      summary: Create a GraphQL api
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List apis (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/api/v1/apis/{id}:
+    get:
+      summary: Get one api
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an api
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an api
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/graphql_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource

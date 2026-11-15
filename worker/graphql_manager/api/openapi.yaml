@@ -1,0 +1,214 @@
+openapi: 3.0.3
+info:
+  title: graphql_manager (AppSync analog)
+  version: 1.0.0
+  description: |
+    Project-scoped GraphQL API metadata (CRUD /apis) plus compile/execute against
+    Data API models via conductor → api_manager. Subset GraphQL only (single
+    selection; list/get + create/update). Not full AppSync (no subscriptions/VTL).
+    Conductor proxy prefix: /api/services/graphql_manager
+    No production skip-fake flags; createManagerApp → assertNoSkipFakes() on boot.
+servers:
+  - url: http://localhost:3141
+    description: Direct local
+  - url: http://localhost:3000/api/services/graphql_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default app schema (User/Post) when missing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, ... }'
+        '400':
+          description: missing project_id
+  /api/v1/compile:
+    post:
+      summary: Compile SDL schema from Data API model defs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                  default: app
+                models:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: '{ schema, item }'
+  /api/v1/execute:
+    post:
+      summary: Execute subset GraphQL against Data API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, query]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                  default: app
+                query:
+                  type: string
+                variables:
+                  type: object
+                models:
+                  type: object
+                  description: Optional compile-if-missing models
+      responses:
+        '200':
+          description: '{ data, schema }'
+        '400':
+          description: validation / parse error
+        '404':
+          description: api not found
+  /api/v1/apis:
+    post:
+      summary: Create a GraphQL api record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                schema:
+                  type: string
+                data_app:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+    get:
+      summary: List apis
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/apis/{id}:
+    get:
+      summary: Get one api
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update an api
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                schema:
+                  type: string
+                data_app:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Replace/update an api
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an api
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

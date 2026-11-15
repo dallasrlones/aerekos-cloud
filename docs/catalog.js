@@ -274,26 +274,8 @@ const managers = [
   },
   {
     name: 'metrics_manager', aws: 'CloudWatch Metrics', category: 'Observability', port: 3105, status: 'implemented',
-    summary: 'Series samples + alarms (evaluate→event_manager). No prod mocks. Aggregation cluster future.',
-    proxyBase: '/api/v1', crud: { segment: 'series' }, capabilities: ['metrics', 'samples', 'alarms'],
-    endpoints: [
-      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
-      { method: 'GET', path: '/ready', summary: 'Readiness' },
-      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
-      { method: 'POST', path: '/api/v1/series', summary: 'Create a series sample' },
-      { method: 'POST', path: '/api/v1/series/sample', summary: 'Upsert sample by name' },
-      { method: 'POST', path: '/api/v1/series/scrape', summary: 'Record scrape sample' },
-      { method: 'GET', path: '/api/v1/series', summary: 'List series (metric_name, task_id, limit)' },
-      { method: 'GET', path: '/api/v1/series/:id', summary: 'Get one series' },
-      { method: 'PATCH', path: '/api/v1/series/:id', summary: 'Update a series' },
-      { method: 'DELETE', path: '/api/v1/series/:id', summary: 'Delete a series' },
-      { method: 'POST', path: '/api/v1/alarms', summary: 'Create an alarm rule' },
-      { method: 'GET', path: '/api/v1/alarms', summary: 'List alarms' },
-      { method: 'GET', path: '/api/v1/alarms/:id', summary: 'Get one alarm' },
-      { method: 'PATCH', path: '/api/v1/alarms/:id', summary: 'Update an alarm' },
-      { method: 'DELETE', path: '/api/v1/alarms/:id', summary: 'Delete an alarm' },
-      { method: 'POST', path: '/api/v1/alarms/evaluate', summary: 'Evaluate alarms (SKIP_OUTBOUND parks publish)' }
-    ]
+    summary: 'Stored metric samples (name/value/labels). Aggregation cluster is future work.',
+    proxyBase: '/api/v1', crud: { segment: 'series' }, capabilities: ['metrics', 'samples']
   },
   {
     name: 'security_manager', aws: 'Security Hub', category: 'Observability', port: 3108, status: 'implemented',
@@ -794,11 +776,10 @@ const managers = [
   },
   {
     name: 'notebook_manager', aws: 'SageMaker notebook', category: 'AI', port: 3142, status: 'implemented',
-    summary: 'Notebooks CRUD + run (compute oneshot); honest queue without conductor; ManagerConsole (no ServiceGuide).',
+    summary: 'Store notebooks; Run launches a compute oneshot (jupyter/python).',
     proxyBase: '/api/v1', crud: { segment: 'notebooks' }, capabilities: ["notebook"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default notebook if missing' },
-      { method: 'POST', path: '/api/v1/notebooks/:id/run', summary: 'Run notebook via compute oneshot (queues without conductor)' }
+      { method: 'POST', path: '/api/v1/notebooks/:id/run', summary: 'Run notebook via compute oneshot' }
     ]
   },
   {
@@ -881,26 +862,14 @@ const managers = [
     ]
   },
   {
-    name: 'push_manager', aws: 'SNS mobile', category: 'Integrations', port: 3153, status: 'implemented',
-    summary: 'Push subscriptions. Send when FCM secret exists; otherwise queue-only.',
+    name: 'push_manager', aws: 'SNS mobile', category: 'Integrations', port: 3153, status: 'needs-keys',
+    summary: 'Subscriptions CRUD + send. FCM when secret exists; otherwise queue-only. ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'subscriptions' }, capabilities: ["push"],
-    needsKeys: 'Queued only this pass. Do not retry live FCM send.'
-  },
-  {
-    name: 'notify_manager', aws: 'SNS / SES / Chatbot', category: 'Integrations', port: 3154, status: 'needs-keys',
-    summary: 'Unified notify facade (W9a): messages + channels CRUD; send/test via MockProvider by default. Legacy email/sms/slack/push stay until Phase 2. ManagerConsole (no ServiceGuide).',
-    proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['notify', 'transactional', 'alerts'],
-    needsKeys: 'Mock/queue-only without channel secrets. Do not retry live send in e2e without keys. Live conductor e2e parked.',
     endpoints: [
-      { method: 'GET', path: '/api/v1/providers', summary: 'List channel providers' },
-      { method: 'POST', path: '/api/v1/test', summary: 'Facade test send (mock by default)' },
-      { method: 'POST', path: '/api/v1/messages/:id/send', summary: 'Send via facade / stay queued' },
-      { method: 'POST', path: '/api/v1/channels', summary: 'Create a channel config ({ project_id, name, ... })' },
-      { method: 'GET', path: '/api/v1/channels', summary: 'List channels (?project_id=)' },
-      { method: 'GET', path: '/api/v1/channels/:id', summary: 'Get one channel' },
-      { method: 'PATCH', path: '/api/v1/channels/:id', summary: 'Update a channel' },
-      { method: 'DELETE', path: '/api/v1/channels/:id', summary: 'Delete a channel' }
-    ]
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default subscription if missing' },
+      { method: 'POST', path: '/api/v1/send', summary: 'Attempt FCM send / stay queued (SKIP_PUSH / missing FCM → queue_only)' }
+    ],
+    needsKeys: 'Queued without FCM secrets. Do not retry live FCM send in e2e without keys.'
   }
 ];
 

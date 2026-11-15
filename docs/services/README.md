@@ -33,7 +33,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
 | [`logs_manager`](logs_manager.md) | CloudWatch Logs | 3104 | implemented | Append-only logs + batch/query/compact; ManagerConsole guide; no prod mocks. |
-| [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Series samples + alarms; no prod mocks; aggregation future. |
+| [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Stored metric samples (name/value/labels). |
 | [`security_manager`](security_manager.md) | Security Hub | 3108 | implemented | Security finding records (severity/source/details). |
 | [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events (event/value/properties). |
 | [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP/HTTP ingest plus span list/query in SQLite. |
@@ -72,8 +72,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`sms_manager`](sms_manager.md) | SNS SMS | 3114 | needs-keys | SMS messages (to_number/body). |
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Slack posts (channel/text). |
 | [`event_manager`](event_manager.md) | EventBridge | 3132 | implemented | Buses/rules + put events; ManagerConsole (no ServiceGuide). |
-| [`push_manager`](push_manager.md) | SNS mobile | 3153 | implemented | Push subscriptions. |
-| [`notify_manager`](notify_manager.md) | SNS / SES / Chatbot | 3154 | needs-keys | Unified notify facade (messages/channels/send/test); MockProvider default; live e2e parked. |
+| [`push_manager`](push_manager.md) | SNS mobile | 3153 | needs-keys | Subscriptions CRUD + send (queue without FCM); ManagerConsole (no ServiceGuide). |
 
 ## Dev tools
 
@@ -95,7 +94,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. |
 | [`crawler_manager`](crawler_manager.md) | Glue Crawler | 3121 | needs-keys | Jobs CRUD + run/canary (single-URL); ManagerConsole (no ServiceGuide). |
-| [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Notebooks CRUD + run (compute oneshot); honest queue without conductor; live e2e parked. |
+| [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Store notebooks; Run launches a compute oneshot (jupyter/python). |
 | [`vector_manager`](vector_manager.md) | OpenSearch kNN | 3152 | implemented | Upsert/query via db_manager vectors or sqlite cosine (facade, not a second RAG). |
 
 ## Platform

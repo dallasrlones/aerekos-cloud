@@ -720,97 +720,58 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/info:
+  /api/services/push_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/ensure-defaults:
+  /api/services/push_manager/api/v1/ensure-defaults:
     post:
-      summary: Seed default notify message if missing
+      summary: Seed default subscription if missing
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/providers:
-    get:
-      summary: List channel providers
+  /api/services/push_manager/api/v1/send:
+    post:
+      summary: Attempt FCM send / stay queued
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/test:
+  /api/services/push_manager/api/v1/subscriptions:
     post:
-      summary: Facade test send (mock by default)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/messages:
-    post:
-      summary: Create a message
+      summary: Create a subscription
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List messages (?project_id=)
+      summary: List subscriptions (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/messages/{id}:
+  /api/services/push_manager/api/v1/subscriptions/{id}:
     get:
-      summary: Get one message
+      summary: Get one subscription
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a message
+      summary: Update a subscription
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a message
+      summary: Delete a subscription
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/messages/{id}/send:
-    post:
-      summary: Send via facade / stay queued
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/channels:
-    post:
-      summary: Create a channel config
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List channels (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/notify_manager/api/v1/channels/{id}:
-    get:
-      summary: Get one channel
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a channel
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a channel
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/notify_manager/health:
+  /api/services/push_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/notify_manager/ready:
+  /api/services/push_manager/ready:
     get:
       summary: Readiness
       responses:

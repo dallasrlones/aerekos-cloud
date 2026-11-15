@@ -32,7 +32,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 
 | Service | Port | Main route | Without keys you get |
 |---------|------|------------|----------------------|
-| `metrics_manager` | 3105 | `/api/v1/series` (+ `/alarms`); no prod mocks | Series + alarms; evaluate publish parked via `SKIP_OUTBOUND` |
+| `metrics_manager` | 3105 | `/api/v1/series` | Stored metric samples |
 | `security_manager` | 3108 | `/api/v1/findings` | Security finding rows |
 | `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
@@ -59,15 +59,14 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `billing_manager` | 3138 | `/api/v1/meters` | Real quota (never unlimited stub) |
 | `iot_manager` | 3140 | `/api/v1/things` + `/publish` | Things CRUD + websocket fan-out; MQTT broker parked |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
-| `notebook_manager` | 3142 | `/api/v1/notebooks` + `/run` | Notebooks CRUD + compute oneshot; live e2e parked; no prod mocks |
+| `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
 | `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |
 | `search_manager` | 3144 | `/api/v1/query` | SQLite FTS hits |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `websocket_manager` | 3131 | `/api/v1/channels` + WSS `/ws` | Channel CRUD + HTTP publish; not conductor Socket.IO |
-| `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |
-| `notify_manager` | 3154 | `/api/v1/messages` + `/channels` + `/test` | Unified facade; MockProvider by default; live e2e parked |
+| `push_manager` | 3153 | `/api/v1/subscriptions` + `/send` | Subscriptions CRUD + FCM send when keyed; else queue-only (`needs-keys`) |
 
 **Core (not in P4 table):** worker agent (3001).
 

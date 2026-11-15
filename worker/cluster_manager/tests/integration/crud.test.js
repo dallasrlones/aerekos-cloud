@@ -29,5 +29,16 @@ describe('cluster_manager crud', () => {
     expect(st.status).toBe(200);
     expect(st.body).toHaveProperty('installed');
   });
+
+  test('fleet returns skipped inventory under SKIP_HOST_PATCH', async () => {
+    const c = await request(app).post('/api/v1/clusters').send({ project_id: pid, name: 'fleet-box' });
+    expect(c.status).toBe(201);
+    const id = c.body.item.id;
+    const fleet = await request(app).get('/api/v1/clusters/'+id+'/fleet?'+Q(pid));
+    expect(fleet.status).toBe(200);
+    expect(fleet.body.engine).toBe('docker');
+    expect(fleet.body.skipped).toBe(true);
+    expect(Array.isArray(fleet.body.containers)).toBe(true);
+  });
 });
 

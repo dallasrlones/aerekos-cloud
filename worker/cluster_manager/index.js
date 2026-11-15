@@ -9,7 +9,7 @@ const { app, listen } = createManagerApp({
   serviceName: 'cluster_manager',
   defaultPort: 3151,
   db,
-  register: makeRegister({ serviceName: 'cluster_manager', defaultPort: 3151, capabilities: ["k8s","k3s"] }),
+  register: makeRegister({ serviceName: 'cluster_manager', defaultPort: 3151, capabilities: ["k8s","k3s","docker"] }),
   ensureDefaults: (projectId) => service.ensureDefaults(projectId),
   extraSetup: (expressApp) => {
     expressApp.use('/api/v1', router);

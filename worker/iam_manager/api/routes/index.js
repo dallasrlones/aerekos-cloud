@@ -11,7 +11,7 @@ router.get('/info', (req, res) => {
     version: process.env.SERVICE_VERSION || '1.0.0',
     status: 'active',
     message:
-      'Project-scoped roles and JSON policies; attach policies to roles. Complements conductor auth (enforcement in conductor TBD).'
+      'Project-scoped roles and JSON policies; attach policies to roles; POST /evaluate. Conductor enforces human JWT when IAM_ENFORCE_PROXY=true.'
   });
 });
 

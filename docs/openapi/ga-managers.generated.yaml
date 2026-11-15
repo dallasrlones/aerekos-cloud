@@ -181,115 +181,98 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases:
+  /api/services/iam_manager/api/v1/evaluate:
     post:
-      summary: Provision a database (project_id query only; type required)
+      summary: Evaluate allow/deny for action + resource
       responses:
         '200':
           description: Success (shape varies by manager)
-    get:
-      summary: List databases
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}:
-    get:
-      summary: Get a database (includes arn)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/backups:
-    post:
-      summary: Create a backup
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/backups/{backupId}/restore:
-    post:
-      summary: Restore a backup
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/connection:
-    get:
-      summary: Connection info
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/health:
-    get:
-      summary: Health
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/memory/sql:
-    post:
-      summary: Constrained memory SQL (sqlite3)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/restart:
-    post:
-      summary: Restart
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/start:
-    post:
-      summary: Start
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/stop:
-    post:
-      summary: Stop
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/vectors:
-    delete:
-      summary: Delete vectors (lancedb)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/vectors/search:
-    post:
-      summary: Search vectors (lancedb)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/vectors/upsert:
-    post:
-      summary: Upsert vectors (lancedb)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/databases/{name}/volumes:
-    get:
-      summary: Volume / mount metadata
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/db_manager/api/info:
+  /api/services/iam_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/db_manager/health:
+  /api/services/iam_manager/api/v1/policies:
+    post:
+      summary: Create a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List policies
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/policies/{id}:
+    get:
+      summary: Get a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles:
+    post:
+      summary: Create a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List roles
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{id}:
+    get:
+      summary: Get a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{roleId}/policies:
+    post:
+      summary: Attach a policy to a role
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: "List a role's policies"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/api/v1/roles/{roleId}/policies/{policyId}:
+    delete:
+      summary: Detach a policy
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/iam_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/db_manager/ready:
+  /api/services/iam_manager/ready:
     get:
-      summary: Readiness (key_manager unless MOCK_KEY_MANAGER)
+      summary: Readiness
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -312,18 +295,7 @@ paths:
           description: Success (shape varies by manager)
   /api/services/key_manager/api/keys/{name}:
     get:
-      summary: Get a key (includes key_material for authorized callers)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a key (all versions)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/key_manager/api/keys/{name}/archive:
-    post:
-      summary: Archive a key (mark inactive)
+      summary: Get a key (no secret material)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -336,12 +308,6 @@ paths:
   /api/services/key_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/key_manager/ready:
-    get:
-      summary: Readiness (DB + MASTER_KEY); conductor proxy skips projectId (isLiveness)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -417,12 +383,12 @@ paths:
           description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/secrets:
     post:
-      summary: "Create a secret ({ name, value }, optional environment)"
+      summary: "Create a secret ({ name, value })"
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List secrets (no values; optional environment)
+      summary: List secrets (no values)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -439,12 +405,6 @@ paths:
           description: Success (shape varies by manager)
     delete:
       summary: Delete a secret
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/secrets_manager/api/v1/secrets/values:
-    get:
-      summary: Name→plaintext map for an environment
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -508,12 +468,6 @@ paths:
   /api/services/storage_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/storage_manager/ready:
-    get:
-      summary: Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)
       responses:
         '200':
           description: Success (shape varies by manager)

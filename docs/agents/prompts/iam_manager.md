@@ -1,13 +1,18 @@
 # Agent prompt — iam_manager
 
-Roles, policies (allow/deny JSON documents), and role↔policy bindings. Enforcement lives in the conductor.
+Roles, policies (allow/deny JSON documents), and role↔policy bindings. Enforcement lives in the conductor (`IAM_ENFORCE_PROXY=true` → evaluate).
 
 Reach this service through the conductor proxy with a JWT from `POST /api/auth/login` or a service token.
 
 Base: `{VERB} {CONDUCTOR}/api/services/iam_manager{path}`
 
+OpenAPI: `worker/iam_manager/api/openapi.yaml`
+
 ## Endpoints
 
+- `GET /health` — Liveness (SQLite)
+- `GET /ready` — Readiness
+- `GET /api/v1/info` — Service metadata
 - `POST /api/v1/roles` — Create a role
 - `GET /api/v1/roles` — List roles
 - `GET /api/v1/roles/:id` — Get a role
@@ -21,6 +26,9 @@ Base: `{VERB} {CONDUCTOR}/api/services/iam_manager{path}`
 - `GET /api/v1/policies/:id` — Get a policy
 - `PATCH /api/v1/policies/:id` — Update a policy
 - `DELETE /api/v1/policies/:id` — Delete a policy
+- `POST /api/v1/evaluate` — Evaluate allow/deny for action + resource
+
+Conductor shortcut: `POST /api/iam/evaluate` (SDK `client.iam.evaluate`).
 
 Do not hit production project `ea370977-3aff-4c76-95a6-a0c50fd2bce7` from e2e.
 email/sms/slack/push are queued; outbound send disabled.

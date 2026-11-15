@@ -21,7 +21,7 @@ const CORE_GA = new Set([
   'secrets_manager',
   'compute_manager',
   'queue_manager',
-  'db_manager',
+  'iam_manager',
 ]);
 
 function openApiPath(p) {

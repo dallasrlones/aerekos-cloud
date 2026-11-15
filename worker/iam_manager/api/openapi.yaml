@@ -1,0 +1,339 @@
+openapi: 3.0.3
+info:
+  title: IAM Manager API
+  version: 1.0.0
+  description: >
+    Project-scoped roles, JSON allow/deny policies, role↔policy bindings, and
+    evaluate. Conductor edge enforcement uses POST /api/v1/evaluate when
+    IAM_ENFORCE_PROXY=true.
+servers:
+  - url: http://localhost:3106
+    description: Local development
+  - url: '{conductor}/api/services/iam_manager'
+    description: Via conductor proxy
+    variables:
+      conductor:
+        default: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Ready
+        '503':
+          description: Not ready
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: Active payload
+  /api/v1/policies:
+    post:
+      summary: Create a policy
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyCreate'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Validation error
+        '409':
+          description: Name taken
+    get:
+      summary: List policies
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200':
+          description: Policy list
+  /api/v1/policies/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/ProjectIdQuery'
+    get:
+      summary: Get a policy
+      responses:
+        '200':
+          description: Policy
+        '404':
+          description: Not found
+    patch:
+      summary: Update a policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyPatch'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete a policy
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/roles:
+    post:
+      summary: Create a role
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+      responses:
+        '201':
+          description: Created
+        '409':
+          description: Name taken
+    get:
+      summary: List roles
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200':
+          description: Role list
+  /api/v1/roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/ProjectIdQuery'
+    get:
+      summary: Get a role
+      responses:
+        '200':
+          description: Role
+        '404':
+          description: Not found
+    patch:
+      summary: Update a role
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RolePatch'
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete a role (and its bindings)
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/roles/{roleId}/policies:
+    parameters:
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/ProjectIdQuery'
+    get:
+      summary: List policies attached to a role
+      responses:
+        '200':
+          description: Bindings + policies
+    post:
+      summary: Attach a policy to a role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_id]
+              properties:
+                project_id:
+                  type: string
+                policy_id:
+                  type: string
+      responses:
+        '201':
+          description: Attached
+        '409':
+          description: Already attached
+  /api/v1/roles/{roleId}/policies/{policyId}:
+    delete:
+      summary: Detach a policy from a role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ProjectIdQuery'
+      responses:
+        '200':
+          description: Detached
+        '404':
+          description: Binding not found
+  /api/v1/evaluate:
+    post:
+      summary: Evaluate allow/deny for action + resource
+      description: >
+        Default deny. Explicit deny wins. Scope by role_id / role_name when set;
+        otherwise evaluates all project policies.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateRequest'
+      responses:
+        '200':
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  evaluation:
+                    $ref: '#/components/schemas/Evaluation'
+        '400':
+          description: Missing project_id
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProjectId:
+      name: project_id
+      in: query
+      schema:
+        type: string
+      description: Also accepted in JSON body or X-Project-Id
+    ProjectIdQuery:
+      name: project_id
+      in: query
+      required: true
+      schema:
+        type: string
+  schemas:
+    RoleCreate:
+      type: object
+      required: [project_id, name]
+      properties:
+        project_id:
+          type: string
+        name:
+          type: string
+          description: 1-128 chars; start with a letter; letters, numbers, . _ -
+        description:
+          type: string
+        metadata:
+          oneOf:
+            - type: string
+            - type: object
+    RolePatch:
+      type: object
+      properties:
+        description:
+          type: string
+        metadata:
+          oneOf:
+            - type: string
+            - type: object
+    PolicyCreate:
+      type: object
+      required: [project_id, name, effect, document]
+      properties:
+        project_id:
+          type: string
+        name:
+          type: string
+        effect:
+          type: string
+          enum: [allow, deny]
+        document:
+          type: object
+          required: [actions, resources]
+          properties:
+            actions:
+              type: array
+              items:
+                type: string
+            resources:
+              type: array
+              items:
+                type: string
+                description: aerekos ARNs (validated)
+        description:
+          type: string
+        metadata:
+          oneOf:
+            - type: string
+            - type: object
+    PolicyPatch:
+      type: object
+      properties:
+        effect:
+          type: string
+          enum: [allow, deny]
+        document:
+          type: object
+        description:
+          type: string
+        metadata:
+          oneOf:
+            - type: string
+            - type: object
+    EvaluateRequest:
+      type: object
+      required: [project_id, action]
+      properties:
+        project_id:
+          type: string
+        action:
+          type: string
+          example: storage:GetObject
+        resource:
+          type: string
+        resource_arn:
+          type: string
+        arn:
+          type: string
+        role_id:
+          type: string
+        role_name:
+          type: string
+    Evaluation:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        effect:
+          type: string
+          enum: [allow, deny]
+        action:
+          type: string
+        resource:
+          type: string
+        matched:
+          nullable: true
+        reason:
+          type: string

@@ -263,9 +263,12 @@ const managers = [
   // --- Identity & secrets --------------------------------------------------
   {
     name: 'iam_manager', aws: 'IAM', category: 'Identity', port: 3106, status: 'implemented',
-    summary: 'Roles, policies (allow/deny JSON documents), and role↔policy bindings. Enforcement lives in the conductor.',
+    summary: 'Roles, allow/deny JSON policies, role↔policy bindings, and evaluate. Conductor enforces when IAM_ENFORCE_PROXY=true.',
     proxyBase: '/api/v1', capabilities: ['rbac', 'roles', 'policies'],
     endpoints: [
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
       { method: 'POST', path: '/api/v1/roles', summary: 'Create a role' },
       { method: 'GET', path: '/api/v1/roles', summary: 'List roles' },
       { method: 'GET', path: '/api/v1/roles/:id', summary: 'Get a role' },
@@ -278,7 +281,8 @@ const managers = [
       { method: 'GET', path: '/api/v1/policies', summary: 'List policies' },
       { method: 'GET', path: '/api/v1/policies/:id', summary: 'Get a policy' },
       { method: 'PATCH', path: '/api/v1/policies/:id', summary: 'Update a policy' },
-      { method: 'DELETE', path: '/api/v1/policies/:id', summary: 'Delete a policy' }
+      { method: 'DELETE', path: '/api/v1/policies/:id', summary: 'Delete a policy' },
+      { method: 'POST', path: '/api/v1/evaluate', summary: 'Evaluate allow/deny for action + resource' }
     ]
   },
   {

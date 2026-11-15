@@ -117,7 +117,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`billing_manager`](billing_manager.md) | Cost Explorer | 3138 | implemented | Usage meters. |
+| [`billing_manager`](billing_manager.md) | Cost Explorer | 3138 | implemented | Meters CRUD + evaluate-quota (never unlimited); ManagerConsole (no ServiceGuide). |
 
 ## Database
 

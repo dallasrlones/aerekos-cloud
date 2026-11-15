@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: billing_manager (Cost Explorer analog)
+  version: 1.0.0
+  description: |
+    Project-scoped usage meters (CRUD) plus evaluate-quota using real counts.
+    Never returns { unlimited: true }; denies when value exceeds limit.
+    ensure-defaults seeds storage_bytes / compute_tasks / git_repos / manager_writes / compute_seconds.
+    Conductor proxy prefix: /api/services/billing_manager
+    No production skip-fake flags; createManagerApp → assertNoSkipFakes() on boot.
+servers:
+  - url: http://localhost:3138
+    description: Direct local
+  - url: http://localhost:3000/api/services/billing_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default meters when missing for a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/evaluate-quota:
+    post:
+      summary: Evaluate quota (deny when over; never unlimited stub)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                meter:
+                  type: string
+                  default: compute_seconds
+                increment:
+                  type: number
+                  description: Optional bump to meter value before evaluate
+                limit:
+                  type: number
+                  description: Fallback limit if meter row has none
+                unit:
+                  type: string
+      responses:
+        '200':
+          description: '{ allowed, remaining, meter, value, unit, limit }'
+        '400':
+          description: missing project_id
+        '404':
+          description: meter not found
+  /api/v1/meters:
+    post:
+      summary: Create a meter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                unit:
+                  type: string
+                value:
+                  type: string
+                  default: '0'
+                limit:
+                  type: string
+                  description: Mapped to quota_limit
+                quota_limit:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List meters
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/meters/{id}:
+    get:
+      summary: Get one meter
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a meter
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                unit:
+                  type: string
+                value:
+                  type: string
+                limit:
+                  type: string
+                quota_limit:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Replace/update a meter
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a meter
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

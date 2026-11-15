@@ -106,58 +106,58 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/balancer_manager/api/v1/info:
+  /api/services/billing_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/balancer_manager/api/v1/targets:
+  /api/services/billing_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a target hint
+      summary: Seed default meters if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/evaluate-quota:
+    post:
+      summary: Evaluate quota (deny when over; never unlimited)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/meters:
+    post:
+      summary: Create a meter
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List targets (?project_id=)
+      summary: List meters (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/balancer_manager/api/v1/targets/health:
+  /api/services/billing_manager/api/v1/meters/{id}:
     get:
-      summary: Probe target health (optional ?pool=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/balancer_manager/api/v1/targets/{id}:
-    get:
-      summary: Get one target
+      summary: Get one meter
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a target
+      summary: Update a meter
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a target
+      summary: Delete a meter
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/balancer_manager/api/v1/targets/{id}/health:
-    get:
-      summary: Probe one target health
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/balancer_manager/health:
+  /api/services/billing_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/balancer_manager/ready:
+  /api/services/billing_manager/ready:
     get:
       summary: Readiness
       responses:

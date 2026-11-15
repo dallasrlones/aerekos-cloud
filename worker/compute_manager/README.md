@@ -1,60 +1,80 @@
-# Compute Manager
+# compute_manager
 
-**ECS-style tasks** on the worker: run an arbitrary **Docker image** with optional command, env, and port maps. The worker’s Docker socket (same family as `worker/docker/ServiceManager.js`) is used via **dockerode**. State is stored in **SQLite** (`aerekos-record`).
+**AWS analog:** Kubernetes (aerekos Compute) · **Port:** `3100`
+
+Project-scoped **tasks** (dockerode) and declarative **Deployments** (rolling update / pause / resume / rollback). SQLite via `aerekos-record`. No production mocks — boot calls `assertNoSkipFakes()` so `SKIP_DOCKER` is refused when `NODE_ENV=production`.
 
 ## Status
 
-**MVP** — create/list/get/stop/delete tasks, optional `?refresh=1` to sync status from `docker inspect`. For production, **pre-pull images** on the worker (or extend with registry pull). Set **`SKIP_DOCKER=1`** in tests to avoid a real engine.
+**MVP / implemented** — task CRUD (create/list/get/stop/start/replace-image/delete), Deployments apply/reconcile, `/health`, `/ready`, `/api/v1/info`, `/metrics`.
 
-## Default port
+**Tutorial:** none under `docs/tutorials`. Console **ComputeManager** screen exists (`conductor/app/screens/ComputeManager`).
 
-**`3100`**
+## Access
 
-## Quick start (local, real Docker)
+- Direct: `http://localhost:3100/...`
+- Conductor proxy: `{CONDUCTOR}/api/services/compute_manager{path}` (JWT or service token)
+- Health/ready are also reachable as `{CONDUCTOR}/api/services/compute_manager/health` (and `/ready`) when the proxy is up
 
-```bash
-cd worker/compute_manager
-cp .env_example .env
-npm install
-# Pull a test image first, e.g. docker pull alpine:3.19
-npm run dev
-# curl http://localhost:3100/health
-```
+## Paths
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Liveness |
+| `GET` | `/ready` | Readiness (SQLite) |
+| `GET` | `/metrics` | Prometheus text |
+| `GET` | `/api/v1/info` | Metadata (`status: "active"`) |
+| `POST` | `/api/v1/tasks` | Create task (`name`, `project_id`, `image`, …) |
+| `GET` | `/api/v1/tasks` | List (`?project_id=`; optional `refresh=1`) |
+| `GET` | `/api/v1/tasks/:id` | Get; optional `refresh=1` syncs from Docker |
+| `POST` | `/api/v1/tasks/:id/stop` | Stop container |
+| `DELETE` | `/api/v1/tasks/:id` | Remove container (best effort) + row |
+| `PUT` | `/api/v1/deployments/:id` | Apply Deployment |
+| `GET` | `/api/v1/deployments/:id` | Get Deployment + status |
+| `POST` | `/api/v1/deployments/:id/reconcile` | Reconcile once |
+| `POST` | `/api/v1/deployments/:id/pause` | Pause rollout |
+| `POST` | `/api/v1/deployments/:id/resume` | Resume rollout |
+| `POST` | `/api/v1/deployments/:id/rollback` | Rollback to revision |
+
+OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml) · pack copy [`docs/openapi/compute_manager.yaml`](../../docs/openapi/compute_manager.yaml). Catalog mirror: [`docs/services/compute_manager.md`](../../docs/services/compute_manager.md).
+
+## SDK / CLI
+
+- **SDK (Node):** `client.compute.list|create|scale|remove(projectId, …)` (tasks). Deployments: `client.proxy('compute_manager', { method, path: '/api/v1/deployments/…', projectId, body })`.
+- **CLI:** `aerekos call compute_manager POST "/api/v1/tasks" --project $PID --data '...'` (no dedicated `aerekos compute …` verbs yet).
 
 ## Environment
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
+| `PORT` | `3100` | Listen port |
 | `DATABASE_PATH` | `data/compute_manager.db` | Metadata |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker API |
-| `COMPUTE_DOCKER_NETWORK` | — | Optional network to attach (same pattern as `ServiceManager` detecting worker network can be added later) |
-| `SKIP_DOCKER` | — | `1` in tests: no Docker calls |
+| `COMPUTE_DOCKER_NETWORK` | — | Optional attach network |
+| `SKIP_DOCKER` | — | `1` in **tests only**; process exits if set in production |
 | `CONDUCTOR_URL` | — | Conductor registration |
 
-## API
+## Quick start
 
-`project_id`: query, body, or `X-Project-Id`.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /health, /ready | Liveness; readiness includes DB |
-| GET | /api/v1/info | |
-| POST | /api/v1/tasks | `name`, `project_id`, `image`, `command?`, `env?`, `port_bindings?` (e.g. `{"80/tcp": "18080"}`), `run_mode?` (`service` default, `oneshot`) |
-| GET | /api/v1/tasks?project_id= | List |
-| GET | /api/v1/tasks/:id?project_id= | Get; add `refresh=1` to sync from Docker |
-| POST | /api/v1/tasks/:id/stop | Stop container |
-| DELETE | /api/v1/tasks/:id?project_id= | Remove container (best effort) and row |
-
-**Names** are **unique per project** (1–64 chars `[a-zA-Z0-9_-]`). Container name on host: `aer-cmp-{idprefix}-{name}` (truncated, lowercased). Labels: `aerekos.project_id`, `aerekos.task_id`, `aerekos.task_name`.
+```bash
+cd worker/compute_manager
+cp .env_example .env
+npm install   # use Node 20 (.nvmrc)
+# Pull a test image first, e.g. docker pull alpine:3.19
+npm start
+# curl http://localhost:3100/health
+```
 
 ## Testing
 
-`npm test` — uses `SKIP_DOCKER=1` from `tests/beforeFile.js`.
-
-## Conductor
-
-Service seed: `aerekos-compute_manager:latest`, port **3100** (see `conductor/scripts/seedServices.js`).
+| Layer | Command | Notes |
+|-------|---------|--------|
+| Unit | `npm run test:unit` | prod guard, deployment controller, docker runtime, … |
+| Integration | `npm run test:integration` | supertest; `SKIP_DOCKER=1` via `tests/beforeFile.js` |
+| All | `npm test` | unit + integration (Node 20) |
+| E2E | [`tests/e2e/README.md`](./tests/e2e/README.md) | live stack + conductor proxy |
 
 ## Related
 
-- **`DeploymentHandler` / `ServiceManager`**: same worker Docker patterns for first-party services; **compute_manager** is for *user-defined* ad-hoc containers.
+- ADR [`docs/adr/004-aerekos-compute-orchestrator.md`](../../docs/adr/004-aerekos-compute-orchestrator.md)
+- Conductor seed / proxy; **DeploymentHandler** / **ServiceManager** for first-party services — this manager is for *user* workloads

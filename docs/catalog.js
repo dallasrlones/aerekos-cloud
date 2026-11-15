@@ -186,7 +186,7 @@ const managers = [
       { method: 'DELETE', path: '/api/v1/tasks/:id', summary: 'Delete a task' }
     ],
     env: [
-      { name: 'SKIP_DOCKER', default: '0', desc: 'Metadata-only mode (no Docker daemon)' },
+      { name: 'SKIP_DOCKER', default: '0', desc: 'Tests/local metadata-only mock containers; refused when NODE_ENV=production' },
       { name: 'COMPUTE_E2E_DOCKER', default: '0', desc: 'Enable dockerode apply in reconcile e2e' }
     ]
   },

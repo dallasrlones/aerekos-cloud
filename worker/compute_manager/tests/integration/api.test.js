@@ -7,16 +7,30 @@ beforeAll(() => {
   app = require('../../index');
 });
 
-describe('compute_manager', () => {
-  test('GET /health & /ready & /api/v1/info', async () => {
+describe('compute_manager health/proxy surface', () => {
+  test('GET /health returns 200', async () => {
     const h = await request(app).get('/health');
     expect(h.status).toBe(200);
+    expect(h.body.status).toBe('healthy');
+    expect(h.body.service).toBe('compute_manager');
+  });
+
+  test('GET /ready returns 200 when DB ok', async () => {
     const r = await request(app).get('/ready');
     expect(r.status).toBe(200);
+    expect(r.body.status).toBe('ready');
+    expect(r.body.service).toBe('compute_manager');
+  });
+
+  test('GET /api/v1/info', async () => {
     const i = await request(app).get('/api/v1/info');
     expect(i.status).toBe(200);
     expect(i.body.status).toBe('active');
+    expect(i.body.service).toBe('compute_manager');
   });
+});
+
+describe('compute_manager', () => {
 
   const taskName = `t-${Date.now()}`;
 

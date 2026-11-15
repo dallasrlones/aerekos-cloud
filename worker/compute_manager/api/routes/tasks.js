@@ -1,5 +1,6 @@
 const express = require('express');
 const { TaskService } = require('../services/TaskService');
+const { enrichTask } = require('../services/TaskArn');
 
 const router = express.Router();
 const service = new TaskService();
@@ -40,7 +41,7 @@ function serialize(t) {
   } catch (e) {
     /* ignore */
   }
-  return {
+  const base = {
     id: t.id,
     name: t.name,
     project_id: t.project_id,
@@ -66,6 +67,7 @@ function serialize(t) {
     created_at: t.created_at,
     updated_at: t.updated_at
   };
+  return enrichTask(base);
 }
 
 router.post('/adopt', async (req, res, next) => {

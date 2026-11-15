@@ -14,7 +14,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `key_manager` | 3002 | KMS / encryption keys |
 | `storage_manager` | 3003 | Object storage |
 | `db_manager` | 3004 | Managed DB control plane |
-| `compute_manager` | 3100 | ECS-style tasks (dockerode) |
+| `compute_manager` | 3100 | aerekos Compute (tasks + Deployments; dockerode) |
 | `queue_manager` | 3101 | SQS-like |
 | `schedule_manager` | 3102 | Cron + dispatch |
 | `network_manager` | 3103 | Per-project Docker networks |

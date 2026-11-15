@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes();
 require('./api/models');
 const express = require('express');
 const cors = require('cors');

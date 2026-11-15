@@ -1,0 +1,232 @@
+openapi: 3.0.3
+info:
+  title: compute_manager (aerekos Compute)
+  version: 1.0.0
+  description: |
+    Kubernetes-class orchestrator for aerekos. Project ≈ namespace.
+    Docker is the v0.1.0 node agent only. See ADR 004.
+    SKIP_DOCKER is tests/local only — refused when NODE_ENV=production.
+    Conductor proxy prefix: /api/services/compute_manager
+servers:
+  - url: http://localhost:3100
+    description: Direct local
+  - url: http://localhost:3000/api/services/compute_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness (SQLite)
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not_ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, orchestrator, adr }'
+  /api/v1/tasks:
+    post:
+      summary: Create a task (legacy ECS-style)
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: '{ task }'
+        '400':
+          description: validation error
+    get:
+      summary: List tasks
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ tasks }'
+  /api/v1/tasks/{id}:
+    get:
+      summary: Get a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: refresh
+          in: query
+          schema: { type: string, enum: ['1'] }
+      responses:
+        '200':
+          description: '{ task }'
+        '404':
+          description: not found
+    delete:
+      summary: Delete a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: deleted
+  /api/v1/tasks/{id}/stop:
+    post:
+      summary: Stop a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: stopped
+  /api/v1/deployments/{id}:
+    put:
+      summary: Apply declarative Deployment
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentApply'
+      responses:
+        '200':
+          description: Applied
+    get:
+      summary: Get Deployment and status
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /api/v1/deployments/{id}/reconcile:
+    post:
+      summary: Reconcile once; abort on progress deadline
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reconcile result
+  /api/v1/deployments/{id}/pause:
+    post:
+      summary: Pause rollout
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paused
+  /api/v1/deployments/{id}/resume:
+    post:
+      summary: Resume rollout
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Resumed
+  /api/v1/deployments/{id}/rollback:
+    post:
+      summary: Rollback to a prior revision
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revision: { type: integer }
+      responses:
+        '200':
+          description: Rolled back
+components:
+  parameters:
+    projectId:
+      name: project_id
+      in: query
+      required: false
+      description: Also accepted in JSON body or X-Project-Id header
+      schema: { type: string }
+  schemas:
+    TaskCreate:
+      type: object
+      required: [name, project_id, image]
+      properties:
+        name: { type: string }
+        project_id: { type: string }
+        image: { type: string }
+        command:
+          type: array
+          items: { type: string }
+        env: { type: object }
+        port_bindings: { type: object }
+        run_mode: { type: string, enum: [service, oneshot] }
+    DeploymentApply:
+      type: object
+      properties:
+        replicas: { type: integer, minimum: 0 }
+        strategy:
+          type: object
+          properties:
+            type: { type: string, enum: [RollingUpdate, Recreate] }
+            maxSurge: { type: integer }
+            maxUnavailable: { type: integer }
+        progressDeadlineSeconds: { type: integer }
+        paused: { type: boolean }
+        template:
+          type: object
+          required: [image]
+          properties:
+            name: { type: string }
+            image: { type: string }
+            resources: { type: object }
+            probes: { type: object }

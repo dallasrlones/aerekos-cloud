@@ -181,6 +181,14 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/compute_manager/ready:
+    get:
+      summary: "Readiness (SQLite); proxy may use /api/services/{name}/ready"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+        '503':
+          description: not_ready
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource

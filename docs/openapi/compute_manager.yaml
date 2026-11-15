@@ -5,10 +5,87 @@ info:
   description: |
     Kubernetes-class orchestrator for aerekos. Project ≈ namespace.
     Docker is the v0.1.0 node agent only. See ADR 004.
+    SKIP_DOCKER is tests/local only — refused when NODE_ENV=production.
+    Canonical copy: worker/compute_manager/api/openapi.yaml
 servers:
-  - url: /api/services/compute_manager/api/v1
+  - url: /api/services/compute_manager
+    description: Via conductor proxy
+  - url: http://localhost:3100
+    description: Direct local
 paths:
-  /deployments/{id}:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness (SQLite)
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not_ready
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: OK
+  /api/v1/tasks:
+    post:
+      summary: Create a task (legacy)
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List tasks
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: OK
+  /api/v1/tasks/{id}:
+    get:
+      summary: Get a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/tasks/{id}/stop:
+    post:
+      summary: Stop a task
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Stopped
+  /api/v1/deployments/{id}:
     put:
       summary: Apply declarative Deployment
       parameters:
@@ -37,7 +114,7 @@ paths:
       responses:
         '200':
           description: OK
-  /deployments/{id}/reconcile:
+  /api/v1/deployments/{id}/reconcile:
     post:
       summary: Reconcile once; abort on progress deadline
       parameters:
@@ -49,7 +126,7 @@ paths:
       responses:
         '200':
           description: Reconcile result
-  /deployments/{id}/pause:
+  /api/v1/deployments/{id}/pause:
     post:
       summary: Pause rollout
       parameters:
@@ -61,7 +138,7 @@ paths:
       responses:
         '200':
           description: Paused
-  /deployments/{id}/resume:
+  /api/v1/deployments/{id}/resume:
     post:
       summary: Resume rollout
       parameters:
@@ -73,7 +150,7 @@ paths:
       responses:
         '200':
           description: Resumed
-  /deployments/{id}/rollback:
+  /api/v1/deployments/{id}/rollback:
     post:
       summary: Rollback to a prior revision
       parameters:

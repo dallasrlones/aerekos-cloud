@@ -220,6 +220,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/crawler_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/api/v1/jobs:
+    post:
+      summary: Create a crawl job
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List jobs (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/api/v1/jobs/canary:
+    post:
+      summary: One-shot URL canary probe
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/api/v1/jobs/{id}:
+    get:
+      summary: Get one job
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a job
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a job
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/api/v1/jobs/{id}/run:
+    post:
+      summary: Fetch start_url once / update result_summary
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/crawler_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/function_manager/api/v1/info:
     get:
       summary: Service metadata (info)

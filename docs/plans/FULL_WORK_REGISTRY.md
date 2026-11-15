@@ -40,7 +40,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-code_as_infra` | manager | `worker/code_as_infra` | done | live e2e needs conductor | Wave 3 closeout a44ee55; 9 tests |
 | `mgr-compute_manager` | manager | `worker/compute_manager` | done | live e2e needs conductor | Wave 2 closeout 4a7d145/5d9396e; 49 tests |
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
-| `mgr-crawler_manager` | manager | `worker/crawler_manager` | in_progress | | Wave 4 |
+| `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e needs conductor; egress needs-keys | Wave 4 closeout; health+CRUD+run/canary tests |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |

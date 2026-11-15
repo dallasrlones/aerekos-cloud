@@ -1,17 +1,7 @@
-# E2E tests — Crawler Manager
+# crawler_manager e2e
 
-These are **manual / CI-job** scenarios until Playwright or a full docker-compose test harness is added.
+In-process coverage lives under `tests/integration` and `tests/unit` (`npm test`).
 
-## Prerequisites
-- Conductor and at least one worker running
-- This service built and registered (or `CONDUCTOR_URL` set for auto-register)
+**Live conductor/proxy:** not run in this closeout — needs a running conductor + enabled `crawler_manager` on a non-prod project (and network egress for live `run` / canary). Root `e2e/catalog.js` already lists CRUD for `crawler_manager` / `jobs` on port `3121`.
 
-## Scenarios (checklist)
-- [ ] **E2E-1:** Start `crawler_manager` container; `GET /health` from another container on the same Docker network returns 200.
-- [ ] **E2E-2:** Conductor lists service in registry; proxy `/api/services/crawler_manager/...` works if routing is enabled.
-- [ ] **E2E-3:** Graceful shutdown: SIGTERM finishes in-flight requests then exits.
-- [ ] **E2E-4:** Invalid auth (when implemented) returns 401/403 consistently.
-- [ ] **E2E-5:** Load test: baseline latency under expected RPS (define SLO in plan.md).
-
-## Automating
-Add `tests/e2e/*.spec.js` with Playwright or run supertest against `docker compose` URLs in CI (`test:e2e:ci` script).
+Do not target production project `ea370977-3aff-4c76-95a6-a0c50fd2bce7`.

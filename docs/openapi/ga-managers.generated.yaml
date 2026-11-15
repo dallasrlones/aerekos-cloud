@@ -181,6 +181,80 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default hello function if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions:
+    post:
+      summary: Create a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List functions (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}:
+    get:
+      summary: Get one function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}/event-sources:
+    get:
+      summary: List EventSource mappings
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Attach a queue (provision inbox+DLQ if missing)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{id}/event-sources/{sid}:
+    delete:
+      summary: Detach a queue (does not delete it)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/functions/{name}/invoke:
+    post:
+      summary: Invoke a function
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/api/v1/poll:
+    post:
+      summary: Drain one poll cycle for the project
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/function_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource

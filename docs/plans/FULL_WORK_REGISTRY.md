@@ -79,7 +79,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-vpn_manager` | manager | `worker/vpn_manager` | pending | | closeout DoD |
 | `mgr-waf_manager` | manager | `worker/waf_manager` | pending | | closeout DoD |
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
-| `mgr-websocket_manager` | manager | `worker/websocket_manager` | in_progress | | Wave 3 |
+| `mgr-websocket_manager` | manager | `worker/websocket_manager` | done | live proxy/WSS needs conductor | Wave 3 closeout 76f5022; 10 tests |
 | `mgr-worker_manager` | manager | `worker/worker_manager` | pending | | closeout DoD |
 | `mgr-workflow_manager` | manager | `worker/workflow_manager` | done | live e2e needs conductor | Wave 2 closeout 28e53d2; 6+4 tests |
 

@@ -1,5 +1,6 @@
 const { Queue, Message } = require('../models');
 const brokers = require('./brokers');
+const { enrichQueue } = require('./QueueArn');
 const { createQueueProvider, usesQueueProvider } = require('../../../shared/queueProvider');
 
 const MAX_BODY_BYTES = 256 * 1024;
@@ -129,6 +130,15 @@ class QueueService {
   }
 
   serialize(q, depth) {
+    let arn;
+    let invoke_scope;
+    try {
+      const e = enrichQueue(q);
+      arn = e.arn;
+      invoke_scope = e.invoke_scope;
+    } catch {
+      // Non-UUID project_id (common in unit tests) — omit ARN fields.
+    }
     return {
       id: q.id,
       name: q.name,
@@ -139,6 +149,7 @@ class QueueService {
       max_receive: q.max_receive || 3,
       depth: depth == null ? undefined : depth,
       created_at: q.created_at,
+      ...(arn ? { arn, invoke_scope } : {}),
     };
   }
 

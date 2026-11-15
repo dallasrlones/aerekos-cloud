@@ -224,18 +224,23 @@ paths:
           description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/queues:
     post:
-      summary: Create a queue
+      summary: "Create a queue (engine, dlq, visibility optional)"
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List queues
+      summary: "List queues (engine, dlq, depth)"
       responses:
         '200':
           description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/queues/{name}:
     get:
       summary: Get a queue
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update visibility / dlq / max_receive
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -264,7 +269,7 @@ paths:
           description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/queues/{name}/messages/receive:
     post:
-      summary: Receive messages
+      summary: Receive messages (POST only; no GET list)
       responses:
         '200':
           description: Success (shape varies by manager)

@@ -167,17 +167,24 @@ const managers = [
   },
   {
     name: 'queue_manager', aws: 'SQS', category: 'Compute', port: 3101, status: 'implemented',
-    summary: 'Message queues with four real engines: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream (XADD/XREADGROUP). List returns engine, dlq, depth.',
+    summary: 'Project-scoped queues: standard/fifo (SQLite), rabbitmq (AMQP), redis_stream. At-least-once + visibility (default 30s). Optional DLQ. Does not auto-create capacity-wait. Default store SQLite; AEREKOS_QUEUE_PROVIDER=local_nats is in-memory non-prod only.',
     proxyBase: '/api/v1', capabilities: ['queues', 'messaging'],
     endpoints: [
-      { method: 'POST', path: '/api/v1/queues', summary: 'Create a queue' },
-      { method: 'GET', path: '/api/v1/queues', summary: 'List queues' },
+      { method: 'POST', path: '/api/v1/queues', summary: 'Create a queue (engine, dlq, visibility optional)' },
+      { method: 'GET', path: '/api/v1/queues', summary: 'List queues (engine, dlq, depth)' },
       { method: 'GET', path: '/api/v1/queues/:name', summary: 'Get a queue' },
+      { method: 'PATCH', path: '/api/v1/queues/:name', summary: 'Update visibility / dlq / max_receive' },
       { method: 'DELETE', path: '/api/v1/queues/:name', summary: 'Delete a queue' },
       { method: 'POST', path: '/api/v1/queues/:name/messages', summary: 'Send a message' },
-      { method: 'POST', path: '/api/v1/queues/:name/messages/receive', summary: 'Receive messages' },
+      { method: 'POST', path: '/api/v1/queues/:name/messages/receive', summary: 'Receive messages (POST only; no GET list)' },
       { method: 'DELETE', path: '/api/v1/queues/:name/messages/:messageId', summary: 'Delete (ack) a message' },
       { method: 'POST', path: '/api/v1/queues/:name/messages/:messageId/visibility', summary: 'Change visibility' }
+    ],
+    env: [
+      { name: 'AEREKOS_QUEUE_PROVIDER', default: 'sqlite', desc: 'sqlite (prod default) | local_nats (in-memory stub, non-prod) | nats (501 until JetStream)' },
+      { name: 'SKIP_BROKER', default: '0', desc: 'Skip rabbitmq/redis I/O (tests)' },
+      { name: 'RABBITMQ_URL', default: 'amqp://aerekos:aerekos@rabbitmq:5672', desc: 'Required for engine=rabbitmq' },
+      { name: 'REDIS_URL', default: 'redis://redis:6379', desc: 'Required for engine=redis_stream' }
     ]
   },
   {

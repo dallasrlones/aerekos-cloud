@@ -55,7 +55,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | done | live e2e needs conductor | Wave 5 closeout 3cf7dab4; 20 tests |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | done | live e2e needs conductor | Wave 3 closeout 9f8575b |
-| `mgr-metrics_manager` | manager | `worker/metrics_manager` | done | live e2e needs conductor | Wave 6 closeout; health+CRUD+alarms+prod-guard tests |
+| `mgr-metrics_manager` | manager | `worker/metrics_manager` | done | live e2e needs conductor | Wave 6 closeout e9b6798e; 18 tests |
 | `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759/870a48e; 12 tests |
 | `mgr-notebook_manager` | manager | `worker/notebook_manager` | in_progress |  | Wave 6 |
 | `mgr-notify_manager` | manager | `worker/notify_manager` | in_progress |  | Wave 6 |

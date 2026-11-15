@@ -105,8 +105,9 @@ ${C.bold}Discover${C.reset}
   metrics <service>                       A service's Prometheus metrics
 
 ${C.bold}Operate${C.reset}
+  health [service] [--project P]          Probe /health (one service or all registered)
   backup run|jobs|get|restore [--project P] [--data JSON]
-  iac status|hookup|export|apply|down [--project P] [--data JSON] [--hard] [--any-device] [--no-commit]
+  iac status|hookup|export|apply|down|current|save|revisions|rollback [--project P] [--data JSON] [--hard] [--any-device] [--no-commit]
   iac system | iac import --name N --data '<infra file JSON>' [--any-device]
   edge status|hookup [--project P]
   setup <service>|graph|status [--project P]
@@ -115,8 +116,8 @@ ${C.bold}Operate${C.reset}
   graphql execute [--project P] --data '{"query":"{ users { id } }"}'
   search query [--project P] --data '{"q":"hello"}'
   intelligence submit|job|wait|cancel [--project P]
-  agents setup|list|chat|interrupt|approve|asks|timeline|fleet|prompts [--project P] [--id NAME]
-  connectors kinds|list|invoke [--project P]
+  agents setup|status|list|fleet|get|chat|interrupt|approve|asks|timeline|prompts|work|plans|compact [--project P] [--id NAME]
+  connectors kinds|list|create|invoke [--project P]
   <service> <segment> <list|get|create|update|delete> [id] [--project P] [--data JSON]
   call <service> <METHOD> <path> [--project P] [--data JSON]   Generic proxy
 
@@ -204,6 +205,29 @@ async function main() {
   if (cmd === 'metrics') {
     const svc = positionals[1]; if (!svc) die('metrics needs a <service>');
     return out(await client.manager(svc).metrics(projectOf(flags)), true);
+  }
+  if (cmd === 'health') {
+    const svc = positionals[1];
+    const project = projectOf(flags);
+    if (svc) return out(await client.services.health(svc, project), asJson);
+    const listed = await client.services.list();
+    const list = listed.services || listed || [];
+    const rows = [];
+    for (const s of list) {
+      const name = s.name || s;
+      try {
+        const body = await client.services.health(name, project);
+        rows.push({ name, ok: true, health: body });
+      } catch (e) {
+        rows.push({ name, ok: false, error: e.message || String(e) });
+      }
+    }
+    if (asJson) return out(rows, true);
+    printTable(
+      rows.map((r) => ({ name: r.name, ok: r.ok ? 'yes' : 'no', detail: r.ok ? 'ok' : (r.error || '') })),
+      [{ key: 'name', label: 'SERVICE' }, { key: 'ok', label: 'OK' }, { key: 'detail', label: 'DETAIL' }]
+    );
+    return;
   }
   if (cmd === 'call') {
     const [, svc, method, p] = positionals;

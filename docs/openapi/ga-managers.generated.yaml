@@ -720,63 +720,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/query_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed sample query if missing
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/api/v1/sql:
-    post:
-      summary: Run SQL against per-project SQLite (may skip under SKIP_DUCKDB)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/api/v1/queries:
-    post:
-      summary: Create a query
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List queries (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/api/v1/queries/{id}:
-    get:
-      summary: Get one query
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a query
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a query
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/query_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)
@@ -846,69 +789,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed default docs index if missing
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/index:
-    post:
-      summary: Index documents into FTS5
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/query:
-    post:
-      summary: FTS query → { hits }
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/indexes:
-    post:
-      summary: Create an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List indexes (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/api/v1/indexes/{id}:
-    get:
-      summary: Get one index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete an index
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/search_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/info:
     get:
       summary: Service metadata (info)
@@ -954,52 +834,52 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/security_manager/api/v1/info:
+  /api/services/slack_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/security_manager/api/v1/findings:
+  /api/services/slack_manager/api/v1/messages:
     post:
-      summary: Create a finding
+      summary: Create a queued message
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List findings (?project_id=)
+      summary: List messages (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/security_manager/api/v1/findings/scan:
-    post:
-      summary: Metadata-only scan note (no live scanner)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/security_manager/api/v1/findings/{id}:
+  /api/services/slack_manager/api/v1/messages/{id}:
     get:
-      summary: Get one finding
+      summary: Get one message
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a finding
+      summary: Update a message
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a finding
+      summary: Delete a message
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/security_manager/health:
+  /api/services/slack_manager/api/v1/messages/{id}/send:
+    post:
+      summary: Attempt Slack send / stay queued without secrets
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/security_manager/ready:
+  /api/services/slack_manager/ready:
     get:
       summary: Readiness
       responses:

@@ -25,7 +25,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `mgr-ai_manager` | manager | `worker/ai_manager` | done | live LLM keys; OpenAPI parked | Wave 2 closeout ff2e6ed/7a2fdc1; 6 scoped tests |
-| `mgr-analytics_manager` | manager | `worker/analytics_manager` | in_progress | | Wave 4 |
+| `mgr-analytics_manager` | manager | `worker/analytics_manager` | done | live e2e needs conductor | Wave 4 closeout 0611439; 16 tests |
 | `mgr-api_manager` | manager | `worker/api_manager` | done | live e2e needs conductor | Wave 3 closeout 282aff1/2063a5a; 12 tests |
 | `mgr-app_manager` | manager | `worker/app_manager` | done | live e2e needs conductor | Wave 3 closeout d7d5eab; 12 tests |
 | `mgr-audit_manager` | manager | `worker/audit_manager` | in_progress | | Wave 4 |

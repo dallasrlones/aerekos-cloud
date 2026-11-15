@@ -47,7 +47,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `crawler_manager` | 3121 | `/api/v1/jobs` | Crawl job metadata; add fetch with network later |
 | `host_manager` | 3122 | `/api/v1/hosts` | Host inventory |
 | `mcp_manager` | 3123 | `/api/v1/tools` | MCP tool registry |
-| `api_manager` | 3124 | `/api/v1/endpoints` | Gateway route definitions |
+| `api_manager` | 3124 | `/api/v1/endpoints` | Gateway routes + match/ARN + Data API |
 | `app_manager` | 3125 | `/api/v1/apps` | App project metadata |
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
 | `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |

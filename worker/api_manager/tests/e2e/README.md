@@ -26,4 +26,4 @@ cd worker/api_manager
 npm test
 ```
 
-Live proxy e2e needs conductor (+ optional `waf_manager` for match WAF evaluate; `function_manager` / `db_manager` for Data API hooks/provision).
+Live conductor-proxy scenarios are **parked** until conductor + worker are available (Wave 3 closeout: unit/integration covered). Optional deps: `waf_manager` (match WAF evaluate), `function_manager` / `db_manager` (Data API hooks/provision).

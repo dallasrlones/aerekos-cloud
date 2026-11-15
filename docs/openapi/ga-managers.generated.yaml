@@ -181,6 +181,118 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases:
+    post:
+      summary: Provision a database (project_id query only; type required)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List databases
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}:
+    get:
+      summary: Get a database (includes arn)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/backups:
+    post:
+      summary: Create a backup
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/backups/{backupId}/restore:
+    post:
+      summary: Restore a backup
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/connection:
+    get:
+      summary: Connection info
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/health:
+    get:
+      summary: Health
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/memory/sql:
+    post:
+      summary: Constrained memory SQL (sqlite3)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/restart:
+    post:
+      summary: Restart
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/start:
+    post:
+      summary: Start
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/stop:
+    post:
+      summary: Stop
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/vectors:
+    delete:
+      summary: Delete vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/vectors/search:
+    post:
+      summary: Search vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/vectors/upsert:
+    post:
+      summary: Upsert vectors (lancedb)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/databases/{name}/volumes:
+    get:
+      summary: Volume / mount metadata
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/api/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/db_manager/ready:
+    get:
+      summary: Readiness (key_manager unless MOCK_KEY_MANAGER)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/key_manager/api/info:
     get:
       summary: Service metadata (info)

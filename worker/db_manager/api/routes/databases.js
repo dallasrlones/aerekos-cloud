@@ -1,6 +1,9 @@
 const express = require('express');
 const DatabaseService = require('../services/DatabaseService');
 const BackupService = require('../services/BackupService');
+const VectorService = require('../services/VectorService');
+const MemorySqlService = require('../services/MemorySqlService');
+const { presentDatabase } = require('../services/DatabaseArn');
 const validateServiceToken = require('../middleware/auth');
 const joi = require('joi');
 
@@ -9,6 +12,8 @@ const router = express.Router();
 // Initialize database service (will be set during startup)
 let databaseService = null;
 let backupService = null;
+let vectorService = null;
+let memorySqlService = null;
 
 function initializeDatabaseService(conductorUrl, serviceToken) {
   if (!conductorUrl || !serviceToken) {
@@ -16,6 +21,8 @@ function initializeDatabaseService(conductorUrl, serviceToken) {
   }
   databaseService = new DatabaseService(conductorUrl, serviceToken);
   backupService = new BackupService(conductorUrl, serviceToken, databaseService);
+  vectorService = new VectorService(databaseService);
+  memorySqlService = new MemorySqlService(databaseService);
 }
 
 // Initialize with environment variables if available (for development)
@@ -90,7 +97,7 @@ router.post('/', validateServiceToken, async (req, res, next) => {
       }
     );
 
-    res.status(201).json(dbInstance);
+    res.status(201).json(presentDatabase(dbInstance, projectId));
   } catch (error) {
     if (error.message.includes('already exists')) {
       return res.status(409).json({
@@ -136,9 +143,10 @@ router.get('/', validateServiceToken, async (req, res, next) => {
       });
     }
 
+    const presented = databases.map((row) => presentDatabase(row, projectId));
     res.json({
-      databases,
-      total: databases.length
+      databases: presented,
+      total: presented.length
     });
   } catch (error) {
     next(error);
@@ -165,7 +173,7 @@ router.get('/:name', validateServiceToken, async (req, res, next) => {
     }
 
     const dbInstance = await databaseService.getDatabase(req.params.name, projectId);
-    res.json(dbInstance);
+    res.json(presentDatabase(dbInstance, projectId));
   } catch (error) {
     if (error.message.includes('not found')) {
       return res.status(404).json({
@@ -277,7 +285,7 @@ router.post('/:name/start', validateServiceToken, async (req, res, next) => {
     }
 
     const dbInstance = await databaseService.startDatabase(req.params.name, projectId);
-    res.json(dbInstance);
+    res.json(presentDatabase(dbInstance, projectId));
   } catch (error) {
     if (error.message.includes('not found')) {
       return res.status(404).json({
@@ -308,7 +316,7 @@ router.post('/:name/stop', validateServiceToken, async (req, res, next) => {
     }
 
     const dbInstance = await databaseService.stopDatabase(req.params.name, projectId);
-    res.json(dbInstance);
+    res.json(presentDatabase(dbInstance, projectId));
   } catch (error) {
     if (error.message.includes('not found')) {
       return res.status(404).json({
@@ -339,7 +347,7 @@ router.post('/:name/restart', validateServiceToken, async (req, res, next) => {
     }
 
     const dbInstance = await databaseService.restartDatabase(req.params.name, projectId);
-    res.json(dbInstance);
+    res.json(presentDatabase(dbInstance, projectId));
   } catch (error) {
     if (error.message.includes('not found')) {
       return res.status(404).json({
@@ -513,6 +521,175 @@ router.get('/:name/volumes', validateServiceToken, async (req, res, next) => {
     if (error.message.includes('not found')) {
       return res.status(404).json({
         error: { message: error.message, status: 404 }
+      });
+    }
+    next(error);
+  }
+});
+
+/**
+ * POST /api/databases/:name/vectors/upsert - Upsert vectors into a lancedb instance
+ */
+router.post('/:name/vectors/upsert', validateServiceToken, async (req, res, next) => {
+  try {
+    if (!databaseService || !vectorService) {
+      return res.status(503).json({
+        error: { message: 'Database service not initialized', status: 503 }
+      });
+    }
+
+    const projectId = req.query.project_id;
+    if (!projectId) {
+      return res.status(400).json({
+        error: { message: 'project_id is required in query parameters', status: 400 }
+      });
+    }
+
+    const rows = req.body?.rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({
+        error: { message: 'rows array is required', status: 400 }
+      });
+    }
+
+    const result = await vectorService.upsert(req.params.name, projectId, {
+      rows,
+      vector_dim: req.body.vector_dim,
+      table: req.body.table
+    });
+    res.json(result);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('not a lancedb')) {
+      return res.status(404).json({
+        error: { message: error.message, status: 404 }
+      });
+    }
+    next(error);
+  }
+});
+
+/**
+ * POST /api/databases/:name/vectors/search - Search vectors in a lancedb instance
+ */
+router.post('/:name/vectors/search', validateServiceToken, async (req, res, next) => {
+  try {
+    if (!databaseService || !vectorService) {
+      return res.status(503).json({
+        error: { message: 'Database service not initialized', status: 503 }
+      });
+    }
+
+    const projectId = req.query.project_id;
+    if (!projectId) {
+      return res.status(400).json({
+        error: { message: 'project_id is required in query parameters', status: 400 }
+      });
+    }
+
+    if (!Array.isArray(req.body?.vector) || req.body.vector.length === 0) {
+      return res.status(400).json({
+        error: { message: 'vector array is required', status: 400 }
+      });
+    }
+
+    const result = await vectorService.search(req.params.name, projectId, {
+      vector: req.body.vector,
+      top_k: req.body.top_k,
+      filter: req.body.filter,
+      vector_dim: req.body.vector_dim,
+      table: req.body.table
+    });
+    res.json(result);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('not a lancedb')) {
+      return res.status(404).json({
+        error: { message: error.message, status: 404 }
+      });
+    }
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/databases/:name/vectors - Delete vectors by ids or filter
+ */
+router.delete('/:name/vectors', validateServiceToken, async (req, res, next) => {
+  try {
+    if (!databaseService || !vectorService) {
+      return res.status(503).json({
+        error: { message: 'Database service not initialized', status: 503 }
+      });
+    }
+
+    const projectId = req.query.project_id;
+    if (!projectId) {
+      return res.status(400).json({
+        error: { message: 'project_id is required in query parameters', status: 400 }
+      });
+    }
+
+    const ids = req.body?.ids;
+    const filter = req.body?.filter;
+    if ((!Array.isArray(ids) || ids.length === 0) && !filter) {
+      return res.status(400).json({
+        error: { message: 'ids or filter is required', status: 400 }
+      });
+    }
+
+    const result = await vectorService.deleteVectors(req.params.name, projectId, {
+      ids,
+      filter,
+      table: req.body?.table
+    });
+    res.json(result);
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('not a lancedb')) {
+      return res.status(404).json({
+        error: { message: error.message, status: 404 }
+      });
+    }
+    next(error);
+  }
+});
+
+/**
+ * POST /api/databases/:name/memory/sql - Run constrained SQL on a sqlite3 memory DB
+ */
+router.post('/:name/memory/sql', validateServiceToken, async (req, res, next) => {
+  try {
+    if (!databaseService || !memorySqlService) {
+      return res.status(503).json({
+        error: { message: 'Database service not initialized', status: 503 }
+      });
+    }
+
+    const projectId = req.query.project_id;
+    if (!projectId) {
+      return res.status(400).json({
+        error: { message: 'project_id is required in query parameters', status: 400 }
+      });
+    }
+
+    const { op, sql, params } = req.body || {};
+    if (!op || !sql) {
+      return res.status(400).json({
+        error: { message: 'op and sql are required', status: 400 }
+      });
+    }
+
+    const result = await memorySqlService.run(req.params.name, projectId, { op, sql, params });
+    res.json(result);
+  } catch (error) {
+    if (
+      error.message.includes('not found') ||
+      error.message.includes('not a sqlite3') ||
+      error.message.includes('not allowed') ||
+      error.message.includes('blocked') ||
+      error.message.includes('required') ||
+      error.message.includes('op must')
+    ) {
+      return res.status(400).json({
+        error: { message: error.message, status: 400 }
       });
     }
     next(error);

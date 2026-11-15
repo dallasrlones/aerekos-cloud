@@ -4,6 +4,7 @@ const cors = require('cors');
 const axios = require('axios');
 const { registerWithConductor } = require('./api/utils/serviceRegistration');
 const databaseRoutes = require('./api/routes/databases');
+const metaRoutes = require('./api/routes/meta');
 const errorHandler = require('./api/middleware/errorHandler');
 const EncryptionService = require('./api/services/EncryptionService');
 const { db } = require('./api/models');
@@ -52,8 +53,8 @@ app.get('/health', async (req, res) => {
 // Readiness check endpoint
 app.get('/ready', async (req, res) => {
   try {
-    // Check key_manager is accessible (REQUIRED)
-    if (process.env.CONDUCTOR_URL) {
+    // key_manager is required unless MOCK_KEY_MANAGER (dev/tests only; refused when NODE_ENV=production)
+    if (process.env.MOCK_KEY_MANAGER !== 'true' && process.env.CONDUCTOR_URL) {
       try {
         const projectId = process.env.PROJECT_ID;
         const url = projectId 
@@ -93,6 +94,9 @@ app.get('/ready', async (req, res) => {
     });
   }
 });
+
+// Service metadata (no auth; matches OpenAPI CORE_GA /api/info)
+app.use('/api', metaRoutes);
 
 // API routes (require authentication)
 app.use('/api/databases', databaseRoutes);

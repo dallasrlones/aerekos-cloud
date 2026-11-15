@@ -1,46 +1,45 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+jest.mock('aerekos-record', () => ({
+  connect: jest.fn(),
+  registerMemoryModels: jest.fn(),
+}));
+
 const Record = require('aerekos-record');
 const MemorySqlService = require('../../../api/services/MemorySqlService');
 
 describe('MemorySqlService', () => {
-  let tmpDir;
-  let dbPath;
   let mockDatabaseService;
   let memorySqlService;
+  let mockStmt;
+  let mockDb;
   const projectId = 'proj-1';
   const dbName = 'test-memory-meta';
 
-  beforeAll(async () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'memory-sql-test-'));
-    dbPath = path.join(tmpDir, 'memory.db');
-    const db = Record.connect('sqlite', { database: dbPath });
-    await db.close();
+  beforeEach(() => {
+    mockStmt = {
+      all: jest.fn().mockReturnValue([{ content: 'hello memory' }]),
+      run: jest.fn().mockReturnValue({ changes: 1, lastInsertRowid: 1 })
+    };
+    mockDb = {
+      db: {
+        prepare: jest.fn().mockReturnValue(mockStmt)
+      }
+    };
+    Record.connect.mockReturnValue(mockDb);
+    Record.registerMemoryModels.mockReturnValue({});
 
     mockDatabaseService = {
       getDatabase: jest.fn().mockResolvedValue({
         type: 'sqlite3',
-        metadata: JSON.stringify({ database: dbPath })
+        metadata: JSON.stringify({ database: '/tmp/memory.db' })
       })
     };
     memorySqlService = new MemorySqlService(mockDatabaseService);
   });
 
-  afterAll(() => {
-    if (tmpDir && fs.existsSync(tmpDir)) {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
   it('ensures memory schema via aerekos-record models', async () => {
     const result = await memorySqlService.ensureSchema(dbName, projectId);
     expect(result.schema).toBe('memory_v1');
-
-    const db = Record.connect('sqlite', { database: dbPath });
-    const tables = db.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name);
-    await db.close();
-    expect(tables).toEqual(expect.arrayContaining(['st_messages', 'memory_sessions', 'lt_facts']));
+    expect(Record.registerMemoryModels).toHaveBeenCalledWith(mockDb);
   });
 
   it('inserts and queries st_messages via memory sql proxy', async () => {

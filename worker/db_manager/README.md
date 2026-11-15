@@ -1,10 +1,10 @@
 # Database Manager
 
-Project-scoped **database instances** on the worker: create metadata records, run engine containers (PostgreSQL, MongoDB, Redis, Neo4j, Elasticsearch) via **dockerode**, encrypt credentials with **`key_manager`**, and support backup/restore flows. Control-plane state is **SQLite** (`aerekos-record`).
+Project-scoped **database instances** on the worker: create metadata records, run engine containers (PostgreSQL, MongoDB, Redis, Neo4j, Elasticsearch) via **dockerode**, plus embedded **sqlite3** / **lancedb** engines. Credentials are encrypted with **`key_manager`**. Control-plane state is **SQLite** (`aerekos-record`).
 
 ## Status
 
-**MVP+** — CRUD, Docker lifecycle, encryption, health; gated integration tests for live engines. See [`plan.md`](./plan.md) for details and backlog.
+**MVP+ / GA (core)** — CRUD, Docker lifecycle, encryption, backups/restore, health, volumes; LanceDB vector upsert/search and constrained memory SQL on sqlite3. Gated live-engine tests behind `DB_MANAGER_INTEGRATION=1`. See [`plan.md`](./plan.md) for backlog.
 
 ## Default port
 
@@ -12,34 +12,57 @@ Project-scoped **database instances** on the worker: create metadata records, ru
 
 ## Dependencies
 
-- **`key_manager`** — **Required** in production to encrypt connection strings and secrets (`MOCK_KEY_MANAGER=true` only for dev/tests).
-- **Worker Docker socket** — Engine containers are created on the same host as the worker.
+- **`key_manager`** — **Required** in production to encrypt connection strings and secrets.
+- **Worker Docker socket** — Engine containers (non-sqlite3/lancedb) are created on the same host as the worker.
 - **Conductor** — Registration, routing, optional proxy to this API.
+
+### No production mocks
+
+`MOCK_KEY_MANAGER=true` is **dev/tests only**. Startup **exits** if `NODE_ENV=production` and `MOCK_KEY_MANAGER=true`. Do not set the mock on prod compose/fleet paths.
 
 ## Quick start (local)
 
 ```bash
 cd worker/db_manager
 cp .env_example .env
-# Set CONDUCTOR_URL, and key_manager / MOCK_KEY_MANAGER per .env_example
-npm install
+# Set CONDUCTOR_URL; keep MOCK_KEY_MANAGER=false unless local-only without key_manager
+npm install   # Node 20 per repo .nvmrc
 npm run dev
 # curl http://localhost:3004/health
 ```
 
 ## API (service direct)
 
-`project_id` is required for project-scoped operations (query, body, or `X-Project-Id`).
+`project_id` is required for project-scoped operations (**query param only** — do not put `project_id` in the JSON create body).
 
 | Area | Base path | Notes |
 |------|-----------|--------|
-| Databases | `POST/GET/DELETE /api/databases` | Create/list/get/delete; connection string; `POST /:name/start|stop|restart`; `GET /:name/health` |
+| Info | `GET /api/info` | Service metadata (unauthenticated) |
+| Databases | `POST/GET/DELETE /api/databases` | Create/list/get/delete; engines: `postgresql`, `mongodb`, `neo4j`, `elasticsearch`, `redis`, `sqlite3`, `lancedb` |
+| Lifecycle | `POST /:name/start\|stop\|restart` | Docker engines |
+| Connection | `GET /:name/connection` | Decrypted connection info |
+| Health | `GET /:name/health` | Instance health |
+| Volumes | `GET /:name/volumes` | Volume / mount metadata |
 | Backups | `POST /:name/backups`, `POST /:name/backups/:id/restore` | See [`BACKUP_RESTORE.md`](./BACKUP_RESTORE.md) |
-| Liveness | `GET /health`, `GET /ready` | `ready` checks **key_manager** via conductor (unless `MOCK_KEY_MANAGER`) |
+| Vectors | `POST /:name/vectors/upsert\|search`, `DELETE /:name/vectors` | **lancedb** only |
+| Memory SQL | `POST /:name/memory/sql` | Constrained SQL on **sqlite3** memory tables |
+| Liveness | `GET /health`, `GET /ready` | `ready` checks **key_manager** via conductor unless `MOCK_KEY_MANAGER` |
 | Metrics | `GET /metrics` | Prometheus text (shared helper) |
 
 **Via conductor (dashboard / clients):** paths are under  
 `/api/services/db_manager/api/...` → proxied to this service’s `/api/...` (see [`GOLDEN_PATH.md`](../../GOLDEN_PATH.md)).
+
+Path docs: [`docs/services/db_manager.md`](../../docs/services/db_manager.md).  
+OpenAPI (catalog-generated pack): [`docs/openapi/ga-managers.generated.yaml`](../../docs/openapi/ga-managers.generated.yaml) — regenerate with `node scripts/oss/gen-openapi-from-catalog.mjs`.
+
+## SDK / CLI
+
+- **SDK:** `client.db` is a `ThinProxyApi` for `db_manager`, or `client.proxy('db_manager', { method, path, projectId, body })` / `client.svc.db_manager`.
+- **CLI:** `aerekos call db_manager POST "/api/databases?project_id=$PID" --data '{"name":"demo","type":"sqlite3"}'` (generic call; no dedicated `aerekos db` subcommand required for closeout).
+
+## Tutorial / ServiceGuide
+
+Console **DatabaseManager** ships a **ServiceGuide** (`conductor/app/screens/DatabaseManager`). There is **no** standalone `docs/tutorials/db_manager*` walkthrough — use ServiceGuide + this README + [`docs/services/db_manager.md`](../../docs/services/db_manager.md).
 
 ## Environment
 
@@ -57,9 +80,10 @@ docker compose -f docker-compose.yml up --build
 
 | Layer | Command | Notes |
 |-------|---------|--------|
-| Default | `npm test` | Unit + API integration (mocked/embedded) |
+| Default | `npm test` | Unit + API integration (mocked/embedded); Node 20 |
 | DB farm | `DB_MANAGER_INTEGRATION=1 npm run test:integration` | Live Docker + engines — see [`tests/integration/databases/README.md`](./tests/integration/databases/README.md) |
 | Coverage | `npm run test:coverage` | |
+| E2E (fleet) | `node e2e/db-rds.js` | Icarus T39 — provision sqlite3 + list via conductor proxy (`ICARUS_C0_SKIP_LIVE=1` skips) |
 
 ## More docs (this folder)
 

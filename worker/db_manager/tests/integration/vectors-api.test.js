@@ -3,11 +3,16 @@ const express = require('express');
 const VectorService = require('../../api/services/VectorService');
 const MemorySqlService = require('../../api/services/MemorySqlService');
 
-const API_PID = '44444444-4444-4444-4444-444444444444';
+const API_PID = '44444444-4444-4444-8444-444444444444';
 const Q = `project_id=${API_PID}`;
 
 jest.mock('../../api/services/DatabaseService');
 jest.mock('../../api/services/EncryptionService');
+jest.mock('../../api/middleware/auth', () => (req, res, next) => {
+  req.service = { name: 'test-service' };
+  req.auth = { typ: 'service', sub: 'test-service' };
+  next();
+});
 jest.mock('../../../shared/authManagerClient', () => ({
   requireAuth: () => (req, res, next) => {
     req.service = { name: 'test-service' };

@@ -138,12 +138,15 @@ const managers = [
   },
   {
     name: 'db_manager', aws: 'RDS', category: 'Core', port: 3004, status: 'implemented',
-    summary: 'Managed database control plane: provision/start/stop/restart database containers, backups + restore, health and volumes.',
-    proxyBase: '/api', capabilities: ['managed-db', 'backups', 'lifecycle'],
+    summary: 'Managed database control plane: provision/start/stop/restart engines (postgresql, mongodb, neo4j, elasticsearch, redis, sqlite3, lancedb), backups + restore, volumes, LanceDB vectors, constrained memory SQL.',
+    proxyBase: '/api', capabilities: ['managed-db', 'backups', 'lifecycle', 'vectors', 'memory-sql'],
     endpoints: [
-      { method: 'POST', path: '/api/databases', summary: 'Provision a database' },
+      { method: 'GET', path: '/api/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/health', summary: 'Liveness (control-plane SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness (key_manager unless MOCK_KEY_MANAGER)' },
+      { method: 'POST', path: '/api/databases', summary: 'Provision a database (project_id query only; type required)' },
       { method: 'GET', path: '/api/databases', summary: 'List databases' },
-      { method: 'GET', path: '/api/databases/:name', summary: 'Get a database' },
+      { method: 'GET', path: '/api/databases/:name', summary: 'Get a database (includes arn)' },
       { method: 'GET', path: '/api/databases/:name/connection', summary: 'Connection info' },
       { method: 'POST', path: '/api/databases/:name/start', summary: 'Start' },
       { method: 'POST', path: '/api/databases/:name/stop', summary: 'Stop' },
@@ -151,9 +154,17 @@ const managers = [
       { method: 'POST', path: '/api/databases/:name/backups', summary: 'Create a backup' },
       { method: 'POST', path: '/api/databases/:name/backups/:backupId/restore', summary: 'Restore a backup' },
       { method: 'GET', path: '/api/databases/:name/health', summary: 'Health' },
+      { method: 'GET', path: '/api/databases/:name/volumes', summary: 'Volume / mount metadata' },
+      { method: 'POST', path: '/api/databases/:name/vectors/upsert', summary: 'Upsert vectors (lancedb)' },
+      { method: 'POST', path: '/api/databases/:name/vectors/search', summary: 'Search vectors (lancedb)' },
+      { method: 'DELETE', path: '/api/databases/:name/vectors', summary: 'Delete vectors (lancedb)' },
+      { method: 'POST', path: '/api/databases/:name/memory/sql', summary: 'Constrained memory SQL (sqlite3)' },
       { method: 'DELETE', path: '/api/databases/:name', summary: 'Delete' }
     ],
-    env: [{ name: 'PROJECT_ID', default: 'default', desc: 'Project this control plane serves' }]
+    env: [
+      { name: 'PROJECT_ID', default: 'default', desc: 'Project this control plane serves' },
+      { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Dev/tests only; refused when NODE_ENV=production' }
+    ]
   },
 
   // --- Compute -------------------------------------------------------------

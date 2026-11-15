@@ -3,7 +3,7 @@ const express = require('express');
 const DatabaseService = require('../../api/services/DatabaseService');
 const EncryptionService = require('../../api/services/EncryptionService');
 
-const API_PID = '44444444-4444-4444-4444-444444444444';
+const API_PID = '44444444-4444-4444-8444-444444444444';
 const Q = `project_id=${API_PID}`;
 
 jest.mock('../../api/services/DatabaseService');
@@ -135,7 +135,16 @@ describe('Database API Endpoints', () => {
         API_PID,
         expect.objectContaining({ type: 'postgresql' })
       );
-      expect(response.body.databases).toEqual(mockDbs);
+      expect(response.body.databases).toEqual([
+        expect.objectContaining({
+          id: 'db-1',
+          name: 'db1',
+          type: 'postgresql',
+          project_id: API_PID,
+          arn: `arn:aerekos:${API_PID}:db:database/db1`,
+          invoke_scope: expect.objectContaining({ connect: 'db:Connect' }),
+        }),
+      ]);
     });
   });
 

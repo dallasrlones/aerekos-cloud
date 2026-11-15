@@ -27,6 +27,9 @@ class VectorService {
     }
 
     const tableName = metadata.defaultTable || DEFAULT_TABLE;
+    if (typeof Record.connectLance !== 'function') {
+      throw new Error('aerekos-record connectLance is required for lancedb vector APIs');
+    }
     const lance = Record.connectLance({
       database: databasePath,
       table: tableName,

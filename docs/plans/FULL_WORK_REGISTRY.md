@@ -42,18 +42,18 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e / egress parked | Wave 4 closeout b7e447e; 11 tests |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
-| `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
-| `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
-| `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |
-| `mgr-event_manager` | manager | `worker/event_manager` | pending | | closeout DoD |
+| `mgr-domain_manager` | manager | `worker/domain_manager` | in_progress | | Wave 5 |
+| `mgr-download_manager` | manager | `worker/download_manager` | in_progress | | Wave 5 |
+| `mgr-email_manager` | manager | `worker/email_manager` | in_progress | | Wave 5 |
+| `mgr-event_manager` | manager | `worker/event_manager` | in_progress | | Wave 5 |
 | `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |
 | `mgr-git_manager` | manager | `worker/git_manager` | done | live e2e / Smart HTTP parked | Wave 3 closeout 5ffea59; 20 tests |
-| `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
-| `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
+| `mgr-graphql_manager` | manager | `worker/graphql_manager` | in_progress | | Wave 5 |
+| `mgr-host_manager` | manager | `worker/host_manager` | in_progress | | Wave 5 |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |
-| `mgr-iot_manager` | manager | `worker/iot_manager` | pending | | closeout DoD |
+| `mgr-iot_manager` | manager | `worker/iot_manager` | in_progress | | Wave 5 |
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |
-| `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |
+| `mgr-logs_manager` | manager | `worker/logs_manager` | in_progress | | Wave 5 |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | done | live e2e needs conductor | Wave 3 closeout 9f8575b |
 | `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |
 | `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759/870a48e; 12 tests |
@@ -126,6 +126,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 2. **Wave 2:** mgr-compute_manager, mgr-schedule_manager, mgr-network_manager, mgr-ai_manager, mgr-vector_manager, mgr-function_manager, mgr-workflow_manager, mgr-cluster_manager
 3. **Wave 3:** mgr-git_manager, mgr-cicd_manager, mgr-api_manager, mgr-app_manager, mgr-registry_manager, mgr-mcp_manager, mgr-code_as_infra, mgr-websocket_manager
 4. **Wave 4:** mgr-analytics_manager, mgr-audit_manager, mgr-backup_manager, mgr-balancer_manager, mgr-billing_manager, mgr-cdn_manager, mgr-cert_manager, mgr-crawler_manager
+5. **Wave 5:** mgr-domain_manager, mgr-download_manager, mgr-email_manager, mgr-event_manager, mgr-graphql_manager, mgr-host_manager, mgr-iot_manager, mgr-logs_manager
 4. Continue remaining managers → cross-cuts → epics (scaffold slices)
 
 **Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.

@@ -53,7 +53,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
 | `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |
 | `worker_manager` | 3128 | `/api/v1/annotations` | Worker/fleet labels + sync from Devices |
-| `backup_manager` | 3134 | `/api/v1/jobs` | Snapshots into `aerekos-backups` + restore |
+| `backup_manager` | 3134 | `/api/v1/vaults` + `/api/v1/jobs` | Vaults + snapshots into `aerekos-backups` + restore; tutorial none; no prod mocks |
 | `workflow_manager` | 3135 | `/api/v1/machines` | State machines subset; outbound notify skipped; tutorial none |
 | `config_manager` | 3136 | `/api/v1/namespaces` | Flags + `/evaluate` |
 | `cert_manager` | 3137 | `/api/v1/certs` | Import PEM or mint self-signed |

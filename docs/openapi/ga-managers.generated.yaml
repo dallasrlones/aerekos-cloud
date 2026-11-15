@@ -106,54 +106,77 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/audit_manager/api/v1/info:
+  /api/services/backup_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/audit_manager/api/v1/ensure-defaults:
+  /api/services/backup_manager/api/v1/ensure-defaults:
     post:
-      summary: Seed bootstrap event if missing
+      summary: Seed default vault for project
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/audit_manager/api/v1/ingest:
+  /api/services/backup_manager/api/v1/vaults:
     post:
-      summary: Convenience writer for audit events
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/audit_manager/api/v1/events:
-    post:
-      summary: Create a event
+      summary: Create a vault
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List events (?project_id=)
+      summary: List vaults (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/audit_manager/api/v1/events/{id}:
+  /api/services/backup_manager/api/v1/vaults/{id}:
     get:
-      summary: Get one event
+      summary: Get one vault
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a event
+      summary: Update a vault
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a event
+      summary: Delete a vault
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/audit_manager/health:
+  /api/services/backup_manager/api/v1/jobs:
+    post:
+      summary: Run a backup job
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List backup jobs
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/backup_manager/api/v1/jobs/{id}:
+    get:
+      summary: Job metadata + signed download URL
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/backup_manager/api/v1/jobs/{id}/restore:
+    post:
+      summary: Restore a snapshot
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/backup_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/backup_manager/ready:
+    get:
+      summary: Readiness
       responses:
         '200':
           description: Success (shape varies by manager)

@@ -4,6 +4,8 @@ process.env.SKIP_DOWNLOAD = '1'; process.env.SKIP_TORRENT = '1'; process.env.SKI
 process.env.SKIP_POLLER = '1'; process.env.SKIP_OUTBOUND = '1'; process.env.SKIP_BROKER = '1';
 process.env.SKIP_BACKUP = '1'; process.env.SKIP_ACME = '1'; process.env.SKIP_HEAL = '1';
 process.env.SKIP_HOST_PATCH = '1';
+process.env.SKIP_BACKUP_CRON = '1';
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'backup_manager';
 process.env.CONDUCTOR_URL = process.env.CONDUCTOR_URL || 'http://conductor.test';
 process.env.SERVICE_TOKEN = process.env.SERVICE_TOKEN || 'test-service-token';
 if (!process.env.DATABASE_PATH) {

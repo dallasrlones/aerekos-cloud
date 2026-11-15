@@ -10,7 +10,7 @@ router.get('/info', (req, res) => {
     version: process.env.SERVICE_VERSION || '1.0.0',
     status: 'active',
     message:
-      'Project-scoped outbound webhooks. Set SKIP_OUTBOUND=1 to record deliveries without HTTP. No inbound receiver here.'
+      'Project-scoped outbound webhooks. SKIP_OUTBOUND=1 records deliveries without HTTP (test/dev only; refused in production). No inbound receiver here.'
   });
 });
 

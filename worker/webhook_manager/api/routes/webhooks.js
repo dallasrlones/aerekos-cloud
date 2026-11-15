@@ -1,5 +1,6 @@
 const express = require('express');
 const { WebhookService } = require('../services/WebhookService');
+const { enrichWebhook } = require('../services/WebhookArn');
 
 const router = express.Router();
 const svc = new WebhookService();
@@ -9,7 +10,7 @@ function qProject(req) {
 }
 
 function epOut(r) {
-  return {
+  return enrichWebhook({
     id: r.id,
     project_id: r.project_id,
     name: r.name,
@@ -19,7 +20,7 @@ function epOut(r) {
     enabled: r.enabled !== '0',
     created_at: r.created_at,
     updated_at: r.updated_at
-  };
+  });
 }
 
 function delOut(d) {

@@ -1005,6 +1005,68 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/webhook_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/api/v1/webhooks:
+    post:
+      summary: Create an endpoint ({ name, target_url })
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List endpoints
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/api/v1/webhooks/{id}:
+    get:
+      summary: Get an endpoint
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an endpoint
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    put:
+      summary: Update an endpoint (same as PATCH)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an endpoint
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/api/v1/webhooks/{id}/deliveries:
+    get:
+      summary: Delivery history
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/api/v1/webhooks/{id}/dispatch:
+    post:
+      summary: Send a payload (skip under SKIP_OUTBOUND)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/webhook_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/workflow_manager/api/v1/info:
     get:
       summary: Service metadata (info)

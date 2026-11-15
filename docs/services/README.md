@@ -67,7 +67,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`webhook_manager`](webhook_manager.md) | EventBridge / SNS (HTTP) | 3112 | implemented | Outbound webhooks: endpoints with secret + headers, and a dispatch action. |
+| [`webhook_manager`](webhook_manager.md) | EventBridge / SNS (HTTP) | 3112 | implemented | Outbound webhooks CRUD + dispatch; SKIP_OUTBOUND test-only; live e2e parked; ManagerConsole (no ServiceGuide). |
 | [`email_manager`](email_manager.md) | SES | 3113 | needs-keys | Messages CRUD + send (queue without SMTP); ManagerConsole (no ServiceGuide). |
 | [`sms_manager`](sms_manager.md) | SNS SMS | 3114 | needs-keys | SMS messages (to_number/body). |
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Messages CRUD + send (queue without Slack keys); ManagerConsole (no ServiceGuide). |

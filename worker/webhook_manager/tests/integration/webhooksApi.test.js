@@ -4,7 +4,7 @@ const app = require('../../index.js');
 const Q = (projectId) => `project_id=${encodeURIComponent(projectId)}`;
 
 describe('webhook_manager /webhooks', () => {
-  const projectId = `proj-wh-${Date.now()}`;
+  const projectId = 'd57d380d-acfe-49b0-b5a9-ba973892bc8b';
 
   test('CRUD and dispatch (SKIP_OUTBOUND)', async () => {
     const c = await request(app)

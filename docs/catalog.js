@@ -450,17 +450,22 @@ const managers = [
   // --- Integrations & comms ------------------------------------------------
   {
     name: 'webhook_manager', aws: 'EventBridge / SNS (HTTP)', category: 'Integrations', port: 3112, status: 'implemented',
-    summary: 'Outbound webhooks: endpoints with secret + headers, and a dispatch action. SKIP_OUTBOUND=1 to avoid network.',
+    summary: 'Outbound webhooks CRUD + dispatch + deliveries; SKIP_OUTBOUND test-only (refused in prod); live conductor e2e parked; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', capabilities: ['webhooks', 'fanout'],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
       { method: 'POST', path: '/api/v1/webhooks', summary: 'Create an endpoint ({ name, target_url })' },
       { method: 'GET', path: '/api/v1/webhooks', summary: 'List endpoints' },
       { method: 'GET', path: '/api/v1/webhooks/:id', summary: 'Get an endpoint' },
       { method: 'PATCH', path: '/api/v1/webhooks/:id', summary: 'Update an endpoint' },
+      { method: 'PUT', path: '/api/v1/webhooks/:id', summary: 'Update an endpoint (same as PATCH)' },
       { method: 'DELETE', path: '/api/v1/webhooks/:id', summary: 'Delete an endpoint' },
-      { method: 'POST', path: '/api/v1/webhooks/:id/dispatch', summary: 'Send a payload to the endpoint' }
+      { method: 'POST', path: '/api/v1/webhooks/:id/dispatch', summary: 'Send a payload (skip under SKIP_OUTBOUND)' },
+      { method: 'GET', path: '/api/v1/webhooks/:id/deliveries', summary: 'Delivery history' }
     ],
-    env: [{ name: 'SKIP_OUTBOUND', default: '0', desc: 'Record but do not send (tests)' }]
+    env: [{ name: 'SKIP_OUTBOUND', default: '0', desc: 'Record but do not send (tests/dev; forbidden in production)' }]
   },
   {
     name: 'email_manager', aws: 'SES', category: 'Integrations', port: 3113, status: 'needs-keys',

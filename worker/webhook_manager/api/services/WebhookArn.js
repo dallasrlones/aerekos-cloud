@@ -29,7 +29,15 @@ function plainRow(row) {
 function enrichWebhook(row) {
   if (!row) return row;
   const base = plainRow(row);
-  const webhookArn = base.arn || buildWebhookArn(base.project_id, base.name);
+  let webhookArn = base.arn || null;
+  if (!webhookArn) {
+    try {
+      webhookArn = buildWebhookArn(base.project_id, base.name);
+    } catch {
+      // Non-UUID project_id or invalid name — still return the row without ARN.
+      return { ...base, arn: null, invoke_scope: SCOPE_BY_ACTION };
+    }
+  }
   return {
     ...base,
     arn: webhookArn,

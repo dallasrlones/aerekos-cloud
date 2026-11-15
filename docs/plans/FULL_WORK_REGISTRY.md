@@ -104,7 +104,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `epic-icarus-tasks` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-smart-memory` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-finetune-embed` | epic | docs/todo.md | in_progress |  | Wave 10 |
-| `epic-aerekos-record` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-aerekos-record` | epic | docs/todo.md | done |  | Wave 10 scaffold e640fccd; packages/aerekos-record stub |
 | `epic-memory-crud-ui` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-personality-context` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-gary-tan-report` | epic | docs/todo.md | pending | | Gary Tan second-brain/harness report MD |

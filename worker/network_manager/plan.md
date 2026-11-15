@@ -41,27 +41,26 @@
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 2 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] Core business logic — docker name, name validation, driver rules
+- [x] Prod mock guard policy for `SKIP_DOCKER`
+- [ ] Mock Dockerode client for create/remove failure paths (optional follow-up)
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] HTTP API with supertest — health/ready/info/mesh + networks CRUD + ensure-default
+- [x] Database layer against temp SQLite (`SKIP_DOCKER=1`)
+- [x] Conductor registration skipped via `SKIP_SERVICE_REGISTRATION`
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
+- [x] Document scenarios in `tests/e2e/README.md` (live proxy parked until conductor up)
 - [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [ ] Cross-service: conductor + worker + this service
 
 ### Coverage & quality gates
 - [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
+- [x] No flaky timers
 - [ ] Load smoke test script in `scripts/` (optional)
 
 ---

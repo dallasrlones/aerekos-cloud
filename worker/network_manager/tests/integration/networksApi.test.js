@@ -41,4 +41,22 @@ describe('network_manager /networks', () => {
     const r = await request(app).get('/api/v1/networks');
     expect(r.status).toBe(400);
   });
+
+  test('ensure-default creates once', async () => {
+    const pid = `proj-def-${Date.now()}`;
+    const a = await request(app).post('/api/v1/networks/ensure-default').send({ project_id: pid });
+    expect(a.status).toBe(200);
+    expect(a.body.network.name).toBe('default');
+    const b = await request(app).post('/api/v1/networks/ensure-default').send({ project_id: pid });
+    expect(b.status).toBe(200);
+    expect(b.body.network.id).toBe(a.body.network.id);
+  });
+
+  test('non-bridge driver returns 501', async () => {
+    const r = await request(app)
+      .post('/api/v1/networks')
+      .send({ project_id: projectId, name: 'overlay_try', driver: 'overlay' });
+    expect(r.status).toBe(501);
+  });
 });
+

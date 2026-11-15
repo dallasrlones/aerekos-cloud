@@ -377,16 +377,24 @@ const managers = [
   },
   {
     name: 'domain_manager', aws: 'Route 53', category: 'Edge', port: 3111, status: 'needs-keys',
-    summary: 'Cloudflare DNS records (CRUD per zone + project). Pairs with tunnel_manager for public hostnames.',
+    summary: 'Cloudflare DNS records + hostname bindings. Pairs with tunnel_manager. Tutorial: none. No prod mocks.',
     proxyBase: '/api/v1', capabilities: ['dns', 'edge'],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'GET', path: '/api/v1/dns/zones', summary: 'List Cloudflare zones' },
       { method: 'POST', path: '/api/v1/dns/records', summary: 'Create a DNS record' },
       { method: 'GET', path: '/api/v1/dns/records', summary: 'List DNS records' },
       { method: 'GET', path: '/api/v1/dns/records/:id', summary: 'Get a record' },
       { method: 'PATCH', path: '/api/v1/dns/records/:id', summary: 'Update a record' },
-      { method: 'DELETE', path: '/api/v1/dns/records/:id', summary: 'Delete a record' }
+      { method: 'DELETE', path: '/api/v1/dns/records/:id', summary: 'Delete a record' },
+      { method: 'GET', path: '/api/v1/dns/hostnames', summary: 'List hostname bindings' },
+      { method: 'POST', path: '/api/v1/dns/hostnames', summary: 'Create a hostname binding' },
+      { method: 'PATCH', path: '/api/v1/dns/hostnames/:id', summary: 'Update a hostname binding' },
+      { method: 'DELETE', path: '/api/v1/dns/hostnames/:id', summary: 'Delete a hostname binding' }
     ],
-    needsKeys: 'CLOUDFLARE_API_TOKEN. SKIP_CLOUDFLARE=1 for tests.'
+    needsKeys: 'CLOUDFLARE_API_TOKEN. SKIP_CLOUDFLARE=1 for tests (forbidden in production).'
   },
   {
     name: 'cdn_manager', aws: 'CloudFront', category: 'Edge', port: 3118, status: 'implemented',

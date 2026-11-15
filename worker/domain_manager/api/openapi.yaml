@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: domain_manager (Route 53 analog)
+  version: 1.0.0
+  description: |
+    Project-scoped Cloudflare DNS records (CRUD per zone) plus zone list and
+    hostname bindings for tunnel pairing. SKIP_CLOUDFLARE skips live CF API in
+    tests/dev only — refused when NODE_ENV=production.
+    Conductor proxy prefix: /api/services/domain_manager
+servers:
+  - url: http://localhost:3111
+    description: Direct local
+  - url: http://localhost:3000/api/services/domain_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/dns/zones:
+    get:
+      summary: List Cloudflare zones (mock under SKIP_CLOUDFLARE)
+      responses:
+        '200':
+          description: '{ zones }'
+        '503':
+          description: CLOUDFLARE_NOT_CONFIGURED
+  /api/v1/dns/records:
+    post:
+      summary: Create a DNS record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, zone_id, name, record_type, content]
+              properties:
+                project_id:
+                  type: string
+                zone_id:
+                  type: string
+                name:
+                  type: string
+                record_type:
+                  type: string
+                content:
+                  type: string
+                ttl:
+                  type: number
+                proxied:
+                  type: boolean
+      responses:
+        '201':
+          description: '{ record }'
+        '400':
+          description: validation error
+    get:
+      summary: List DNS records
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: zone_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ records }'
+  /api/v1/dns/records/{id}:
+    get:
+      summary: Get one DNS record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ record }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a DNS record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                ttl:
+                  type: number
+                proxied:
+                  type: boolean
+      responses:
+        '200':
+          description: '{ record }'
+    delete:
+      summary: Delete a DNS record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/dns/hostnames:
+    get:
+      summary: List hostname bindings
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ hostnames }'
+    post:
+      summary: Create a hostname binding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, hostname]
+              properties:
+                project_id:
+                  type: string
+                hostname:
+                  type: string
+                target_type:
+                  type: string
+                target_id:
+                  type: string
+                tunnel_id:
+                  type: string
+                skip_dns:
+                  type: boolean
+      responses:
+        '201':
+          description: '{ hostname }'
+  /api/v1/dns/hostnames/{id}:
+    patch:
+      summary: Update a hostname binding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ hostname }'
+    delete:
+      summary: Delete a hostname binding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

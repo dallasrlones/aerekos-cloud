@@ -340,6 +340,79 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/dns/zones:
+    get:
+      summary: List Cloudflare zones
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/dns/records:
+    post:
+      summary: Create a DNS record
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List DNS records (?project_id=&zone_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/dns/records/{id}:
+    get:
+      summary: Get a DNS record
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a DNS record
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a DNS record
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/dns/hostnames:
+    get:
+      summary: List hostname bindings
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Create a hostname binding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/api/v1/dns/hostnames/{id}:
+    patch:
+      summary: Update a hostname binding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a hostname binding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/domain_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/function_manager/api/v1/info:
     get:
       summary: Service metadata (info)

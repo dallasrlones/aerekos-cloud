@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: cluster_manager (EKS analog)
+  version: 1.0.0
+  description: |
+    Project-scoped cluster records, Docker fleet inventory on the worker host,
+    and optional k3s detect/install (confirm required; never auto-install).
+    Conductor proxy prefix: /api/services/cluster_manager
+servers:
+  - url: http://localhost:3151
+    description: Direct local
+  - url: http://localhost:3000/api/services/cluster_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default k3s cluster when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/clusters:
+    post:
+      summary: Create cluster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                kubeconfig:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List clusters
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/clusters/{id}:
+    get:
+      summary: Get cluster
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update cluster
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                kubeconfig:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete cluster
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+  /api/v1/clusters/{id}/fleet:
+    get:
+      summary: List docker containers on this host
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item, engine, containers, skipped? }'
+  /api/v1/clusters/{id}/k3s/status:
+    get:
+      summary: Detect k3s/kubectl on the host
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item, installed, k3s_path, kubectl_path, status }'
+  /api/v1/clusters/{id}/k3s/install:
+    post:
+      summary: Install k3s only if confirm===true
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                confirm:
+                  type: boolean
+      responses:
+        '200':
+          description: '{ item, skipped? | installed? }'
+        '400':
+          description: confirm===true required
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

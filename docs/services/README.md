@@ -26,7 +26,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`network_manager`](network_manager.md) | VPC | 3103 | implemented | Per-project Docker bridge networks with stable names. |
 | [`workflow_manager`](workflow_manager.md) | Step Functions | 3135 | implemented | Run state machines (http, queue, wait, choice, function). |
 | [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Lambda analog. |
-| [`cluster_manager`](cluster_manager.md) | EKS | 3151 | implemented | Docker fleet inventory on the worker host. |
+| [`cluster_manager`](cluster_manager.md) | EKS | 3151 | implemented | Host Docker fleet + optional confirm-only k3s; EKS analog. |
 
 ## Observability
 

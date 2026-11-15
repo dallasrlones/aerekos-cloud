@@ -63,7 +63,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `search_manager` | 3144 | `/api/v1/query` | SQLite FTS hits |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
-| `cluster_manager` | 3149 | `/api/v1/clusters` | Detect/install k3s on explicit click |
+| `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |
 
 **Core (not in P4 table):** worker agent (3001).

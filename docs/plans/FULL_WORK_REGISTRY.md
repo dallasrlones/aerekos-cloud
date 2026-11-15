@@ -68,16 +68,16 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
 | `mgr-security_manager` | manager | `worker/security_manager` | done | live e2e needs conductor | Wave 6 closeout f0b336c5; 11 tests (health+CRUD+scan+prod-guard) |
 | `mgr-slack_manager` | manager | `worker/slack_manager` | done | live e2e / Slack keys parked | Wave 6 closeout fdc133b1; 10 tests |
-| `mgr-sms_manager` | manager | `worker/sms_manager` | pending | | closeout DoD |
-| `mgr-status_manager` | manager | `worker/status_manager` | pending | | closeout DoD |
+| `mgr-sms_manager` | manager | `worker/sms_manager` | in_progress |  | Wave 7 |
+| `mgr-status_manager` | manager | `worker/status_manager` | in_progress |  | Wave 7 |
 | `mgr-storage_manager` | manager | `worker/storage_manager` | done | live proxy manual | Wave 1 closeout 88291cb/234ffa2; 110 tests |
-| `mgr-system_manager` | manager | `worker/system_manager` | pending | | closeout DoD |
-| `mgr-trace_manager` | manager | `worker/trace_manager` | pending | | closeout DoD |
-| `mgr-transfer_manager` | manager | `worker/transfer_manager` | pending | | closeout DoD |
-| `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | pending | | closeout DoD |
+| `mgr-system_manager` | manager | `worker/system_manager` | in_progress |  | Wave 7 |
+| `mgr-trace_manager` | manager | `worker/trace_manager` | in_progress |  | Wave 7 |
+| `mgr-transfer_manager` | manager | `worker/transfer_manager` | in_progress |  | Wave 7 |
+| `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | in_progress |  | Wave 7 |
 | `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout cbe5f91; 8 tests |
-| `mgr-vpn_manager` | manager | `worker/vpn_manager` | pending | | closeout DoD |
-| `mgr-waf_manager` | manager | `worker/waf_manager` | pending | | closeout DoD |
+| `mgr-vpn_manager` | manager | `worker/vpn_manager` | in_progress |  | Wave 7 |
+| `mgr-waf_manager` | manager | `worker/waf_manager` | in_progress |  | Wave 7 |
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
 | `mgr-websocket_manager` | manager | `worker/websocket_manager` | done | live WSS/proxy parked | Wave 3 closeout 270246c/16e2155; 10 tests |
 | `mgr-worker_manager` | manager | `worker/worker_manager` | pending | | closeout DoD |

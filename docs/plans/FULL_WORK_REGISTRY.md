@@ -18,7 +18,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `ops-gate0` | ops | fleet prod | parked | cloud 530 + CF SSH handshake fail 2026-11-15 | retry when tunnel/LAN up; JWT_SECRET on auth_manager + inventory 200s |
-| `ops-conductor` | ops | `conductor/` | pending | | control-plane closeout |
+| `ops-conductor` | ops | `conductor/` | in_progress |  | Wave 9 |
 
 ## Managers (58)
 
@@ -87,13 +87,13 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `x-sdk` | cross | platform | pending | | SDK surfaces vs managers |
-| `x-cli` | cross | platform | pending | | CLI commands/docs parity |
-| `x-openapi` | cross | platform | pending | | OpenAPI pack current |
-| `x-tutorials` | cross | platform | pending | | Tutorials / ServiceGuide index |
-| `x-cross-service` | cross | platform | pending | | Cross-service consumption pass |
-| `x-user-system-safe` | cross | platform | pending | | Undeletable system resources |
-| `x-cross-platform` | cross | platform | pending | | Compose one-shot + offline image cache |
+| `x-sdk` | cross | platform | in_progress |  | Wave 9 |
+| `x-cli` | cross | platform | in_progress |  | Wave 9 |
+| `x-openapi` | cross | platform | in_progress |  | Wave 9 |
+| `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
+| `x-cross-service` | cross | platform | in_progress |  | Wave 9 |
+| `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |
+| `x-cross-platform` | cross | platform | in_progress |  | Wave 9 |
 | `x-git-iac-all-projects` | cross | platform | pending | | All projects on git_manager + IaC |
 | `x-pr-review-ux` | cross | platform | pending | | User review PRs on project code changes |
 
@@ -130,3 +130,4 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 4. Continue remaining managers → cross-cuts → epics (scaffold slices)
 
 **Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.
+6. **Wave 9:** ops-conductor, x-sdk, x-cli, x-openapi, x-tutorials, x-cross-service, x-user-system-safe, x-cross-platform

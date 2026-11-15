@@ -36,3 +36,10 @@ node e2e/icarus-wants-matrix.js
 ## Compute product
 
 **aerekos Compute** is our Kubernetes-class control plane: declarative Deployments, controllers, rolling updates with abort/rollback. Docker is the v0.1.0 **node agent** only. See `docs/adr/004-aerekos-compute-orchestrator.md`.
+
+
+## Wave status (2026-11-15)
+
+- All **58** manager closeouts `done` on `main`
+- **Wave 9** in progress: ops-conductor + cross-cuts (x-sdk…x-cross-platform)
+- `ops-gate0` still parked (fleet SSH/LAN)

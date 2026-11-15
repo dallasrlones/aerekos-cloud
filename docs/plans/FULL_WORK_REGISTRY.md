@@ -103,7 +103,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 |----|------|------------|--------|---------|-------|
 | `epic-icarus-tasks` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-smart-memory` | epic | docs/todo.md | in_progress |  | Wave 10 |
-| `epic-finetune-embed` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-finetune-embed` | epic | docs/todo.md | done |  | Wave 10 scaffold 5a84c0b3; see docs/plans/epics/finetune-embed.md |
 | `epic-aerekos-record` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-memory-crud-ui` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-personality-context` | epic | docs/todo.md | in_progress |  | Wave 10 |

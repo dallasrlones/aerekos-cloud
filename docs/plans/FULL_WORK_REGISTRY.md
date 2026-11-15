@@ -24,7 +24,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `mgr-ai_manager` | manager | `worker/ai_manager` | done | live inference needs LLM URL/keys; OpenAPI none (large surface); full unit ocean not Wave 2 gate | Wave 2 closeout; scoped health+models tests |
+| `mgr-ai_manager` | manager | `worker/ai_manager` | done | live inference needs LLM URL/keys; OpenAPI none (large surface); full unit ocean not Wave 2 gate | Wave 2 closeout ff2e6ed; 6 scoped tests |
 | `mgr-analytics_manager` | manager | `worker/analytics_manager` | pending | | closeout DoD |
 | `mgr-api_manager` | manager | `worker/api_manager` | pending | | closeout DoD |
 | `mgr-app_manager` | manager | `worker/app_manager` | pending | | closeout DoD |

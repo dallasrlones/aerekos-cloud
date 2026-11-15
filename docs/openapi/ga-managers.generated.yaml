@@ -106,6 +106,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default meters if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/evaluate-quota:
+    post:
+      summary: Evaluate quota (deny when over; never unlimited)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/meters:
+    post:
+      summary: Create a meter
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List meters (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/api/v1/meters/{id}:
+    get:
+      summary: Get one meter
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a meter
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a meter
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/billing_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/code_as_infra/api/v1/info:
     get:
       summary: Service metadata (info)

@@ -697,10 +697,11 @@ const managers = [
   },
   {
     name: 'billing_manager', aws: 'Cost Explorer', category: 'Management', port: 3138, status: 'implemented',
-    summary: 'Usage meters. /evaluate-quota uses real counts and denies when over; never { unlimited: true }.',
+    summary: 'Usage meters + evaluate-quota (real counts; never unlimited). ensure-defaults seeds default meters. Tutorial none.',
     proxyBase: '/api/v1', crud: { segment: 'meters' }, capabilities: ["billing","quotas"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/evaluate-quota', summary: 'Evaluate quota (deny when over)' }
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default meters if missing' },
+      { method: 'POST', path: '/api/v1/evaluate-quota', summary: 'Evaluate quota (deny when over; never unlimited)' },
     ]
   },
   {

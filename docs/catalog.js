@@ -776,10 +776,11 @@ const managers = [
   },
   {
     name: 'notebook_manager', aws: 'SageMaker notebook', category: 'AI', port: 3142, status: 'implemented',
-    summary: 'Store notebooks; Run launches a compute oneshot (jupyter/python).',
+    summary: 'Notebooks CRUD + run (compute oneshot); honest queue without conductor; ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'notebooks' }, capabilities: ["notebook"],
     endpoints: [
-      { method: 'POST', path: '/api/v1/notebooks/:id/run', summary: 'Run notebook via compute oneshot' }
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default notebook if missing' },
+      { method: 'POST', path: '/api/v1/notebooks/:id/run', summary: 'Run notebook via compute oneshot (queues without conductor)' }
     ]
   },
   {

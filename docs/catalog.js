@@ -258,16 +258,22 @@ const managers = [
   },
   {
     name: 'secrets_manager', aws: 'Secrets Manager', category: 'Identity', port: 3107, status: 'implemented',
-    summary: 'Encrypted secrets (AES-256-GCM envelope via key_manager). List never returns plaintext; ?reveal=1 for value.',
+    summary: 'Encrypted secrets (AES-256-GCM envelope via key_manager). List never returns plaintext; ?reveal=1 or GET /secrets/values for plaintext.',
     proxyBase: '/api/v1', capabilities: ['secrets', 'encryption'],
     endpoints: [
-      { method: 'POST', path: '/api/v1/secrets', summary: 'Create a secret ({ name, value })' },
-      { method: 'GET', path: '/api/v1/secrets', summary: 'List secrets (no values)' },
+      { method: 'POST', path: '/api/v1/secrets', summary: 'Create a secret ({ name, value }, optional environment)' },
+      { method: 'GET', path: '/api/v1/secrets', summary: 'List secrets (no values; optional environment)' },
+      { method: 'GET', path: '/api/v1/secrets/values', summary: 'Name→plaintext map for an environment' },
       { method: 'GET', path: '/api/v1/secrets/:id', summary: 'Get a secret (?reveal=1 for value)' },
       { method: 'PATCH', path: '/api/v1/secrets/:id', summary: 'Update a secret' },
       { method: 'DELETE', path: '/api/v1/secrets/:id', summary: 'Delete a secret' }
     ],
-    env: [{ name: 'MOCK_KEY_MANAGER', default: 'true (compose)', desc: 'Local dev key instead of key_manager' }]
+    env: [
+      { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Tests/local only; refused when NODE_ENV=production' },
+      { name: 'CONDUCTOR_URL', default: '', desc: 'Required for key_manager envelopes unless MOCK_KEY_MANAGER' },
+      { name: 'SERVICE_TOKEN', default: '', desc: 'Service token for key_manager via conductor' },
+      { name: 'SECRETS_ENCRYPTION_KEY_NAME', default: 'secrets-envelope-key', desc: 'key_manager key name for envelopes' }
+    ]
   },
   {
     name: 'auth_manager', aws: 'Cognito', category: 'Identity', port: 3116, status: 'needs-keys',

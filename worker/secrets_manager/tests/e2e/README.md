@@ -1,17 +1,20 @@
 # E2E tests — Secrets Manager
 
-These are **manual / CI-job** scenarios until Playwright or a full docker-compose test harness is added.
+## Automated (CI / local)
 
-## Prerequisites
-- Conductor and at least one worker running
-- This service built and registered (or `CONDUCTOR_URL` set for auto-register)
+```bash
+npm run test:e2e
+```
 
-## Scenarios (checklist)
-- [ ] **E2E-1:** Start `secrets_manager` container; `GET /health` from another container on the same Docker network returns 200.
-- [ ] **E2E-2:** Conductor lists service in registry; proxy `/api/services/secrets_manager/...` works if routing is enabled.
-- [ ] **E2E-3:** Graceful shutdown: SIGTERM finishes in-flight requests then exits.
-- [ ] **E2E-4:** Invalid auth (when implemented) returns 401/403 consistently.
-- [ ] **E2E-5:** Load test: baseline latency under expected RPS (define SLO in plan.md).
+Runs `tests/e2e/secrets-lifecycle.test.js` against the exported Express app with `MOCK_KEY_MANAGER=true` (see `tests/setup.js`). Covers create → list (redacted) → values map → reveal → patch → delete, plus `/health` and `/api/v1/info`.
 
-## Automating
-Add `tests/e2e/*.spec.js` with Playwright or run supertest against `docker compose` URLs in CI (`test:e2e:ci` script).
+**Does not** hit a live conductor or production projects. Do not use project `ea370977-3aff-4c76-95a6-a0c50fd2bce7` in any live e2e.
+
+## Live stack (manual checklist)
+
+Prerequisites: conductor + worker running; service registered (or `CONDUCTOR_URL` set).
+
+- [ ] **E2E-live-1:** `GET /health` on the secrets_manager container returns 200.
+- [ ] **E2E-live-2:** Conductor lists `secrets_manager`; proxy `/api/services/secrets_manager/api/v1/info` works with JWT/service token.
+- [ ] **E2E-live-3:** Create + list + reveal through the conductor proxy for a **non-prod** project.
+- [ ] **E2E-live-4:** With `NODE_ENV=production`, process refuses to start if `MOCK_KEY_MANAGER=true`.

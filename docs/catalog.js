@@ -214,9 +214,12 @@ const managers = [
   },
   {
     name: 'schedule_manager', aws: 'EventBridge Scheduler', category: 'Compute', port: 3102, status: 'implemented',
-    summary: 'Cron schedules that dispatch to a webhook or a queue. Run-now supported.',
+    summary: 'Cron schedules that dispatch to a webhook or a queue. Run-now supported. Port 3102 collides with key_manager.',
     proxyBase: '/api/v1', capabilities: ['cron', 'scheduling', 'dispatch'],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness; conductor proxy skips projectId (isLiveness)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness (SQLite); conductor proxy skips projectId (isLiveness)' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata (status: active)' },
       { method: 'POST', path: '/api/v1/schedules', summary: 'Create a schedule (cron + target)' },
       { method: 'GET', path: '/api/v1/schedules', summary: 'List schedules' },
       { method: 'GET', path: '/api/v1/schedules/:id', summary: 'Get a schedule' },
@@ -224,7 +227,11 @@ const managers = [
       { method: 'PATCH', path: '/api/v1/schedules/:id', summary: 'Update a schedule' },
       { method: 'DELETE', path: '/api/v1/schedules/:id', summary: 'Delete a schedule' }
     ],
-    env: [{ name: 'SKIP_CRON', default: '0', desc: 'Disable the cron loop (tests)' }]
+    env: [
+      { name: 'PORT', default: '3102', desc: 'Listen port — collides with key_manager in managerServicePorts' },
+      { name: 'SKIP_CRON', default: '0', desc: 'Disable the cron loop (tests only; not a prod mock)' },
+      { name: 'QUEUE_MANAGER_URL', default: 'http://127.0.0.1:3101', desc: 'Base URL for action_type=queue' }
+    ]
   },
   {
     name: 'network_manager', aws: 'VPC', category: 'Compute', port: 3103, status: 'implemented',

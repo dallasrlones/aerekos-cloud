@@ -1,6 +1,6 @@
 # schedule_manager — production plan
 
-**Port:** 3102 · **AWS analog:** EventBridge Scheduler · **Category:** Compute · **Tier:** production-ready
+**Port:** 3102 (**collides with key_manager** — document only; do not silently reassign key) · **AWS analog:** EventBridge Scheduler · **Category:** Compute · **Tier:** production-ready
 
 **Navigation:** [← logs_manager](./logs_manager.md) · [Index](./README.md) · [network_manager →](./network_manager.md)  
 **Platform auth:** [platform_app_access.md](./platform_app_access.md)  

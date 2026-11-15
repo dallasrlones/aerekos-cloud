@@ -21,7 +21,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `logs_manager` | 3104 | `/api/v1/logs` (+ batch/compact); append-only ingest/query; ManagerConsole guide; no prod mocks |
 | `iam_manager` | 3106 | RBAC (authZ data) |
 | `secrets_manager` | 3107 | Encrypted secrets |
-| `tunnel_manager` | 3110 | Cloudflare Tunnel (needs `CLOUDFLARE_*`) |
+| `tunnel_manager` | 3110 | `/api/v1/tunnels` + ingress; CF live needs keys; live e2e parked; no prod mocks |
 | `domain_manager` | 3111 | Cloudflare DNS (needs `CLOUDFLARE_*`) |
 | `registry_manager` | 3129 | Registry metadata + public config (no pull secrets) |
 | `git_manager` | 3130 | Self-hosted Git hosting (CodeCommit-style); real clone/push/pull over Smart HTTP at `/git/:project/:repo.git` |

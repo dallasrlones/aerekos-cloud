@@ -93,7 +93,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-service` | cross | platform | in_progress |  | Wave 9 |
 | `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |
-| `x-cross-platform` | cross | platform | in_progress |  | Wave 9 |
+| `x-cross-platform` | cross | platform | done | live registry/fleet image mirror + Orin AI pulls parked | Wave 9 closeout 5ae03d86; offline-images + make images-*; DOCKER.md |
 | `x-git-iac-all-projects` | cross | platform | pending | | All projects on git_manager + IaC |
 | `x-pr-review-ux` | cross | platform | pending | | User review PRs on project code changes |
 

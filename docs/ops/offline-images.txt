@@ -1,0 +1,31 @@
+# External images used by platform compose files (not built from this repo).
+# Used by: scripts/ops/offline-image-cache.sh and `make images-*`.
+# Lines: image ref only. Blank lines and # comments are ignored.
+#
+# Bucket: core — needed for `docker-compose.platform.yml` (+ common build bases).
+# Pull/save these on a networked host, then load on an air-gapped box before
+# `make up` / core+platform compose. Manager images themselves are local builds
+# (FROM node:20-bookworm-slim); caching the base cuts offline build failures.
+
+# --- build bases (Dockerfile FROM) ---
+node:20-bookworm-slim
+node:20-alpine
+nginx:alpine
+
+# --- platform control-plane extras (docker-compose.platform.yml) ---
+rabbitmq:3.13-management-alpine
+redis:7-alpine
+
+# --- optional core add-ons (docker-compose.core.yml / download profile) ---
+# headscale is behind compose profile `headscale` on core; also in headscale.yml
+headscale/headscale:0.23.0
+tailscale/tailscale:v1.76.1
+lscr.io/linuxserver/qbittorrent:latest
+lscr.io/linuxserver/jackett:latest
+
+# --- PARKED (live registry / GPU fleet; do not require for laptop one-shot) ---
+# registry:2                          # local pull-through — see docs/runbooks/local-registry.md
+# ghcr.io/nvidia-ai-iot/vllm:latest-jetson-orin
+# openclaw/stt-service:latest
+# openclaw/tts-kokoro:latest
+# openclaw/tts-cache:latest

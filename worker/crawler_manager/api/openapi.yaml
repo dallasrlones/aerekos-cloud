@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: crawler_manager (Glue Crawler analog)
+  version: 1.0.0
+  description: |
+    Project-scoped crawl job metadata (start_url/max_depth/state) with optional
+    single-URL fetch via POST .../run and a canary probe. SKIP_CRAWL skips live
+    HTTP fetch in tests/dev only — refused when NODE_ENV=production.
+    Conductor proxy prefix: /api/services/crawler_manager
+servers:
+  - url: http://localhost:3121
+    description: Direct local
+  - url: http://localhost:3000/api/services/crawler_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/jobs/canary:
+    post:
+      summary: One-shot URL canary probe (not project-scoped)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, status?, ms?, url, mode: canary } or skipped under SKIP_CRAWL'
+        '400':
+          description: url required
+  /api/v1/jobs:
+    post:
+      summary: Create a crawl job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                start_url:
+                  type: string
+                max_depth:
+                  type: string
+                result_summary:
+                  type: string
+                state:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List jobs
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/jobs/{id}:
+    get:
+      summary: Get one job
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a job
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                start_url:
+                  type: string
+                max_depth:
+                  type: string
+                result_summary:
+                  type: string
+                state:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a job (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a job
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/jobs/{id}/run:
+    post:
+      summary: Fetch start_url once and store result_summary (or skip under SKIP_CRAWL)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item } with updated state/result_summary'
+        '400':
+          description: start_url required
+        '404':
+          description: not found

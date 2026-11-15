@@ -15,7 +15,7 @@ r.post('/:id/send', async (req,res,next) => {
     const { sendEmail } = require('../../../shared/outboundSend');
     const current = await s.get(req.params.id, q(req));
     const result = await sendEmail({
-      to: current.to || current.recipient || req.body?.to,
+      to: current.to_address || current.to || current.recipient || req.body?.to || req.body?.to_address,
       subject: current.subject || req.body?.subject,
       body: current.body || current.text || req.body?.body,
     });

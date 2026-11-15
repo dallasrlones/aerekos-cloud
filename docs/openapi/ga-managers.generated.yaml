@@ -340,64 +340,52 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/info:
+  /api/services/email_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/ensure-defaults:
+  /api/services/email_manager/api/v1/messages:
     post:
-      summary: Seed inbox list + overnight window
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/quick-add:
-    post:
-      summary: Add URLs/magnets to a list
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/lists:
-    post:
-      summary: Create a download list
+      summary: Create a queued message
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List lists (?project_id=)
+      summary: List messages (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/lists/{id}:
+  /api/services/email_manager/api/v1/messages/{id}:
     get:
-      summary: Get one list
+      summary: Get one message
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a list
+      summary: Update a message
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a list
+      summary: Delete a message
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/api/v1/tick:
+  /api/services/email_manager/api/v1/messages/{id}/send:
     post:
-      summary: Advance pending downloads
+      summary: Attempt SMTP send / stay queued without secrets
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/health:
+  /api/services/email_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/download_manager/ready:
+  /api/services/email_manager/ready:
     get:
       summary: Readiness
       responses:

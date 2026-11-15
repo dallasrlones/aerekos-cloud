@@ -18,7 +18,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `ops-gate0` | ops | fleet prod | parked | cloud 530 + CF SSH handshake fail 2026-11-15 | retry when tunnel/LAN up; JWT_SECRET on auth_manager + inventory 200s |
-| `ops-conductor` | ops | `conductor/` | in_progress |  | Wave 9 |
+| `ops-conductor` | ops | `conductor/` | done | live fleet e2e → ops-gate0 | Wave 9 closeout 13eb2685; /health+/ready+isLivenessPath; OpenAPI pack; 13 scoped unit + health/ready integration |
 
 ## Managers (58)
 

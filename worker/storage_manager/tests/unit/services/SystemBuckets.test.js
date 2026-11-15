@@ -82,4 +82,56 @@ describe('System buckets', () => {
       await expect(svc.createSystemBucket('aerekos', 'media', 'x')).rejects.toThrow('already exists');
     });
   });
+
+  describe('BucketService.deleteSystemBucket protection', () => {
+    it('refuses delete when metadata.protected is true', async () => {
+      mockBucketRepo.findBySystemAndName.mockResolvedValue({
+        id: 'b-prot',
+        name: 'tv-media',
+        system_id: 'aerekos',
+        metadata: JSON.stringify({ protected: true }),
+        encryption_key_name: null,
+      });
+      const svc = new BucketService('http://c', 't');
+      await expect(svc.deleteSystemBucket('aerekos', 'tv-media')).rejects.toMatchObject({
+        code: 'SYSTEM_BUCKET_IMMUTABLE',
+        status: 403,
+      });
+      expect(mockBucketRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('refuses delete when name is listed in SYSTEM_PROTECTED_BUCKET_NAMES', async () => {
+      process.env.SYSTEM_PROTECTED_BUCKET_NAMES = 'tv-media,tv-posters';
+      mockBucketRepo.findBySystemAndName.mockResolvedValue({
+        id: 'b-named',
+        name: 'tv-posters',
+        system_id: 'aerekos',
+        metadata: '{}',
+        encryption_key_name: null,
+      });
+      const svc = new BucketService('http://c', 't');
+      await expect(svc.deleteSystemBucket('aerekos', 'tv-posters')).rejects.toMatchObject({
+        code: 'SYSTEM_BUCKET_IMMUTABLE',
+        status: 403,
+      });
+      expect(mockBucketRepo.delete).not.toHaveBeenCalled();
+      delete process.env.SYSTEM_PROTECTED_BUCKET_NAMES;
+    });
+
+    it('allows delete of an unmarked system bucket', async () => {
+      mockBucketRepo.findBySystemAndName.mockResolvedValue({
+        id: 'b-ok',
+        name: 'scratch',
+        system_id: 'aerekos',
+        metadata: {},
+        encryption_key_name: null,
+        base_path: null,
+      });
+      mockFileRepo.findByBucket.mockResolvedValue([]);
+      mockBucketRepo.delete.mockResolvedValue(true);
+      const svc = new BucketService('http://c', 't');
+      await svc.deleteSystemBucket('aerekos', 'scratch');
+      expect(mockBucketRepo.delete).toHaveBeenCalledWith('b-ok');
+    });
+  });
 });

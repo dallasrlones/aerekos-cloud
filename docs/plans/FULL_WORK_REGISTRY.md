@@ -92,7 +92,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-openapi` | cross | platform | in_progress |  | Wave 9 |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-service` | cross | platform | in_progress |  | Wave 9 |
-| `x-user-system-safe` | cross | platform | in_progress |  | Wave 9 |
+| `x-user-system-safe` | cross | platform | done | db_manager + object-delete + unprotect gaps | Wave 9 closeout PENDING_SHA; SYSTEM_BUCKET_IMMUTABLE; docs/runbooks/system-safe-resources.md |
 | `x-cross-platform` | cross | platform | in_progress |  | Wave 9 |
 | `x-git-iac-all-projects` | cross | platform | pending | | All projects on git_manager + IaC |
 | `x-pr-review-ux` | cross | platform | pending | | User review PRs on project code changes |

@@ -37,6 +37,7 @@ Object storage: buckets + objects with envelope encryption via **key_manager**, 
 | `AUTH_REQUIRED` | `true` (compose) | Fail start if key_manager health via conductor fails; routes always need Bearer |
 | `MOCK_KEY_MANAGER` | `false` | Local/tests only; **refused** when `NODE_ENV=production` |
 | `CONDUCTOR_URL` | | Required for key_manager health + encryption (non-mock) |
+| `SYSTEM_PROTECTED_BUCKET_NAMES` | _(empty)_ | Comma-separated system bucket names that refuse DELETE (`SYSTEM_BUCKET_IMMUTABLE`); see [`docs/runbooks/system-safe-resources.md`](../runbooks/system-safe-resources.md) |
 
 ## SDK / CLI
 

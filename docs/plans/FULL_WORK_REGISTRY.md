@@ -105,7 +105,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `epic-smart-memory` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-finetune-embed` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-aerekos-record` | epic | docs/todo.md | in_progress |  | Wave 10 |
-| `epic-memory-crud-ui` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-memory-crud-ui` | epic | docs/todo.md | done |  | Wave 10 scaffold df15c4a7; MemoryCrudScaffold.jsx placeholder |
 | `epic-personality-context` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-gary-tan-report` | epic | docs/todo.md | pending | | Gary Tan second-brain/harness report MD |
 | `epic-aerekos-drive` | epic | docs/todo.md | pending | | Drive + Docs/Sheets/Slides + collab suite |

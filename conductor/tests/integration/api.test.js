@@ -84,6 +84,17 @@ describe('Conductor API Integration Tests', () => {
       expect(['connected', 'initializing']).toContain(response.body.database);
       expect(response.body).toHaveProperty('timestamp');
     });
+
+    test('GET /ready should return ready when SQLite answers', async () => {
+      const response = await request(app)
+        .get('/ready')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('status', 'ready');
+      expect(response.body).toHaveProperty('service', 'conductor');
+      expect(response.body).toHaveProperty('database', 'ok');
+      expect(response.body).toHaveProperty('timestamp');
+    });
   });
 
   describe('API Info', () => {

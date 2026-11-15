@@ -14,6 +14,7 @@ docker-compose up --build
    - Frontend: http://localhost:3001
    - Backend API: http://localhost:3000
    - Health Check: http://localhost:3000/health
+   - Ready Check: http://localhost:3000/ready
 
 3. **Default login credentials:**
    - Username: `admin`
@@ -73,6 +74,7 @@ cp .env_example .env
 ### 1. Health Check
 ```bash
 curl http://localhost:3000/health
+curl http://localhost:3000/ready
 ```
 
 Expected response:

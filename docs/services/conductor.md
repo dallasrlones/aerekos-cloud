@@ -9,11 +9,23 @@ Master orchestrator: authentication, the service registry + proxy, worker fleet 
 - **Proxy base:** `/api`
 - **Capabilities:** `auth`, `service-registry`, `proxy`, `workers`, `projects`, `metrics`
 
+## Health / proxy honesty
+
+| Path | Auth | Notes |
+|------|------|-------|
+| `GET /health` | none | Liveness; `database` may be `connected` or `initializing` |
+| `GET /ready` | none | Readiness; SQLite query required or 503 |
+| Manager `/health` \| `/ready` via proxy | conductor Bearer still required | `isLivenessPath` skips **projectId** only (`ServiceManager`) |
+| Other proxied paths | `appProxyAuth` / authenticate | `projectId` required |
+
+OpenAPI pack: [`docs/openapi/conductor.yaml`](../openapi/conductor.yaml). Live fleet e2e parked with `ops-gate0`.
+
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Liveness |
+| `GET` | `/health` | Liveness (no auth); database may be initializing |
+| `GET` | `/ready` | Readiness / SQLite (no auth); 503 until DB answers |
 | `POST` | `/api/auth/login` | Login -> { token } (JWT) |
 | `GET` | `/api/auth/me` | Current identity |
 | `GET` | `/api/services` | List all registered manager services |
@@ -21,7 +33,8 @@ Master orchestrator: authentication, the service registry + proxy, worker fleet 
 | `POST` | `/api/services/:name/enable` | Enable/deploy a service for a project |
 | `POST` | `/api/services/:name/disable` | Disable a service |
 | `POST` | `/api/services/register` | Manager self-registration (service token issued) |
-| `ANY` | `/api/services/:name/*` | Generic proxy to a manager (JWT/service token) |
+| `GET` | `/api/services/:name/health` | Proxy manager /health (auth; projectId optional via isLiveness) |
+| `ANY` | `/api/services/:name/*` | Generic proxy (appProxyAuth: user\|app\|service); /health\|/ready skip projectId |
 | `GET` | `/api/workers` | List workers |
 | `GET` | `/api/workers/:id/host/check` | Host OS/Docker freshness |
 | `POST` | `/api/workers/:id/host/check` | Re-probe host OS/Docker |
@@ -96,4 +109,4 @@ aerekos services
 
 ---
 
-_Generated from `docs/catalog.js`. Edit the catalog and run `make docs` to update._
+_Hand-aligned with `conductor/` for Wave 9 ops-conductor closeout. Catalog also lists `/ready` + proxy honesty in `docs/catalog.js`; re-run `make docs` carefully so this page stays accurate._

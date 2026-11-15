@@ -48,7 +48,7 @@ setupPrometheus(app, { serviceName: 'conductor' });
 
 // Request logging middleware — full trail: request line (+JSON body), then
 // response status + duration. High-volume telemetry endpoints log one line.
-const NOISY_PATHS = /^\/(health|metrics)(\/|$)/;
+const NOISY_PATHS = /^\/(health|ready|metrics)(\/|$)/;
 const NOISY_SERVICES = /^\/api\/services\/(metrics_manager|logs_manager)\b/;
 app.use((req, res, next) => {
   const start = Date.now();
@@ -73,7 +73,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Liveness — process up; DB file may still be initializing. No auth.
 app.get('/health', async (req, res) => {
   try {
     // Check database connectivity - try to access the database file
@@ -113,6 +113,40 @@ app.get('/health', async (req, res) => {
       status: 'unhealthy',
       service: 'conductor',
       database: 'disconnected',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Readiness — SQLite must answer a query. No auth. Distinct from manager
+// proxy isLivenessPath('/ready'), which skips projectId when probing workers.
+app.get('/ready', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data/conductor.db');
+    if (!fs.existsSync(dbPath)) {
+      return res.status(503).json({
+        status: 'not_ready',
+        service: 'conductor',
+        database: 'initializing',
+        timestamp: new Date().toISOString()
+      });
+    }
+    const { User } = require('./api/models');
+    await User.findAll({ limit: 1 });
+    return res.json({
+      status: 'ready',
+      service: 'conductor',
+      database: 'ok',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'not_ready',
+      service: 'conductor',
+      database: 'unavailable',
       error: error.message,
       timestamp: new Date().toISOString()
     });

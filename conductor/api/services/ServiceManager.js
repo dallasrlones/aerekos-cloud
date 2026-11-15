@@ -6,6 +6,7 @@ const LoadBalancer = require('./LoadBalancer');
 const ServiceOrchestrator = require('./ServiceOrchestrator');
 const MANAGER_SERVICE_PORTS = require('../config/managerServicePorts');
 const { mergeProjectSecretsIntoConfig } = require('./projectSecretEnv');
+const { isLivenessPath } = require('../utils/isLivenessPath');
 
 // Repeated identical errors (e.g. a disabled/unreachable service being
 // probed every second by workers) are rate-limited to one log line per
@@ -865,7 +866,7 @@ class ServiceManager {
       const isSignedUrl = path && path.includes('/signed/');
       const isSystemPath = path && path.includes('/systems/');
       const isGlobalKeyStore = serviceName === 'key_manager' && path && path.startsWith('/api/keys');
-      const isLiveness = path === '/health' || path === '/ready';
+      const isLiveness = isLivenessPath(path);
       if (!projectId && !isSignedUrl && !isSystemPath && !isGlobalKeyStore && !isLiveness) {
         throw {
           status: 400,
@@ -874,9 +875,9 @@ class ServiceManager {
         };
       }
       
-      // For signed URLs, system-bucket paths, and global key-store paths without projectId,
-      // try to find any deployment
-      // The storage_manager validates via signature (signed) or system scope (system buckets)
+      // For signed URLs, system-bucket paths, global key-store, and liveness probes without
+      // projectId, pick any deployment for routing. Upstream /health|/ready stay open;
+      // conductor proxy routes still require auth (authenticateService / appProxyAuth).
       if (!projectId && (isSignedUrl || isSystemPath || isGlobalKeyStore || isLiveness)) {
         // Find any deployment for this service (signed URLs are validated by signature)
         const anyDeployment = await ServiceDeployment.findAll({

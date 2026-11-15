@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: Conductor (control plane)
+  version: 1.0.0
+  description: |
+    Pack mirror of docs/openapi/conductor.yaml for in-tree discovery.
+    Health: GET /health (liveness), GET /ready (SQLite readiness) — no auth.
+    Manager proxy isLivenessPath('/health'|'/ready') skips projectId only;
+    conductor proxy routes still require Bearer auth.
+servers:
+  - url: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Liveness (no auth; conductor proxy isLiveness for managers)
+      responses:
+        '200':
+          description: '{ status: healthy, service, database, timestamp }'
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness / SQLite (no auth; isLiveness when proxied to managers)
+      responses:
+        '200':
+          description: '{ status: ready, service, database: ok }'
+        '503':
+          description: not_ready
+  /api/services/{serviceName}/health:
+    get:
+      summary: Authenticated proxy to manager /health (projectId optional)
+      parameters:
+        - in: path
+          name: serviceName
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Upstream health
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

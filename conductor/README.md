@@ -66,8 +66,30 @@ docker-compose -f docker-compose.yml build --build-arg DOCKERFILE=Dockerfile
 
 ## API Endpoints
 
-### Health Check
-- `GET /health` - Health check endpoint
+### Health / readiness (no auth)
+- `GET /health` — **liveness**. Process is up; `database` may be `connected` or `initializing`.
+- `GET /ready` — **readiness**. Requires a successful SQLite query (`database: ok`) or returns 503.
+
+### Manager proxy vs isLiveness
+When the conductor proxies to a manager via `ServiceManager.proxyServiceRequest`, paths
+`/health` and `/ready` are **isLiveness** (`api/utils/isLivenessPath.js`): they do **not**
+require a caller `projectId` (routing may pick any deployment). That is **not** an auth
+bypass on conductor routes — `GET /api/services/:name/health` and generic
+`/api/services/:name/*` still require Bearer auth (`authenticateService` / `appProxyAuth`).
+
+### Proxy auth (`appProxyAuth`)
+Bearer classification on manager proxy routes:
+
+| Token | How recognized | Forwarded as |
+|-------|----------------|--------------|
+| Service registry / worker token | `Service.service_token` or `WORKER_*` / `CONDUCTOR_TOKEN` env | service token |
+| App credential | JWT `iss=aerekos-auth_manager` + `typ=app`, verified via auth_manager | app JWT unchanged |
+| Human console JWT | conductor `authenticate` middleware | user JWT; gated managers may get conductor client token via `authorizationForProxy` |
+
+See also [`docs/runbooks/auth-required.md`](../docs/runbooks/auth-required.md) (manager
+`AUTH_REQUIRED` on direct ports) and OpenAPI pack [`docs/openapi/conductor.yaml`](../docs/openapi/conductor.yaml).
+
+**Live fleet e2e** is parked with `ops-gate0` — see [`tests/e2e/README.md`](./tests/e2e/README.md).
 
 ### Authentication
 - `POST /api/auth/login` - Login with username and password

@@ -30,6 +30,7 @@ function outgoingHeaders(req, destHost, { stripBrowserOrigin = false, keepUpgrad
 function shouldApi(url) {
   const path = String(url || '').split('?')[0];
   return path === '/health'
+    || path === '/ready'
     || path.startsWith('/api/')
     || path.startsWith('/socket.io');
 }

@@ -14,6 +14,7 @@ function conductorTarget() {
 function shouldProxy(url) {
   const path = String(url || '').split('?')[0];
   return path === '/health'
+    || path === '/ready'
     || path.startsWith('/api/')
     || path.startsWith('/socket.io')
     || path.startsWith('/frontend');

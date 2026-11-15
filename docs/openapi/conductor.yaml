@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: Conductor (control plane)
+  version: 1.0.0
+  description: |
+    Master orchestrator: auth, service registry, manager proxy, workers, projects.
+
+    Health honesty:
+    - GET /health — liveness (no auth); may report database=initializing
+    - GET /ready — readiness (no auth); requires SQLite query success
+
+    Manager proxy isLiveness (ServiceManager.isLivenessPath):
+    - Upstream path /health or /ready may be proxied without caller projectId
+    - Does NOT skip conductor-side auth on /api/services/:name/... routes
+      (authenticateService / appProxyAuth still apply)
+
+    Proxy auth (appProxyAuth): classifies Bearer as service | app | user.
+    App JWTs (iss aerekos-auth_manager, typ=app) are verified via auth_manager
+    and forwarded unchanged. See conductor/README.md § Proxy auth.
+
+    Live fleet e2e: parked with ops-gate0 (cloud 530 / CF SSH).
+servers:
+  - url: http://localhost:3000
+    description: Local / compose conductor
+paths:
+  /health:
+    get:
+      summary: Liveness (no auth)
+      responses:
+        '200':
+          description: '{ status: healthy, service: conductor, database: connected|initializing }'
+        '503':
+          description: '{ status: unhealthy }'
+  /ready:
+    get:
+      summary: Readiness / SQLite (no auth)
+      responses:
+        '200':
+          description: '{ status: ready, service: conductor, database: ok }'
+        '503':
+          description: '{ status: not_ready }'
+  /api/services/{serviceName}/health:
+    get:
+      summary: Proxy upstream manager /health (auth required; projectId optional via isLiveness)
+      parameters:
+        - in: path
+          name: serviceName
+          required: true
+          schema: { type: string }
+        - in: query
+          name: project_id
+          required: false
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Upstream health JSON
+        '401':
+          description: Missing/invalid conductor auth
+  /api/services/{serviceName}/{proxyPath}:
+    get:
+      summary: Generic manager proxy (appProxyAuth / authenticate)
+      description: |
+        Non-liveness paths require projectId (query or X-Project-Id).
+        /health and /ready skip PROJECT_ID_REQUIRED (isLivenessPath).
+      parameters:
+        - in: path
+          name: serviceName
+          required: true
+          schema: { type: string }
+        - in: path
+          name: proxyPath
+          required: true
+          schema: { type: string }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Upstream response
+        '400':
+          description: PROJECT_ID_REQUIRED when path is not isLiveness
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: user JWT | app credential | service registry token

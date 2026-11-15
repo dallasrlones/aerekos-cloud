@@ -1,0 +1,252 @@
+openapi: 3.0.3
+info:
+  title: trace_manager (X-Ray analog)
+  version: 1.0.0
+  description: |
+    Project-scoped trace metadata CRUD (/api/v1/traces) plus OTLP/HTTP ingest
+    at POST /v1/traces and span list/query (GET /api/v1/spans, GET /api/v1/query)
+    in a SQLite sidecar. Not a full X-Ray / Jaeger / Tempo cluster.
+    Conductor proxy prefix: /api/services/trace_manager
+    No production skip-fake flags; assertNoSkipFakes() + createManagerApp on boot.
+servers:
+  - url: http://localhost:3143
+    description: Direct local
+  - url: http://localhost:3000/api/services/trace_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed sample trace when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /v1/traces:
+    post:
+      summary: OTLP/HTTP ingest (resourceSpans)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                resourceSpans:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: '{ partialSuccess, accepted }'
+  /api/v1/spans:
+    get:
+      summary: List stored spans
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: trace_id
+          schema:
+            type: string
+        - in: query
+          name: name
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: '{ spans }'
+        '400':
+          description: missing project_id
+  /api/v1/query:
+    get:
+      summary: Query spans (q aliases trace_id)
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: trace_id
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: name
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: '{ spans }'
+        '400':
+          description: missing project_id
+  /api/v1/traces:
+    post:
+      summary: Create trace metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                trace_id:
+                  type: string
+                spans:
+                  type: string
+                  description: JSON string of span ids
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+    get:
+      summary: List traces
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/traces/{id}:
+    get:
+      summary: Get one trace
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a trace
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                trace_id:
+                  type: string
+                spans:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a trace (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a trace
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

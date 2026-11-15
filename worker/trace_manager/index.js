@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes();
 require('./api/models');
 const db = require('./api/utils/dbClient');
 const { createManagerApp } = require('../shared/managerBootstrap');
@@ -12,6 +14,7 @@ const { app, listen } = createManagerApp({
   register: makeRegister({ serviceName: 'trace_manager', defaultPort: 3143, capabilities: ["tracing"] }),
   ensureDefaults: (projectId) => service.ensureDefaults(projectId),
   extraSetup: (expressApp) => {
+    // OTLP/HTTP ingest path (not under /api/v1 — avoids colliding with traces CRUD)
     expressApp.post('/v1/traces', ingestTraces);
     expressApp.use('/api/v1', router);
   },

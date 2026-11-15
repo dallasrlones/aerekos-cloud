@@ -60,7 +60,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `iot_manager` | 3140 | `/api/v1/things` + `/publish` | Things CRUD + websocket fan-out; MQTT broker parked |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
-| `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |
+| `trace_manager` | 3143 | `/api/v1/traces` + `POST /v1/traces`; no prod mocks | OTLP ingest + traces CRUD + span query; live e2e parked |
 | `search_manager` | 3144 | `/api/v1/indexes` + `/index` + `/query` | Indexes CRUD + FTS5 hits; live e2e parked; no prod mocks |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |

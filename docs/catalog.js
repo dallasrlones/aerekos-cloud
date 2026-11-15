@@ -279,8 +279,19 @@ const managers = [
   },
   {
     name: 'security_manager', aws: 'Security Hub', category: 'Observability', port: 3108, status: 'implemented',
-    summary: 'Security finding records (severity/source/details). Detectors wired later.',
-    proxyBase: '/api/v1', crud: { segment: 'findings' }, capabilities: ['security', 'findings']
+    summary: 'Findings CRUD + metadata-only scan. Detectors/SIEM later. ManagerConsole (no ServiceGuide). No prod mocks.',
+    proxyBase: '/api/v1', crud: { segment: 'findings' }, capabilities: ['security', 'findings'],
+    endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/findings', summary: 'Create a finding' },
+      { method: 'GET', path: '/api/v1/findings', summary: 'List findings (?project_id=)' },
+      { method: 'GET', path: '/api/v1/findings/:id', summary: 'Get one finding' },
+      { method: 'PATCH', path: '/api/v1/findings/:id', summary: 'Update a finding' },
+      { method: 'POST', path: '/api/v1/findings/scan', summary: 'Metadata-only scan note' },
+      { method: 'DELETE', path: '/api/v1/findings/:id', summary: 'Delete a finding' }
+    ]
   },
   {
     name: 'analytics_manager', aws: 'Pinpoint / Kinesis Analytics', category: 'Observability', port: 3117, status: 'implemented',

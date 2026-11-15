@@ -1,0 +1,194 @@
+openapi: 3.0.3
+info:
+  title: security_manager (Security Hub analog)
+  version: 1.0.0
+  description: |
+    Project-scoped security finding rows (severity/source/details) with a
+    metadata-only POST .../findings/scan. No live scanners/SIEM in MVP.
+    Shared skip-fake flags refused when NODE_ENV=production via assertNoSkipFakes.
+    Conductor proxy prefix: /api/services/security_manager
+servers:
+  - url: http://localhost:3108
+    description: Direct local
+  - url: http://localhost:3000/api/services/security_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/findings:
+    post:
+      summary: Create a finding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                severity:
+                  type: string
+                source:
+                  type: string
+                details:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List findings
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/findings/scan:
+    post:
+      summary: Metadata-only scan note (no host reboot / live scanner)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                severity:
+                  type: string
+                summary:
+                  type: string
+                details:
+                  type: string
+      responses:
+        '201':
+          description: '{ item, note }'
+  /api/v1/findings/{id}:
+    get:
+      summary: Get one finding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a finding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                severity:
+                  type: string
+                source:
+                  type: string
+                details:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    put:
+      summary: Update a finding (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a finding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found

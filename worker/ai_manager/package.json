@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "jest",
+    "test": "jest --no-coverage",
+    "test:unit": "jest tests/unit/health.test.js --no-coverage",
+    "test:integration": "jest tests/integration/health.test.js tests/integration/crud.test.js --no-coverage",
     "bench:icarus": "ICARUS_GRAPH_MEMORY=1 node api/services/IcarusBenchmark.js",
     "bench:icarus:hard": "ICARUS_GRAPH_MEMORY=1 ICARUS_BENCH_HARD=1 node api/services/IcarusBenchmark.js",
     "test:tools": "jest tests/unit/allToolsExhaustive.test.js --no-coverage",

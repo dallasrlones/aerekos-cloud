@@ -1,14 +1,17 @@
 # ai_manager — Bedrock
 
-> **AI** · Implemented · needs provider keys for live calls
+> **AI** · Implemented · needs provider keys/URLs for live inference
 
-Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:agent.*.
+Icarus console (`/icarus`): talk + live plan graph, Fleet, Models, Apps. GPU engines, intelligence jobs, agents, connectors. WS `ai:live` + `ai:icarus.*` + `ai:agent.*`.
 
 - **Port:** `3126`
 - **AWS analog:** Bedrock
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/ai_manager{path}` (JWT or service token)
 - **Capabilities:** `ai`, `intelligence`, `stt`, `tts`, `agents`, `connectors`
+- **OpenAPI:** none checked in (large surface; catalog + worker README are sources of truth)
+- **Mocks:** none in production paths — missing LLM/STT/TTS URLs fail closed (not a `MOCK_*` stub)
+- **Health/proxy:** `/health` + `/ready` skip `projectId` in conductor `proxyServiceRequest`; product routes need `project_id`
 
 > ⚠️ **Provider activation:** LLM endpoint/URL + provider keys (e.g. Ollama URL) to run inference.
 
@@ -16,11 +19,15 @@ Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. GPU engin
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/api/v1/info` | Service metadata |
 | `POST` | `/api/v1/intelligence` | Create a intelligence ({ project_id, name, ... }) |
 | `GET` | `/api/v1/intelligence` | List intelligence (?project_id=) |
 | `GET` | `/api/v1/intelligence/:id` | Get one intelligence |
 | `PATCH` | `/api/v1/intelligence/:id` | Update a intelligence |
 | `DELETE` | `/api/v1/intelligence/:id` | Delete a intelligence |
+| `CRUD` | `/api/v1/models` | Model routing config |
 | `GET` | `/api/v1/icarus/plans` | List Icarus plan graphs for a project |
 | `GET` | `/api/v1/icarus/plans/:planId` | Get one plan |
 | `GET` | `/api/v1/icarus/plans/:planId/scrub` | Time-travel subgraph scrub |
@@ -49,54 +56,47 @@ Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. GPU engin
 | `DELETE` | `/api/v1/agents/:id` | Delete agent |
 | `POST` | `/api/v1/agents/:id/chat` | User-layer chat → queued intelligence job |
 | `POST` | `/api/v1/agents/:id/voice` | Optional STT→chat→TTS compose |
-| `POST` | `/api/v1/agents/:id/interrupt` | Stop or add context mid-flight |
-| `POST` | `/api/v1/agents/:id/approve` | Answer an ASK card |
-| `GET` | `/api/v1/agents/:id/pulse` | Manager pulse + gateway snapshot |
-| `GET` | `/api/v1/agents/:id/messages` | Chat history |
-| `GET` | `/api/v1/agents/:id/pins` | Friend memory pins |
-| `POST` | `/api/v1/agents/:id/pins` | Pin a durable fact |
-| `DELETE` | `/api/v1/agents/:id/pins/:key` | Forget a pin |
-| `GET` | `/api/v1/agents/:id/memory/export` | Export pins, rolls, messages |
-| `POST` | `/api/v1/agents/:id/memory/wipe` | Wipe friend memory for this agent |
-| `GET` | `/api/v1/agents/:id/rolls` | Temporal rolls (today/week/month/year) |
-| `POST` | `/api/v1/agents/:id/rolls/refresh` | Rebuild temporal rolls |
-| `GET` | `/api/v1/agents/:id/work` | Goal/Task/Subtask graph |
-| `POST` | `/api/v1/agents/:id/work` | Create a work item |
-| `PATCH` | `/api/v1/agents/:id/work/:workId` | Update work priority/status |
-| `POST` | `/api/v1/agents/:id/work/reorder` | Reorder work ids now→later |
-| `GET` | `/api/v1/agents/:id/prompts` | Get effective + override prompts |
-| `PATCH` | `/api/v1/agents/:id/prompts` | Patch per-agent prompt overrides |
-| `POST` | `/api/v1/agents/:id/prompts/reset` | Reset prompts to bundled defaults |
-| `GET` | `/api/v1/agents/:id/browser/frames/:frameId` | JPEG screenshot for a browse ASK |
-| `GET` | `/api/v1/agents/:id/prs/:id/diff` | Local PR diff (capped) |
-| `GET` | `/api/v1/agents/:id/asks` | Open and answered ASK cards (one open at a time) |
-| `GET` | `/api/v1/agents/:id/timeline` | Shop timeline (chat, brief, ask, tool, replan, deploy) |
-| `GET` | `/api/v1/agents/:id/workers` | Worker agents for this Icarus |
-| `POST` | `/api/v1/agents/:id/workers` | Spawn a queued worker (handoff packet) |
-| `POST` | `/api/v1/agents/:id/workers/:wid/run` | Run a worker tool loop |
-| `GET` | `/api/v1/agents/:id/cron` | Routines |
-| `POST` | `/api/v1/agents/:id/cron` | Create a cron/routine |
-| `POST` | `/api/v1/agents/:id/cron/:cid/fire` | Fire a cron via runtime (user_turn / idle_review / shop plan) |
-| `GET` | `/api/v1/agents/:id/skills` | Skill templates |
-| `POST` | `/api/v1/agents/:id/skills` | Create a skill |
-| `GET` | `/api/v1/agents/:id/audit` | Tool and connector audit (no secrets) |
-| `GET` | `/api/v1/agents/:id/fs` | List or read workspace files (jail) |
-| `POST` | `/api/v1/agents/:id/fs` | Write a workspace file (ASK) |
-| `POST` | `/api/v1/agents/:id/term` | Run a workspace command (ASK if mutating) |
-| `POST` | `/api/v1/agents/:id/tools` | Execute a workspace tool (ASK on writes) |
-| `POST` | `/api/v1/agents/:id/claim` | Claim a worktree prefix |
-| `POST` | `/api/v1/agents/:id/message` | Inter-agent message |
-| `GET` | `/api/v1/agents/:id/plans` | List plans (Current/History) |
-| `GET` | `/api/v1/agents/:id/plans/:planId` | Get one plan |
-| `POST` | `/api/v1/agents/:id/console-events` | Playwright console ring from icarus-browser |
-| `POST` | `/api/v1/agents/:id/compact` | Queued compact job (never pins/ASK/DoD). Intelligence options.compact: enabled, threshold_ratio, keep_recent, max_summary_chars |
-| `GET` | `/api/v1/connectors/kinds` | Dynamic connector kind catalog |
-| `POST` | `/api/v1/connectors` | Create a connector account (ARN connector:account/name) |
-| `GET` | `/api/v1/connectors` | List project connectors |
-| `GET` | `/api/v1/connectors/:id` | Get a connector |
-| `PATCH` | `/api/v1/connectors/:id` | Update connector (secret_ref, OAuth reconnect) |
-| `DELETE` | `/api/v1/connectors/:id` | Revoke a connector |
 | `POST` | `/api/v1/connectors/invoke` | Invoke a connector tool (ASK if needs_auth) |
+
+Full agent/connector path list lives in `docs/catalog.js` and the worker README — Wave 2 honesty keeps the high-traffic surface here without regenerating the entire catalog table.
+
+## Environment
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3126` | Listen port |
+| `CONDUCTOR_URL` | (unset) | Auto-register; skip with `SKIP_SERVICE_REGISTRATION=true` |
+| `OLLAMA_HOST` / `VLLM_HOST` / `LLM_BACKEND` | (unset) | Live inference backends |
+| `MEMORY_DB_FALLBACK` | (homelab often `1`) | sqlite memory when Lance hooks missing |
+
+## SDK / CLI
+
+SDK: `client.intelligence.*`, `client.stt.*`, `client.tts.*`, `client.agents.*`, `client.connectors.*`.
+
+**SDK (Node)**
+
+```js
+await client.intelligence.create(PID, { name: 'demo' });
+console.log(await client.intelligence.list(PID));
+// Live chat needs LLM URL/keys:
+// await client.intelligence.chat(PID, { messages: [{ role: 'user', content: 'hi' }] });
+```
+
+**CLI**
+
+```bash
+aerekos intelligence submit --project $PID --data '{"messages":[{"role":"user","content":"hi"}]}'
+aerekos call ai_manager POST "/api/v1/intelligence" --project $PID \
+  --data '{"project_id":"'"$PID"'","name":"demo"}'
+```
+
+No dedicated `aerekos ai_manager …` CRUD verb — use SDK, `aerekos call`, or `aerekos intelligence submit|job|wait|cancel`.
+
+## Tutorial / ServiceGuide
+
+- **Guide:** [`docs/guides/icarus.md`](../guides/icarus.md)
+- **Console:** `/icarus` + in-console guides
+- **Standalone `docs/tutorials` tutorial:** none
 
 ## Examples
 
@@ -111,21 +111,6 @@ curl -s -X POST \
   -d '{"project_id":"'$PID'","name":"demo"}'
 ```
 
-**SDK (Node)**
-
-```js
-const r = client.resource('ai_manager', 'intelligence');
-await r.create(PID, { name: 'demo' });
-console.log(await r.list(PID));
-```
-
-**CLI**
-
-```bash
-aerekos ai_manager intelligence create --project $PID --data '{"name":"demo"}'
-aerekos ai_manager intelligence list --project $PID
-```
-
 ---
 
-_Generated from `docs/catalog.js`. Edit the catalog and run `make docs` to update._
+_Honesty pass for `mgr-ai_manager` Wave 2. Catalog endpoints remain in `docs/catalog.js`; re-run `make docs` carefully so this page stays accurate._

@@ -1,17 +1,26 @@
 # E2E tests — AI Manager
 
-These are **manual / CI-job** scenarios until Playwright or a full docker-compose test harness is added.
+In-process Jest covers health + models CRUD. Live conductor/proxy scenarios stay manual until fleet is up.
 
-## Prerequisites
-- Conductor and at least one worker running
-- This service built and registered (or `CONDUCTOR_URL` set for auto-register)
+## Automated (local)
 
-## Scenarios (checklist)
-- [ ] **E2E-1:** Start `ai_manager` container; `GET /health` from another container on the same Docker network returns 200.
-- [ ] **E2E-2:** Conductor lists service in registry; proxy `/api/services/ai_manager/...` works if routing is enabled.
-- [ ] **E2E-3:** Graceful shutdown: SIGTERM finishes in-flight requests then exits.
-- [ ] **E2E-4:** Invalid auth (when implemented) returns 401/403 consistently.
-- [ ] **E2E-5:** Load test: baseline latency under expected RPS (define SLO in plan.md).
+```bash
+cd worker/ai_manager
+npm run test:unit
+npm run test:integration
+```
 
-## Automating
-Add `tests/e2e/*.spec.js` with Playwright or run supertest against `docker compose` URLs in CI (`test:e2e:ci` script).
+## Live checklist (manual / fleet)
+
+Prerequisites: conductor + GPU worker (or Ollama/vLLM URL), `ai_manager` registered on **3126**.
+
+- [ ] **E2E-1:** `GET {CONDUCTOR}/api/services/ai_manager/health` → 200 (liveness; conductor skips `projectId` for `/health`/`/ready`)
+- [ ] **E2E-2:** Proxy `GET .../api/v1/info?project_id=$PID` with JWT → `status: active`
+- [ ] **E2E-3:** Intelligence create/list via SDK `client.intelligence.create` / `list` (needs project)
+- [ ] **E2E-4:** Live inference (`client.intelligence.chat` or `aerekos intelligence submit`) — **needs-keys** (LLM URL + provider)
+- [ ] **E2E-5:** Icarus console `/icarus` Setup + chat smoke (`node e2e/icarus-c0-smoke.js` from repo root when fleet up)
+
+## Notes
+
+- Full unit suite under `tests/unit/` is large (Icarus/agents/voice); Wave 2 closeout gates on scoped health + models CRUD, not the entire ocean.
+- No production `MOCK_*` inference paths — live calls fail closed without provider URL/keys.

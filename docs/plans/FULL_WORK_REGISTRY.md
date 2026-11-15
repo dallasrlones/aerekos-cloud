@@ -88,7 +88,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `x-sdk` | cross | platform | in_progress |  | Wave 9 |
-| `x-cli` | cross | platform | in_progress |  | Wave 9 |
+| `x-cli` | cross | platform | done |  | Wave 9 closeout 4ddbfa52; gap matrix + health + help tests; cliParity still partial (E32 not in catalog) |
 | `x-openapi` | cross | platform | in_progress |  | Wave 9 |
 | `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
 | `x-cross-service` | cross | platform | in_progress |  | Wave 9 |

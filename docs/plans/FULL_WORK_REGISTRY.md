@@ -37,7 +37,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-cert_manager` | manager | `worker/cert_manager` | pending | | closeout DoD |
 | `mgr-cicd_manager` | manager | `worker/cicd_manager` | done | live proxy needs conductor | Wave 3 closeout; health+CRUD+prod-guard tests |
 | `mgr-cluster_manager` | manager | `worker/cluster_manager` | done | live e2e needs conductor | Wave 2 closeout 0997d3b; 12 tests |
-| `mgr-code_as_infra` | manager | `worker/code_as_infra` | in_progress | | Wave 3 |
+| `mgr-code_as_infra` | manager | `worker/code_as_infra` | done | live proxy needs conductor | Wave 3 closeout; health+CRUD tests; storage-only (no apply) |
 | `mgr-compute_manager` | manager | `worker/compute_manager` | done | live e2e needs conductor | Wave 2 closeout 4a7d145/5d9396e; 49 tests |
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | pending | | closeout DoD |

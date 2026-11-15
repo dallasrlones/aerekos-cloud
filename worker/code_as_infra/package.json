@@ -2,7 +2,12 @@
   "name": "code_as_infra",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": { "start": "node index.js", "test": "jest" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "NODE_PATH=./node_modules jest",
+    "test:unit": "NODE_PATH=./node_modules jest --testPathPattern=tests/unit",
+    "test:integration": "NODE_PATH=./node_modules jest --testPathPattern=tests/integration"
+  },
   "license": "ISC",
   "dependencies": {
     "aerekos-record": "^0.1.4",
@@ -12,5 +17,8 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2"
   },
-  "devDependencies": { "jest": "^29.7.0", "supertest": "^6.3.3" }
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  }
 }

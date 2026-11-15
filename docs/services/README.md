@@ -79,7 +79,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
 | [`git_manager`](git_manager.md) | CodeCommit | 3130 | implemented | Self-hosted Git hosting: bare repos + full clone/push/pull over Git Smart HTTP, plus push-event hooks. |
-| [`registry_manager`](registry_manager.md) | ECR | 3129 | implemented | Container registry discovery: per-project registry entries (no pull secrets) + a public config endpoint. |
+| [`registry_manager`](registry_manager.md) | ECR | 3129 | implemented | Registry metadata + public config, artifacts/wanted/images; no pull secrets; OpenAPI pack. |
 | [`cicd_manager`](cicd_manager.md) | CodePipeline | 3119 | implemented | Pipeline definitions (steps JSON + state). |
 | [`code_as_infra`](code_as_infra.md) | CloudFormation | 3120 | implemented | Infrastructure-as-code modules / snippets (kind + content). |
 | [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway route definitions (method/public_path/backend_url). |

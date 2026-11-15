@@ -94,19 +94,19 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-cross-service` | cross | platform | done | live peer e2e matrix parked | Wave 9 closeout 59cc2c6b; pass doc docs/plans/cross-service-consumption.md; schedule_manager→queue_manager via conductor; next: cicd *_MANAGER_URL fallbacks, notify Phase 2, audit emit, live edge e2e |
 | `x-user-system-safe` | cross | platform | done | db_manager + object-delete + unprotect gaps | Wave 9 closeout 0fbfef4b; SYSTEM_BUCKET_IMMUTABLE; docs/runbooks/system-safe-resources.md |
 | `x-cross-platform` | cross | platform | done | live registry/fleet image mirror + Orin AI pulls parked | Wave 9 closeout 5ae03d86; offline-images + make images-*; DOCKER.md |
-| `x-git-iac-all-projects` | cross | platform | pending | | All projects on git_manager + IaC |
-| `x-pr-review-ux` | cross | platform | pending | | User review PRs on project code changes |
+| `x-git-iac-all-projects` | cross | platform | in_progress |  | Wave 10 |
+| `x-pr-review-ux` | cross | platform | in_progress |  | Wave 10 |
 
 ## Epics (from docs/todo.md)
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `epic-icarus-tasks` | epic | docs/todo.md | pending | | Icarus task graph / % / history / user kanban |
-| `epic-smart-memory` | epic | docs/todo.md | pending | | LLM+Laya smart memory lookups |
-| `epic-finetune-embed` | epic | docs/todo.md | pending | | Fine-tune + embedding Laya gates DRY |
-| `epic-aerekos-record` | epic | docs/todo.md | pending | | aerekos-record multi-DB ORM + migrate cloud |
-| `epic-memory-crud-ui` | epic | docs/todo.md | pending | | Memory CRUD + brain graph UI |
-| `epic-personality-context` | epic | docs/todo.md | pending | | Personality/goals/datetime context |
+| `epic-icarus-tasks` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-smart-memory` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-finetune-embed` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-aerekos-record` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-memory-crud-ui` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-personality-context` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-gary-tan-report` | epic | docs/todo.md | pending | | Gary Tan second-brain/harness report MD |
 | `epic-aerekos-drive` | epic | docs/todo.md | pending | | Drive + Docs/Sheets/Slides + collab suite |
 | `epic-media-manager` | epic | docs/todo.md | pending | | audio/video/image media managers v0 |
@@ -131,3 +131,4 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 **Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.
 6. **Wave 9:** ops-conductor, x-sdk, x-cli, x-openapi, x-tutorials, x-cross-service, x-user-system-safe, x-cross-platform
+7. **Wave 10:** x-git-iac-all-projects, x-pr-review-ux, epic-icarus-tasks, epic-smart-memory, epic-finetune-embed, epic-aerekos-record, epic-memory-crud-ui, epic-personality-context

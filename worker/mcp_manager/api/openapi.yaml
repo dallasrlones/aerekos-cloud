@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: mcp_manager (Bedrock Agents tools analog)
+  version: 1.0.0
+  description: |
+    Project-scoped MCP tool registry (description + input_schema), platform-tools catalog,
+    and HTTP invoke against input_schema.endpoint. Does not spawn live MCP server processes.
+    Conductor proxy prefix: /api/services/mcp_manager
+servers:
+  - url: http://localhost:3123
+    description: Direct local
+  - url: http://localhost:3000/api/services/mcp_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/platform-tools:
+    get:
+      summary: Catalog input_schema for platform tools
+      responses:
+        '200':
+          description: '{ items, note } — backup/iac/edge/systems/graphql/search/stack; outbound send disabled'
+  /api/v1/tools:
+    post:
+      summary: Create a tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                input_schema:
+                  description: JSON string or object serialized by client; may include endpoint/method
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List tools
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/tools/{id}:
+    get:
+      summary: Get one tool
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a tool
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                input_schema:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a tool (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a tool
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/tools/{id}/invoke:
+    post:
+      summary: Invoke a registered tool against input_schema.endpoint
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  description: Override schema endpoint
+                method:
+                  type: string
+                arguments:
+                  type: object
+                input:
+                  type: object
+      responses:
+        '200':
+          description: '{ tool, status, result }'
+        '400':
+          description: missing endpoint
+        '404':
+          description: not found

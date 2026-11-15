@@ -106,63 +106,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/cicd_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/api/v1/pipelines:
-    post:
-      summary: Create a pipeline
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List pipelines (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/api/v1/pipelines/run-for-repo:
-    post:
-      summary: Match + run pipelines for a repo push
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/api/v1/pipelines/{id}:
-    get:
-      summary: Get one pipeline
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a pipeline
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a pipeline
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/api/v1/pipelines/{id}/run:
-    post:
-      summary: Run pipeline action (test/deploy/build-image/apply-stack/fleet)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/cicd_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/compute_manager/api/v1/deployments/{id}:
     put:
       summary: Apply declarative Deployment
@@ -309,91 +252,6 @@ paths:
   /api/services/function_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos:
-    post:
-      summary: Create a repo (git init --bare)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List repos (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos/{id}:
-    get:
-      summary: Get a repo + branches
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a repo
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a repo
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos/{id}/branches:
-    get:
-      summary: List branches
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    post:
-      summary: Create branch
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos/{id}/commits:
-    get:
-      summary: List commits
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos/{id}/pushes:
-    get:
-      summary: List recorded push events
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/repos/{id}/commit-file:
-    post:
-      summary: Commit a file on a branch
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/api/v1/pulls:
-    get:
-      summary: List pull requests
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    post:
-      summary: Create pull request
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/git_manager/ready:
-    get:
-      summary: Readiness
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -544,58 +402,52 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/info:
+  /api/services/mcp_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/endpoints:
+  /api/services/mcp_manager/api/v1/platform-tools:
+    get:
+      summary: Catalog input_schema for platform tools
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/tools:
     post:
-      summary: Create a gateway route
+      summary: Create a tool
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List routes (?project_id=)
+      summary: List tools (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/endpoints/match:
-    post:
-      summary: Resolve method+path → proxy_path + ARN
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/endpoints/seed-presets:
-    post:
-      summary: Upsert shared gateway presets
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/endpoints/{id}:
+  /api/services/mcp_manager/api/v1/tools/{id}:
     get:
-      summary: Get one route
+      summary: Get one tool
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a route
+      summary: Update a tool
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a route
+      summary: Delete a tool
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/api_manager/api/v1/data-apis/apply:
+  /api/services/mcp_manager/api/v1/tools/{id}/invoke:
     post:
-      summary: Apply model schema → Data API
+      summary: Invoke a registered tool against input_schema.endpoint
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/api_manager/health:
+  /api/services/mcp_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
@@ -667,108 +519,6 @@ paths:
   /api/services/register:
     post:
       summary: Manager self-registration (service token issued)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/registry/config:
-    get:
-      summary: Public registry config (no secrets)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/registries:
-    post:
-      summary: Create a registry entry
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List registry entries (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/registries/{id}:
-    get:
-      summary: Get a registry entry
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a registry entry
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a registry entry
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/artifacts:
-    get:
-      summary: List artifacts
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    post:
-      summary: Create artifact
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/wanted:
-    get:
-      summary: List wanted images
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    post:
-      summary: Create wanted image
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/wanted/{id}:
-    patch:
-      summary: Update wanted image
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete wanted image
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/wanted/{id}/run-now:
-    post:
-      summary: Pull wanted image now
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/images/project:
-    get:
-      summary: Project-scoped image picker
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/images/import:
-    post:
-      summary: Import image tar via docker load
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/api/v1/inventory:
-    get:
-      summary: Host docker inventory
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/registry_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)

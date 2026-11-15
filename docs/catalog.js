@@ -461,9 +461,9 @@ const managers = [
   },
   {
     name: 'sms_manager', aws: 'SNS SMS', category: 'Integrations', port: 3114, status: 'needs-keys',
-    summary: 'SMS messages (to_number/body). Send when Twilio secrets exist; otherwise queue-only.',
+    summary: 'SMS messages CRUD + send. Twilio when secrets exist; otherwise queue-only. ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['sms'],
-    needsKeys: 'Queued only this pass. Do not retry live Twilio send.'
+    needsKeys: 'Queued without Twilio secrets. Do not retry live Twilio send in e2e without keys.'
   },
   {
     name: 'slack_manager', aws: 'Chatbot', category: 'Integrations', port: 3115, status: 'needs-keys',

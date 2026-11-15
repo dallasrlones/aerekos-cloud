@@ -15,7 +15,7 @@ r.post('/:id/send', async (req,res,next) => {
     const { sendSms } = require('../../../shared/outboundSend');
     const current = await s.get(req.params.id, q(req));
     const result = await sendSms({
-      to: current.to || current.recipient || req.body?.to,
+      to: current.to_number || current.to || current.recipient || req.body?.to || req.body?.to_number,
       body: current.body || current.text || req.body?.body,
     });
     const item = await s.update(req.params.id, q(req), { status: result.sent ? 'sent' : 'queued' });

@@ -39,7 +39,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP/HTTP ingest plus span list/query in SQLite. |
 | [`query_manager`](query_manager.md) | Athena | 3145 | implemented | Query defs CRUD + per-project SQLite `/sql`; Athena analog; no prod SKIP_DUCKDB. |
 | [`audit_manager`](audit_manager.md) | CloudTrail | 3149 | implemented | Audit events. |
-| [`status_manager`](status_manager.md) | Statuspage | 3150 | implemented | Status incidents. |
+| [`status_manager`](status_manager.md) | Statuspage | 3150 | implemented | Incidents CRUD + /public aggregate; Statuspage analog; live e2e parked; no prod mocks. |
 
 ## Identity
 

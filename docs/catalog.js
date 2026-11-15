@@ -856,8 +856,12 @@ const managers = [
   },
   {
     name: 'status_manager', aws: 'Statuspage', category: 'Observability', port: 3150, status: 'implemented',
-    summary: 'Status incidents.',
-    proxyBase: '/api/v1', crud: { segment: 'incidents' }, capabilities: ["status"]
+    summary: 'Incidents CRUD + /public aggregate; Statuspage naming analog; live e2e parked; ManagerConsole (no ServiceGuide).',
+    proxyBase: '/api/v1', crud: { segment: 'incidents' }, capabilities: ["status"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed all-clear incident if missing' },
+      { method: 'GET', path: '/api/v1/public', summary: 'Aggregate ok/degraded from non-resolved incidents' }
+    ]
   },
   {
     name: 'cluster_manager', aws: 'EKS', category: 'Compute', port: 3151, status: 'implemented',

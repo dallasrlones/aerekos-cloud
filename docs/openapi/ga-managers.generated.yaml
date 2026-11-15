@@ -936,6 +936,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/status_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed all-clear incident if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/api/v1/public:
+    get:
+      summary: Public status aggregate (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/api/v1/incidents:
+    post:
+      summary: Create an incident
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List incidents (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/api/v1/incidents/{id}:
+    get:
+      summary: Get one incident
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an incident
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an incident
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/status_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/storage_manager/api/info:
     get:
       summary: Service metadata (info)

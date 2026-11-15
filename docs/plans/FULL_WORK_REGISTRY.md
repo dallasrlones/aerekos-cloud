@@ -101,7 +101,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
-| `epic-icarus-tasks` | epic | docs/todo.md | in_progress |  | Wave 10 |
+| `epic-icarus-tasks` | epic | docs/todo.md | done |  | Wave 10 scaffold 5c8005d5; see docs/plans/epics/icarus-tasks.md |
 | `epic-smart-memory` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-finetune-embed` | epic | docs/todo.md | in_progress |  | Wave 10 |
 | `epic-aerekos-record` | epic | docs/todo.md | in_progress |  | Wave 10 |

@@ -1,15 +1,20 @@
 # aerekos-cloud — STATUS (OSS / GA)
 
-**Updated:** 2026-11-13 · **Tag intent:** `v0.1.0` after [`docs/GA_CHECKLIST.md`](docs/GA_CHECKLIST.md)  
+**Updated:** 2026-11-15 · **Tag intent:** `v0.1.0` after [`docs/GA_CHECKLIST.md`](docs/GA_CHECKLIST.md)  
 **Canonical checklist:** [GA_CHECKLIST](docs/GA_CHECKLIST.md) · **Todo registry:** [docs/plans/MASTER_TODOS.md](docs/plans/MASTER_TODOS.md)  
-**Fleet-private inventory:** sibling `../aerekos-cloud-STATUS.md` (not mirrored).
+**Full work queue:** [docs/plans/FULL_WORK_REGISTRY.md](docs/plans/FULL_WORK_REGISTRY.md) (58 managers + todo.md epics + cross-cuts)  
+**Fleet-private inventory:** sibling [`../aerekos-cloud-STATUS.md`](../aerekos-cloud-STATUS.md) (not mirrored).
+
+## Icarus self-modify (2026-11-13)
+
+Slices 0–3 (fleet apply → chat → disk self-edit → UI approve) **DoD hit on fleet**. Follow-ups live in fleet STATUS: auth_manager `JWT_SECRET` parity (inventory 401s), commit `isLiveness` + key_manager port `3102`, optional merge `icarus/self-slice3`.
 
 ## Wave closeouts (this pass)
 
 | Wave | Status | Notes |
 |------|--------|-------|
 | W0–W2 | Mostly green | Live Part I + wants on non-prod; pack-mirror / scrub; ServiceGuide foundation |
-| W3–W4 | In progress | AUTH_REQUIRED proof, stack single-writer, git vs IDE |
+| W3–W4 | In progress | AUTH_REQUIRED proof, stack single-writer, git vs IDE; **prod JWT parity still flaky** |
 | W5 | In progress | **aerekos Compute** = own K8s-class orchestrator (not ECS-lite) |
 | W6–W7 | Appliance path | Limits + restore drill documented |
 | W8–W19 | Closing | OpenAPI, manager e2e, Icarus gates, OSS/security, UX, tenancy/chaos |

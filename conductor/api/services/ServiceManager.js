@@ -865,7 +865,8 @@ class ServiceManager {
       const isSignedUrl = path && path.includes('/signed/');
       const isSystemPath = path && path.includes('/systems/');
       const isGlobalKeyStore = serviceName === 'key_manager' && path && path.startsWith('/api/keys');
-      if (!projectId && !isSignedUrl && !isSystemPath && !isGlobalKeyStore) {
+      const isLiveness = path === '/health' || path === '/ready';
+      if (!projectId && !isSignedUrl && !isSystemPath && !isGlobalKeyStore && !isLiveness) {
         throw {
           status: 400,
           message: 'projectId is required for service proxying. All services are project-scoped.',
@@ -876,7 +877,7 @@ class ServiceManager {
       // For signed URLs, system-bucket paths, and global key-store paths without projectId,
       // try to find any deployment
       // The storage_manager validates via signature (signed) or system scope (system buckets)
-      if (!projectId && (isSignedUrl || isSystemPath || isGlobalKeyStore)) {
+      if (!projectId && (isSignedUrl || isSystemPath || isGlobalKeyStore || isLiveness)) {
         // Find any deployment for this service (signed URLs are validated by signature)
         const anyDeployment = await ServiceDeployment.findAll({
           where: {

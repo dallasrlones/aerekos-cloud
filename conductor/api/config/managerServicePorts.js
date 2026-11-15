@@ -4,7 +4,7 @@
  */
 module.exports = {
   compute_manager: { '3100': '3100' },
-  key_manager: { '3002': '3002' },
+  key_manager: { '3102': '3102' },
   storage_manager: { '3003': '3003' },
   db_manager: { '3004': '3004' },
   queue_manager: { '3101': '3101' },

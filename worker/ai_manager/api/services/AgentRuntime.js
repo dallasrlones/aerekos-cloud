@@ -2962,9 +2962,15 @@ class AgentRuntime {
       objective: `SAFE SELF-UPDATE: ${goal}. Branch icarus/self-*, open_pr, wait manager approve_pr. Deploy only after Merge; on health fail rollback.`,
       claim_prefix: claim,
     });
+    if (typeof this.agents.updateWorker === 'function') {
+      await this.agents.updateWorker(worker.id, { chunk_grant: `flow-self:${worker.id}` });
+    }
+    setImmediate(() => {
+      this.runWorker(projectId, agent.id, worker.id, { dry: false, approved: true }).catch(() => {});
+    });
     return {
       ok: true,
-      reply: `Safe self-update worker spawned on claim ${claim}. Branch → open_pr → manager review → you Merge; rollback on health fail.`,
+      reply: `Safe self-update worker running on claim ${claim}. Branch → open_pr → manager review → you Merge; rollback on health fail.`,
       worker,
       health_check: slots.health_check || 'compose',
     };

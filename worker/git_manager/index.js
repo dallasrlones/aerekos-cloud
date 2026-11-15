@@ -5,9 +5,13 @@ require('./api/models');
 const db = require('./api/utils/dbClient');
 const { registerWithConductor } = require('./api/utils/serviceRegistration');
 const { setupPrometheus } = require('../shared/simplePrometheusMetrics');
+const { assertNoSkipFakes } = require('../shared/prodGuards');
 const routes = require('./api/routes');
 const gitHttp = require('./api/routes/gitHttp');
 const errorHandler = require('./api/middleware/errorHandler');
+
+// Refuse SKIP_GIT (and shared skip/mocks) when NODE_ENV=production — tests may set SKIP_GIT=1.
+assertNoSkipFakes({ extra: ['SKIP_GIT'] });
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3130', 10);

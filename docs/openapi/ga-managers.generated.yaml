@@ -255,6 +255,91 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos:
+    post:
+      summary: Create a repo (git init --bare)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List repos (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos/{id}:
+    get:
+      summary: Get a repo + branches
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a repo
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a repo
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos/{id}/branches:
+    get:
+      summary: List branches
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Create branch
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos/{id}/commits:
+    get:
+      summary: List commits
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos/{id}/pushes:
+    get:
+      summary: List recorded push events
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/repos/{id}/commit-file:
+    post:
+      summary: Commit a file on a branch
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/api/v1/pulls:
+    get:
+      summary: List pull requests
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Create pull request
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/git_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/iam_manager/api/v1/evaluate:
     post:
       summary: Evaluate allow/deny for action + resource

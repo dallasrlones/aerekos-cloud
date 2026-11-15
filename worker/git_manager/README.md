@@ -1,76 +1,88 @@
 # git_manager
 
-Self-hosted **Git repository hosting** for aerekos-cloud — your own AWS **CodeCommit** / GitHub.
-It hosts real **bare repositories** on disk and serves full **clone / push / pull over Git Smart HTTP**
-using the actual `git` binary, with a project-scoped REST control plane on top.
+**AWS analog:** CodeCommit · **Port:** `3130`
 
-- **Port:** `3130`
-- **AWS analog:** CodeCommit
-- **Transport:** Git Smart HTTP (`git-upload-pack` / `git-receive-pack`)
+Self-hosted **Git repository hosting** for aerekos-cloud. Hosts real **bare repositories** on disk and serves full **clone / push / pull over Git Smart HTTP** (`git-upload-pack` / `git-receive-pack`), with a project-scoped REST control plane (repos, pulls, issues, checks). SQLite via `aerekos-record`.
 
-## Control plane (REST)
+No production mocks — `assertNoSkipFakes({ extra: ['SKIP_GIT'] })` refuses `SKIP_GIT` (and shared skip/MOCK flags) when `NODE_ENV=production`. Jest uses `SKIP_GIT=1` for metadata-only CRUD.
 
-Reachable through the conductor proxy like every manager:
-`{VERB} {CONDUCTOR}/api/services/git_manager/api/v1/...` (JWT), or directly on `:3130`.
+## Status
+
+**MVP / implemented** — repo CRUD, branches/commits/compare/commit-file, push-event hooks, pulls/issues/checks, bundle/unbundle, `/health`, `/ready`, `/api/v1/info`, `/metrics`, Smart HTTP at `/git/:project/:repo.git`.
+
+**Tutorial:** none standalone. Console **GitManager** screen uses generic **IntegrationHub** (list/create repos) — no dedicated `CONSOLE_GUIDES` / ServiceGuide copy.
+
+## Access
+
+- Direct: `http://localhost:3130/...`
+- Conductor proxy (REST): `{CONDUCTOR}/api/services/git_manager{path}` (JWT or service token)
+- **Git transport:** use the **direct port** (`GIT_MANAGER_URL`, default `:3130`). Conductor proxy does **not** stream Smart HTTP pack bodies.
+
+## Paths
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/repos` | Create a repo `{ project_id, name, description?, default_branch? }` → `git init --bare` (always private) |
-| `GET` | `/api/v1/repos?project_id=` | List repos in a project |
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/metrics` | Prometheus text |
+| `GET` | `/api/v1/info` | Metadata (`status: "active"`) |
+| `POST` | `/api/v1/repos` | Create (`project_id`, `name`, …) → `git init --bare` |
+| `GET` | `/api/v1/repos` | List (`?project_id=`) |
 | `GET` | `/api/v1/repos/:id` | Repo metadata + branches |
-| `GET` | `/api/v1/repos/:id/branches` | Branch list (`name`, `sha`) |
-| `POST` | `/api/v1/repos/:id/branches` | Create branch `{ name, from? }` |
-| `POST` | `/api/v1/repos/:id/commit-file` | Commit path on `branch` (`base_sha?` → 409 on tip mismatch) |
-| `POST` | `/api/v1/repos/:id/delete-file` | Delete path on `branch` (`base_sha?`) |
-| `GET` | `/api/v1/repos/:id/compare?base=&head=` | Unified diff `base...head` |
-| `GET` | `/api/v1/repos/:id/commits?branch=&limit=` | Recent commits |
+| `PATCH`/`PUT` | `/api/v1/repos/:id` | Update `description` / `default_branch` |
+| `DELETE` | `/api/v1/repos/:id` | Delete metadata + bare repo |
+| `GET`/`POST` | `/api/v1/repos/:id/branches` | List / create branch |
+| `POST` | `/api/v1/repos/:id/commit-file` | Commit path on branch (`base_sha?` → 409) |
+| `POST` | `/api/v1/repos/:id/delete-file` | Delete path on branch |
+| `GET` | `/api/v1/repos/:id/compare` | Unified diff `base...head` |
+| `GET` | `/api/v1/repos/:id/commits` | Recent commits |
 | `GET` | `/api/v1/repos/:id/pushes` | Recorded push events |
-| `PATCH`/`PUT` | `/api/v1/repos/:id` | Update `description` / `default_branch` (`visibility` is always private) |
-| `DELETE` | `/api/v1/repos/:id` | Delete metadata + bare repo on disk |
+| `GET` | `/api/v1/repos/:id/tree` | Tree listing |
+| `GET` | `/api/v1/repos/:id/blob` | Blob content |
+| `GET`/`POST` | `/api/v1/repos/:id/bundle` / `unbundle` | Bundle export / restore |
+| `GET`/`POST` | `/api/v1/pulls` | Pull requests |
+| `GET`/`POST` | `/api/v1/issues` | Issues |
+| `GET`/`POST` | `/api/v1/checks` | Check runs |
+| `GET`/`POST` | `/git/:project/:repo.git/...` | Smart HTTP (direct port) |
 
-New repos seed `README.md` on the default branch (disable with `seed_readme: false`).
+OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml) · pack copy [`docs/openapi/git_manager.yaml`](../../docs/openapi/git_manager.yaml). Catalog mirror: [`docs/services/git_manager.md`](../../docs/services/git_manager.md).
 
-Each created repo returns a `clone_path`, e.g. `/git/<project>/<name>.git`.
+## SDK / CLI
 
-## Git transport (clone / push / pull)
-
-```bash
-# create a repo via the control plane, then:
-git clone http://localhost:3130/git/<project>/<repo>.git
-cd <repo>
-echo "# hello" > README.md
-git add . && git commit -m "init"
-git push origin HEAD:main
-```
-
-The transport is mounted at `/git/:project/:repo.git/...` **before** the JSON body parser so the
-upload-pack / receive-pack streams reach `git` untouched (gzip request bodies are handled).
-
-## Push hooks
-
-Every repo gets a `post-receive` hook that records each ref update as a **push event**
-(`GET /api/v1/repos/:id/pushes`). This is the integration point for CI / webhooks
-(e.g. fan out to `webhook_manager`).
+- **SDK (Node):** `client.git.proxy({…})` or `client.svc.git_manager.resource('repos')` for CRUD; also `client.resource('git_manager', 'repos')`.
+- **CLI:** `aerekos git_manager repos list|get|create|update|delete --project $PID` (and `-d` JSON for create/update). Extra paths via `aerekos call` / curl.
 
 ## Configuration
 
 | Env | Default | Purpose |
 |-----|---------|---------|
 | `PORT` | `3130` | Listen port |
-| `GIT_REPOS_ROOT` | `./data/repos` | Where bare repos live (mounted volume in compose) |
-| `GIT_AUTH_TOKEN` | _(unset)_ | If set, the transport requires Bearer/Basic auth with this token |
-| `GIT_BIN` | `git` | Path to the git binary |
-| `SKIP_GIT` | `0` | Metadata-only mode (tests / hosts without git) |
-| `CONDUCTOR_URL` | _(unset)_ | Conductor base URL for self-registration |
+| `GIT_REPOS_ROOT` | `./data/repos` | Bare repo store |
+| `GIT_AUTH_TOKEN` | _(unset)_ | If set, transport requires Bearer/Basic with this token |
+| `GIT_BIN` | `git` | Path to git binary |
+| `SKIP_GIT` | `0` | Metadata-only (tests only; refused in production) |
+| `CONDUCTOR_URL` | _(unset)_ | Self-registration |
 
-## Tests
+## Quick start
 
 ```bash
-cd worker/git_manager && npm install && npm test   # CRUD + validation (SKIP_GIT)
+cd worker/git_manager
+npm install   # use Node 20 (.nvmrc)
+npm start
+# curl http://localhost:3130/health
 ```
 
-Real clone/push/pull is validated end-to-end by the root E2E suite (`e2e/run.js`, Tier 5) against
-the running container. See [`tests/e2e/README.md`](tests/e2e/README.md).
+## Testing
 
-> The container image installs `git` (see the generated `Dockerfile`). For local Jest we run in
-> `SKIP_GIT` mode so the suite does not require git or a writable repo store.
+| Layer | Command | Notes |
+|-------|---------|--------|
+| Unit | `npm run test:unit` | health/ready/info + prod SKIP_GIT guard wiring |
+| Integration | `npm run test:integration` | repos CRUD, ARN, pulls, auth, branch/commit |
+| All | `npm test` | unit + integration (`SKIP_GIT` in test setup) |
+| E2E | [`tests/e2e/README.md`](./tests/e2e/README.md) | real clone/push/pull + conductor proxy REST |
+
+## Related
+
+- Conductor registration / proxy · GitManager IntegrationHub
+- `cicd_manager` (push hooks / bundles) · `backup_manager` (bundle adapter) · IaC hookup
+- Root [`GOLDEN_PATH.md`](../../GOLDEN_PATH.md) · [`docs/runbooks/git-vs-ide.md`](../../docs/runbooks/git-vs-ide.md)

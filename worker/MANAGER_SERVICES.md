@@ -24,7 +24,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `tunnel_manager` | 3110 | Cloudflare Tunnel (needs `CLOUDFLARE_*`) |
 | `domain_manager` | 3111 | Cloudflare DNS (needs `CLOUDFLARE_*`) |
 | `registry_manager` | 3129 | Registry discovery (no pull secrets) |
-| `git_manager` | 3130 | Self-hosted Git hosting (CodeCommit-style); real clone/push/pull over Smart HTTP at `/git/:project/:repo.git` |
+| `git_manager` | 3130 | Self-hosted Git (CodeCommit); Smart HTTP `/git/:project/:repo.git` + REST; no prod `SKIP_GIT` |
 
 `GET /metrics` (Prometheus text) is wired on conductor, worker agent, several managers; see each `index.js`.
 

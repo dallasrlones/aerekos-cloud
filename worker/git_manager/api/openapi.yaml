@@ -1,0 +1,319 @@
+openapi: 3.0.3
+info:
+  title: git_manager (CodeCommit analog)
+  version: 1.0.0
+  description: |
+    Self-hosted Git: bare repos + Smart HTTP clone/push/pull, plus REST control plane
+    (repos, pulls, issues, checks). Conductor proxy prefix: /api/services/git_manager.
+    Git transport streams on the direct port (/git/...) — conductor proxy does not stream pack.
+servers:
+  - url: http://localhost:3130
+    description: Direct local
+  - url: http://localhost:3000/api/services/git_manager
+    description: Via conductor proxy (REST only)
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, status, capabilities, transport, version }'
+  /api/v1/repos:
+    post:
+      summary: Create a repo (git init --bare)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                default_branch:
+                  type: string
+                seed_readme:
+                  type: boolean
+      responses:
+        '201':
+          description: '{ repository }'
+        '400':
+          description: validation error
+    get:
+      summary: List repos (?project_id=)
+      parameters:
+        - in: query
+          name: project_id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ repositories }'
+  /api/v1/repos/{id}:
+    get:
+      summary: Get a repo + branches
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ repository }'
+        '404':
+          description: not found
+    patch:
+      summary: Update description / default_branch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ repository }'
+    delete:
+      summary: Delete metadata + bare repo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: deleted
+  /api/v1/repos/{id}/branches:
+    get:
+      summary: List branches
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ branches }'
+    post:
+      summary: Create branch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                from:
+                  type: string
+      responses:
+        '201':
+          description: created
+  /api/v1/repos/{id}/commits:
+    get:
+      summary: Recent commits (?branch=&limit=)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ commits }'
+  /api/v1/repos/{id}/pushes:
+    get:
+      summary: Recorded push events
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ pushes }'
+  /api/v1/repos/{id}/commit-file:
+    post:
+      summary: Commit a file on a branch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: committed
+        '409':
+          description: tip mismatch (base_sha)
+  /api/v1/repos/{id}/delete-file:
+    post:
+      summary: Delete a file on a branch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: deleted
+  /api/v1/repos/{id}/compare:
+    get:
+      summary: Unified diff base...head
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: base
+          schema:
+            type: string
+        - in: query
+          name: head
+          schema:
+            type: string
+      responses:
+        '200':
+          description: compare result
+  /api/v1/repos/{id}/tree:
+    get:
+      summary: Tree listing (?ref=&path=)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ entries }'
+  /api/v1/repos/{id}/blob:
+    get:
+      summary: Blob content (?ref=&path=)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: blob payload
+  /api/v1/repos/{id}/bundle:
+    get:
+      summary: Download git bundle (octet-stream)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: application/octet-stream
+  /api/v1/repos/{id}/unbundle:
+    post:
+      summary: Restore from git bundle body
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: restored
+  /api/v1/pulls:
+    get:
+      summary: List pull requests
+      responses:
+        '200':
+          description: '{ pulls }'
+    post:
+      summary: Create pull request
+      responses:
+        '201':
+          description: '{ pull }'
+  /api/v1/issues:
+    get:
+      summary: List issues
+      responses:
+        '200':
+          description: '{ issues }'
+    post:
+      summary: Create issue
+      responses:
+        '201':
+          description: '{ issue }'
+  /api/v1/checks:
+    get:
+      summary: List check runs
+      responses:
+        '200':
+          description: '{ checks }'
+    post:
+      summary: Create check run
+      responses:
+        '201':
+          description: '{ check }'
+  /git/{project}/{repo}.git/info/refs:
+    get:
+      summary: Git Smart HTTP discovery (direct port; not via conductor proxy)
+      parameters:
+        - in: path
+          name: project
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: repo
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: refs advertisement

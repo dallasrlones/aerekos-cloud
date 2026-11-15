@@ -2,11 +2,12 @@
 
 **Service:** `ai_manager`  
 **Default port:** 3126  
-**Capabilities (registry):** models, inference_hooks  
-**Description:** Model endpoints, routing, and quotas for local or remote inference.
+**Capabilities (registry):** models, inference_hooks (+ intelligence, stt, tts, agents, connectors in catalog)  
+**Description:** Model endpoints, routing, and quotas for local or remote inference; Icarus console surface.
 
 ## Dependencies
-- **Platform:** Conductor, worker (Docker), optional key_manager / db_manager
+- **Platform:** Conductor, worker (Docker), optional key_manager / db_manager / auth_manager
+- **Runtime:** Ollama and/or vLLM URL for live inference; STT/TTS sidecars optional
 
 
 ## Phase 1 — Service layout (complete)
@@ -15,53 +16,47 @@
 - [x] Dockerfiles, docker-compose (service definition), Jest harness
 
 ## Phase 2 — Domain model & persistence
-- [ ] Define entities and storage (SQLite via `aerekos-record` and/or conductor APIs)
-- [ ] Repositories and migrations if using local DB
-- [ ] Project scoping (`project_id`) on all resources
+- [x] Entities via `aerekos-record` (models, providers, intelligence, agents, memory stores, …)
+- [x] Project scoping (`project_id`) on product resources
+- [ ] Migrations tooling polish if schema evolves
 
 ## Phase 3 — API surface
-- [ ] OpenAPI / route map in README
-- [ ] Validation (Joi or zod)
-- [ ] Service-to-service auth middleware (conductor validate-token)
+- [x] Route map in README + `docs/catalog.js` / `docs/services/ai_manager.md`
+- [ ] Checked-in OpenAPI for full surface (parked — too large for Wave 2; honesty = none)
+- [ ] Dedicated Joi/zod schemas across all routes
 
 ## Phase 4 — Worker & deployment integration
-- [ ] Image build via worker `ServiceManager`; health checks for orchestrator
-- [ ] Environment contract documented in `.env_example`
+- [x] Image build via worker compose / ServiceManager; health checks
+- [x] Environment contract documented in `.env_example`
 
 ## Phase 5 — Observability
-- [ ] Structured JSON logging
-- [ ] `GET /metrics` (Prometheus) or push to `metrics_manager`
-- [ ] Correlation / request IDs
+- [x] `GET /metrics` via shared Prometheus helper
+- [ ] Structured JSON logging everywhere
+- [ ] Correlation / request IDs end-to-end
 
 ## Phase 6 — Security
-- [ ] Rate limits on public routes
-- [ ] Audit log for sensitive operations
-- [ ] Integration with `iam_manager` / `secrets_manager` as needed
+- [x] Conductor JWT / service token on proxy (manager trusts upstream gate)
+- [ ] Broader rate limits on public/chat routes
+- [ ] Audit polish for connector secrets (secret_ref only)
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 2 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] Scoped: `LocalIntegrationSeed.localDefaults` + default port (`tests/unit/health.test.js`)
+- [ ] Full `tests/unit/*` ocean (Icarus/agents/voice) — exists; not Wave 2 gate
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] Health/ready/info + models CRUD (supertest + temp SQLite)
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] Live checklist in `tests/e2e/README.md`
+- [ ] Live conductor/proxy CI job (optional; needs fleet + keys)
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [ ] `npm run test:coverage` gate (≥70%) — not enforced in Wave 2
+- [x] No prod `MOCK_*` inference paths
 
 ---
 

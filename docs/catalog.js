@@ -491,12 +491,20 @@ const managers = [
   // --- AI ------------------------------------------------------------------
   {
     name: 'ai_manager', aws: 'Bedrock', category: 'AI', port: 3126, status: 'needs-keys',
-    summary: 'Icarus console (/icarus): talk + Laya decisions + guided Flows, live plan graph, Fleet, Models, Apps, Icarus IDE live. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:ide.* + ai:agent.*.',
+    summary: 'Icarus console (/icarus): talk + Laya decisions + guided Flows, live plan graph, Fleet, Models, Apps, Icarus IDE live. GPU engines, intelligence jobs, agents, connectors. WS ai:live + ai:icarus.* + ai:ide.* + ai:agent.*. No checked-in OpenAPI (large surface). No prod MOCK_* inference.',
     consolePath: '/icarus',
     docsGuide: 'guides/icarus.md',
     proxyBase: '/api/v1', crud: { segment: 'intelligence' }, capabilities: ['ai', 'intelligence', 'stt', 'tts', 'agents', 'connectors'],
     needsKeys: 'LLM endpoint/URL + provider keys (e.g. Ollama URL) to run inference.',
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite); conductor skips projectId' },
+      { method: 'GET', path: '/ready', summary: 'Readiness; conductor skips projectId' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/intelligence', summary: 'Create intelligence endpoint' },
+      { method: 'GET', path: '/api/v1/intelligence', summary: 'List intelligence (?project_id=)' },
+      { method: 'GET', path: '/api/v1/intelligence/:id', summary: 'Get one intelligence' },
+      { method: 'PATCH', path: '/api/v1/intelligence/:id', summary: 'Update intelligence' },
+      { method: 'DELETE', path: '/api/v1/intelligence/:id', summary: 'Delete intelligence' },
       { method: 'GET', path: '/api/v1/icarus/plans', summary: 'List Icarus plan graphs for a project' },
       { method: 'GET', path: '/api/v1/icarus/plans/:planId', summary: 'Get one plan' },
       { method: 'GET', path: '/api/v1/icarus/plans/:planId/scrub', summary: 'Time-travel subgraph scrub' },

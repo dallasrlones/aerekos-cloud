@@ -1,16 +1,39 @@
-# backup_manager
+# Backup Manager
 
-**AWS analog:** AWS Backup · **Port:** 3134
+**AWS analog:** AWS Backup · **Port:** `3134`
 
-CRUD `/api/v1/vaults` plus `POST /api/v1/ensure-defaults`. Snapshot jobs write objects into storage bucket `aerekos-backups` at `/{source}/{resource}/{timestamp}/{jobId}`.
+Project-scoped **vaults** (CRUD `/api/v1/vaults`) plus snapshot **jobs** that write into storage bucket `aerekos-backups` at `/{source}/{resource}/{timestamp}/{jobId}`. Restore replays adapters for db/storage/git/generic JSON. Live multi-region vault replication and AWS Backup control-plane parity are **out of scope** for MVP.
 
-## Jobs
+No production mocks — `assertNoSkipFakes()` via `createManagerApp` refuses shared skip-fake flags when `NODE_ENV=production`. Scheduler starts unless `SKIP_BACKUP_CRON=1`.
+
+## Status
+
+**MVP / implemented** — vaults CRUD, ensure-defaults, jobs create/list/get/restore, `/health`, `/ready`, `/api/v1/info`, `/metrics`.
+
+**Tutorial / ServiceGuide:** none (ManagerConsole has no `CONSOLE_GUIDES` entry for `backup_manager`).
+
+## Access
+
+- Direct: `http://localhost:3134/...`
+- Conductor proxy: `{CONDUCTOR}/api/services/backup_manager{path}` (JWT or service token)
+
+## Paths
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/jobs` | Run a snapshot (`project_id`, `source`, `resource`, `vault`) |
-| `GET` | `/api/v1/jobs` | List jobs (`?project_id=`) |
-| `GET` | `/api/v1/jobs/:id` | Job metadata + signed download URL for `snapshot.json` |
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/metrics` | Prometheus text |
+| `GET` | `/api/v1/info` | Metadata (`status: "active"`) |
+| `POST` | `/api/v1/ensure-defaults` | Seed default vault for `project_id` |
+| `POST` | `/api/v1/vaults` | Create vault (`project_id`, `name`, …) |
+| `GET` | `/api/v1/vaults` | List (`?project_id=`) |
+| `GET` | `/api/v1/vaults/:id` | Get one |
+| `PATCH`/`PUT` | `/api/v1/vaults/:id` | Update |
+| `DELETE` | `/api/v1/vaults/:id` | Delete |
+| `POST` | `/api/v1/jobs` | Run snapshot (`project_id`, `source`, `resource`, `vault`) |
+| `GET` | `/api/v1/jobs` | List jobs |
+| `GET` | `/api/v1/jobs/:id` | Job metadata + signed download URL |
 | `POST` | `/api/v1/jobs/:id/restore` | Restore (`dest` optional) |
 
 `source` is a manager name. Adapters (real, via `CONDUCTOR_URL` + `SERVICE_TOKEN`):
@@ -24,36 +47,45 @@ CRUD `/api/v1/vaults` plus `POST /api/v1/ensure-defaults`. Snapshot jobs write o
 
 `key_manager` key material, auth tokens, and email/sms/slack live credentials are not dumped.
 
-## Run a job / restore
+OpenAPI: [`api/openapi.yaml`](./api/openapi.yaml) · pack copy [`docs/openapi/backup_manager.yaml`](../../docs/openapi/backup_manager.yaml). Catalog mirror: [`docs/services/backup_manager.md`](../../docs/services/backup_manager.md).
 
-Through conductor:
+## SDK / CLI
 
-```bash
-# snapshot (resource = bucket / database / repo name)
-curl -s -X POST \
-  "$CONDUCTOR/api/services/backup_manager/api/v1/jobs" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"project_id":"'"$PID"'","source":"storage_manager","resource":"my-bucket","vault":"default"}'
+- **SDK (Node):** generic `client.resource('backup_manager', 'vaults')` or `client.proxy('backup_manager', …)`. Jobs via proxy/`aerekos call`.
+- **CLI:** `aerekos backup_manager vaults list|get|create|update|delete --project $PID` · jobs via `aerekos call backup_manager POST "/api/v1/jobs" …`
 
-# list
-curl -s "$CONDUCTOR/api/services/backup_manager/api/v1/jobs?project_id=$PID" \
-  -H "Authorization: Bearer $TOKEN"
-
-# metadata + signed download URL
-curl -s "$CONDUCTOR/api/services/backup_manager/api/v1/jobs/$JOB_ID?project_id=$PID" \
-  -H "Authorization: Bearer $TOKEN"
-
-# restore into dest (bucket / database / repo name)
-curl -s -X POST \
-  "$CONDUCTOR/api/services/backup_manager/api/v1/jobs/$JOB_ID/restore" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"project_id":"'"$PID"'","dest":"restored-bucket"}'
-```
-
-Directly on the manager (port 3134):
+## Quick start
 
 ```bash
-cd worker/backup_manager && npm test   # includes snapshot + restore round-trip
+cd worker/backup_manager
+cp .env_example .env
+npm install
+npm start
+# curl http://localhost:3134/health
 ```
+
+## Environment
+
+See [`.env_example`](./.env_example). Set `CONDUCTOR_URL` for auto-registration with the conductor. Use `SKIP_BACKUP_CRON=1` to disable the in-process scheduler.
+
+## Docker
+
+Build context is the parent `worker/` directory:
+
+```bash
+docker build -f backup_manager/Dockerfile -t aerekos-backup_manager worker/
+```
+
+## Testing
+
+| Layer | Command | Notes |
+|-------|---------|--------|
+| Unit | `npm run test:unit` | cronMatch + gitSource + prod-guard |
+| Integration | `npm run test:integration` | health/ready/info + vaults CRUD + mocked jobs |
+| All | `npm test` | unit + integration |
+| E2E | [`tests/e2e/README.md`](./tests/e2e/README.md) | live proxy parked; root `e2e/catalog.js` |
+
+## Related
+
+- Conductor registration / proxy · storage_manager (`aerekos-backups`)
+- Root [`GOLDEN_PATH.md`](../../GOLDEN_PATH.md)

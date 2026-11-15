@@ -654,9 +654,10 @@ const managers = [
   },
   {
     name: 'backup_manager', aws: 'AWS Backup', category: 'Storage & Content', port: 3134, status: 'implemented',
-    summary: 'Backup vaults and snapshot jobs into the aerekos-backups bucket. Restore db/storage/git/generic JSON.',
+    summary: 'Vaults + snapshot jobs into aerekos-backups; restore via adapters. Tutorial none. No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'vaults' }, capabilities: ["backup", "restore"],
     endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default vault for project' },
       { method: 'POST', path: '/api/v1/jobs', summary: 'Run a backup job { project_id, source, resource, vault }' },
       { method: 'GET', path: '/api/v1/jobs', summary: 'List backup jobs' },
       { method: 'GET', path: '/api/v1/jobs/:id', summary: 'Job metadata + signed download URL' },

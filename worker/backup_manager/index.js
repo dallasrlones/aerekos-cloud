@@ -9,7 +9,7 @@ const { app, listen } = createManagerApp({
   serviceName: 'backup_manager',
   defaultPort: 3134,
   db,
-  register: makeRegister({ serviceName: 'backup_manager', defaultPort: 3134, capabilities: ["backup"] }),
+  register: makeRegister({ serviceName: 'backup_manager', defaultPort: 3134, capabilities: ["backup", "restore"] }),
   ensureDefaults: (projectId) => service.ensureDefaults(projectId),
   extraSetup: (expressApp) => {
     expressApp.use('/api/v1', router);

@@ -1,0 +1,243 @@
+openapi: 3.0.3
+info:
+  title: backup_manager (AWS Backup analog)
+  version: 1.0.0
+  description: |
+    Project-scoped backup vaults and snapshot jobs into storage bucket aerekos-backups.
+    Restore via source adapters (storage/db/git/secrets/logs/audit/generic).
+    Multi-region AWS Backup control-plane parity is out of scope for MVP.
+    Conductor proxy prefix: /api/services/backup_manager
+    No production skip-fake flags; assertNoSkipFakes() via createManagerApp.
+servers:
+  - url: http://localhost:3134
+    description: Direct local
+  - url: http://localhost:3000/api/services/backup_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default vault for project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok: true, ... }'
+        '400':
+          description: missing project_id
+  /api/v1/vaults:
+    post:
+      summary: Create a vault
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                schedule:
+                  type: string
+                  description: cron (UTC minute hour); default 0 2 * * *
+                targets:
+                  type: string
+                  description: comma-separated source manager names
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List vaults
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+        '400':
+          description: missing project_id
+  /api/v1/vaults/{id}:
+    get:
+      summary: Get one vault
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a vault
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                schedule:
+                  type: string
+                targets:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    put:
+      summary: Update a vault (same as PATCH)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a vault
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+        '404':
+          description: not found
+  /api/v1/jobs:
+    post:
+      summary: Run a backup snapshot job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, source, resource]
+              properties:
+                project_id:
+                  type: string
+                source:
+                  type: string
+                  description: manager name (e.g. storage_manager)
+                resource:
+                  type: string
+                  description: bucket / database / repo name
+                vault:
+                  type: string
+                  default: default
+      responses:
+        '201':
+          description: '{ job }'
+        '400':
+          description: validation error
+    get:
+      summary: List backup jobs
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ jobs }'
+  /api/v1/jobs/{id}:
+    get:
+      summary: Job metadata + signed download URL
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ job }'
+        '404':
+          description: not found
+  /api/v1/jobs/{id}/restore:
+    post:
+      summary: Restore a snapshot
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                dest:
+                  type: string
+                  description: destination bucket / database / repo name
+      responses:
+        '200':
+          description: restore result
+        '404':
+          description: not found
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

@@ -127,6 +127,15 @@ router.delete('/:systemId/buckets/:bucketName', validateServiceToken, async (req
     await bucketService.deleteSystemBucket(systemId, bucketName);
     res.status(204).end();
   } catch (error) {
+    if (error.code === 'SYSTEM_BUCKET_IMMUTABLE' || error.status === 403) {
+      return res.status(403).json({
+        error: {
+          message: error.message || 'System bucket is protected and cannot be deleted',
+          code: error.code || 'SYSTEM_BUCKET_IMMUTABLE',
+          status: 403,
+        },
+      });
+    }
     if (error.message.includes('not found')) {
       return res.status(404).json({ error: { message: error.message, status: 404 } });
     }

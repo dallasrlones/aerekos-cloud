@@ -4,6 +4,7 @@ const ProjectRepository = require('../repos/ProjectRepository');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
 const axios = require('axios');
+const { assertSystemBucketDeletable } = require('../utils/systemResourceGuard');
 
 class BucketService {
   constructor(conductorUrl = null, serviceToken = null) {
@@ -425,10 +426,13 @@ class BucketService {
   }
 
   /**
-   * Delete a system bucket and all its files
+   * Delete a system bucket and all its files.
+   * Refuses buckets marked protected/immutable/undeletable in metadata,
+   * or named in SYSTEM_PROTECTED_BUCKET_NAMES (see systemResourceGuard).
    */
   async deleteSystemBucket(systemId, bucketName) {
     const bucket = await this.getSystemBucket(systemId, bucketName);
+    assertSystemBucketDeletable(bucket);
     const encryptionKeyName = bucket.encryption_key_name;
 
     const files = await this.fileRepo.findByBucket(bucket.id, { maxKeys: 10000 });

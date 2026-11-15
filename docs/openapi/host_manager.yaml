@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: host_manager (EC2 / SSM inventory analog)
+  version: 1.0.0
+  description: |
+    Project-scoped host inventory records (name/hostname/address/role/metadata)
+    plus optional POST /api/v1/sync from conductor /api/workers.
+    Not live EC2/SSM — SQLite metadata only; no host probing in this service.
+    SKIP_HOST_PATCH and other skip-fakes are refused when NODE_ENV=production
+    via assertNoSkipFakes on boot.
+    Conductor proxy prefix: /api/services/host_manager
+servers:
+  - url: http://localhost:3122
+    description: Direct local
+  - url: http://localhost:3000/api/services/host_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/sync:
+    post:
+      summary: Upsert hosts from conductor /api/workers for a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ upserted, items }'
+        '400':
+          description: project_id required
+        '503':
+          description: CONDUCTOR_URL required / conductor unreachable
+  /api/v1/hosts:
+    post:
+      summary: Create a host
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                hostname:
+                  type: string
+                address:
+                  type: string
+                role:
+                  type: string
+                metadata:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List hosts
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/hosts/{id}:
+    get:
+      summary: Get one host
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a host
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                hostname:
+                  type: string
+                address:
+                  type: string
+                role:
+                  type: string
+                metadata:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a host (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a host
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

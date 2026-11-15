@@ -340,74 +340,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed default + aerekos.fleet buses
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/events:
-    post:
-      summary: Put event → 202 { event, deliveries }
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/rules:
-    post:
-      summary: Create a rule
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List rules (?project_id= / bus_id)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/buses:
-    post:
-      summary: Create a bus
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List buses (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/api/v1/buses/{id}:
-    get:
-      summary: Get one bus
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a bus
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a bus
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/event_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/function_manager/api/v1/info:
     get:
       summary: Service metadata (info)
@@ -482,64 +414,52 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/info:
+  /api/services/host_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/ensure-defaults:
+  /api/services/host_manager/api/v1/sync:
     post:
-      summary: Seed default app schema if missing
+      summary: Sync hosts from conductor workers
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/compile:
+  /api/services/host_manager/api/v1/hosts:
     post:
-      summary: Compile schema from Data API models
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/execute:
-    post:
-      summary: Execute subset GraphQL against Data API
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/apis:
-    post:
-      summary: Create a GraphQL api
+      summary: Create a host
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List apis (?project_id=)
+      summary: List hosts (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/api/v1/apis/{id}:
+  /api/services/host_manager/api/v1/hosts/{id}:
     get:
-      summary: Get one api
+      summary: Get one host
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update an api
+      summary: Update a host
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete an api
+      summary: Delete a host
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/health:
+  /api/services/host_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/graphql_manager/ready:
+  /api/services/host_manager/ready:
     get:
       summary: Readiness
       responses:

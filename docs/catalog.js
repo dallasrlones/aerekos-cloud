@@ -636,7 +636,7 @@ const managers = [
   // --- Platform ------------------------------------------------------------
   {
     name: 'host_manager', aws: 'EC2 / SSM inventory', category: 'Platform', port: 3122, status: 'implemented',
-    summary: 'Host inventory synced from conductor /api/workers (not a second fleet to register by hand).',
+    summary: 'Host inventory CRUD plus optional sync from conductor /api/workers (SQLite metadata; not live EC2/SSM).',
     proxyBase: '/api/v1', crud: { segment: 'hosts' }, capabilities: ['inventory', 'hosts'],
     endpoints: [
       { method: 'POST', path: '/api/v1/sync', summary: 'Sync hosts from conductor workers' }

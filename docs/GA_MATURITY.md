@@ -20,18 +20,18 @@ node scripts/oss/gen-ga-maturity.mjs
 | **needs-keys** | Catalog `needs-keys`. CRUD and proxy work; live calls to external providers require secrets (store in `secrets_manager`, never in git). |
 | **preview** | Control plane present but dataplane incomplete, parked, or operator-only — not marketed as full cloud parity. |
 
-Counts: **47** GA · **8** needs-keys · **1** preview (managers only).
+Counts: **47** GA · **9** needs-keys · **1** preview (managers only).
 
 ## Manager matrix
 
 | Manager | Port | Category | Catalog | **Maturity** | E2E (`e2e/catalog.js`) | Provider keys |
 |---------|------|----------|---------|--------------|-------------------------|---------------|
-| `key_manager` | 3102 | Core | implemented | **GA** | liveness / proxy | — |
 | `storage_manager` | 3003 | Core | implemented | **GA** | liveness / proxy | — |
 | `db_manager` | 3004 | Core | implemented | **GA** | liveness / proxy | — |
 | `compute_manager` | 3100 | Compute | implemented | **GA** | liveness / proxy | — |
 | `queue_manager` | 3101 | Compute | implemented | **GA** | liveness / proxy | — |
-| `schedule_manager` | 3102 (collides w/ key_manager) | Compute | implemented | **GA** | liveness / proxy (live parked) | — |
+| `key_manager` | 3102 | Core | implemented | **GA** | liveness / proxy | — |
+| `schedule_manager` | 3102 | Compute | implemented | **GA** | liveness / proxy | — |
 | `network_manager` | 3103 | Compute | implemented | **GA** | liveness / proxy | — |
 | `logs_manager` | 3104 | Observability | implemented | **GA** | liveness / proxy | — |
 | `metrics_manager` | 3105 | Observability | implemented | **GA** | liveness + P4 CRUD round-trip | — |
@@ -45,7 +45,7 @@ Counts: **47** GA · **8** needs-keys · **1** preview (managers only).
 | `email_manager` | 3113 | Integrations | needs-keys | **needs-keys** | liveness + P4 CRUD round-trip | yes |
 | `sms_manager` | 3114 | Integrations | needs-keys | **needs-keys** | liveness + P4 CRUD round-trip | yes |
 | `slack_manager` | 3115 | Integrations | needs-keys | **needs-keys** | liveness + P4 CRUD round-trip | yes |
-| `auth_manager` | 3116 | Identity | needs-keys | **needs-keys** | liveness + P4 CRUD round-trip | yes |
+| `auth_manager` | 3116 | Identity | implemented | **GA** | liveness + P4 CRUD round-trip | — |
 | `analytics_manager` | 3117 | Observability | implemented | **GA** | liveness + P4 CRUD round-trip | — |
 | `cdn_manager` | 3118 | Edge | implemented | **GA** | liveness + P4 CRUD round-trip | — |
 | `cicd_manager` | 3119 | Dev tools | implemented | **GA** | liveness + P4 CRUD round-trip | — |
@@ -82,7 +82,8 @@ Counts: **47** GA · **8** needs-keys · **1** preview (managers only).
 | `status_manager` | 3150 | Observability | implemented | **GA** | liveness + P4 CRUD round-trip | — |
 | `cluster_manager` | 3151 | Compute | implemented | **GA** | liveness + P4 CRUD round-trip | — |
 | `vector_manager` | 3152 | AI | implemented | **GA** | liveness + P4 CRUD round-trip | — |
-| `push_manager` | 3153 | Integrations | implemented | **GA** | liveness + P4 CRUD round-trip | yes |
+| `push_manager` | 3153 | Integrations | needs-keys | **needs-keys** | liveness + P4 CRUD round-trip | yes |
+| `notify_manager` | 3154 | Integrations | needs-keys | **needs-keys** | liveness / proxy | yes |
 
 ## Conductor features (not managers)
 

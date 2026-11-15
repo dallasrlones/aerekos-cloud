@@ -55,8 +55,7 @@ const conductor = {
   proxyBase: '/api',
   capabilities: ['auth', 'service-registry', 'proxy', 'workers', 'projects', 'metrics'],
   endpoints: [
-    { method: 'GET', path: '/health', summary: 'Liveness (no auth); database may be initializing' },
-    { method: 'GET', path: '/ready', summary: 'Readiness / SQLite (no auth); 503 until DB answers' },
+    { method: 'GET', path: '/health', summary: 'Liveness' },
     { method: 'POST', path: '/api/auth/login', summary: 'Login -> { token } (JWT)' },
     { method: 'GET', path: '/api/auth/me', summary: 'Current identity' },
     { method: 'GET', path: '/api/services', summary: 'List all registered manager services' },
@@ -64,8 +63,7 @@ const conductor = {
     { method: 'POST', path: '/api/services/:name/enable', summary: 'Enable/deploy a service for a project' },
     { method: 'POST', path: '/api/services/:name/disable', summary: 'Disable a service' },
     { method: 'POST', path: '/api/services/register', summary: 'Manager self-registration (service token issued)' },
-    { method: 'GET', path: '/api/services/:name/health', summary: 'Proxy manager /health (auth; projectId optional via isLiveness)' },
-    { method: 'ANY', path: '/api/services/:name/*', summary: 'Generic proxy (appProxyAuth: user|app|service); /health|/ready skip projectId' },
+    { method: 'ANY', path: '/api/services/:name/*', summary: 'Generic proxy to a manager (JWT/service token)' },
     { method: 'GET', path: '/api/workers', summary: 'List workers' },
     { method: 'GET', path: '/api/workers/:id/host/check', summary: 'Host OS/Docker freshness' },
     { method: 'POST', path: '/api/workers/:id/host/check', summary: 'Re-probe host OS/Docker' },
@@ -934,17 +932,21 @@ const managers = [
     needsKeys: 'Queued without FCM secrets. Do not retry live FCM send in e2e without keys.'
   },
   {
-    name: 'notify_manager', aws: 'SNS / SES / Chatbot (unified)', category: 'Integrations', port: 3154, status: 'needs-keys',
-    summary: 'Unified notify facade: messages + channels CRUD, send/test via notifyFacade. Mock by default in non-prod; legacy email/sms/slack/push remain until Phase 2.',
+    name: 'notify_manager', aws: 'SNS / SES / Chatbot', category: 'Integrations', port: 3154, status: 'needs-keys',
+    summary: 'Unified notify facade (W9a): messages + channels CRUD; send/test via MockProvider by default. Legacy email/sms/slack/push stay until Phase 2. Tutorial/ServiceGuide: none yet (generic ManagerConsole).',
     proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['notify', 'transactional', 'alerts'],
+    needsKeys: 'Mock/queue-only without channel secrets. Do not retry live send in e2e without keys. Live conductor e2e parked.',
     endpoints: [
       { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default message if missing' },
-      { method: 'GET', path: '/api/v1/providers', summary: 'Channel provider descriptors' },
+      { method: 'GET', path: '/api/v1/providers', summary: 'List channel providers' },
       { method: 'POST', path: '/api/v1/test', summary: 'Facade test send (mock by default)' },
       { method: 'POST', path: '/api/v1/messages/:id/send', summary: 'Send via facade / stay queued' },
-      { method: '*', path: '/api/v1/channels', summary: 'Channel config CRUD' }
-    ],
-    needsKeys: 'Mock/queue-only without channel secrets. Do not retry live send in e2e without keys.'
+      { method: 'POST', path: '/api/v1/channels', summary: 'Create a channel config ({ project_id, name, ... })' },
+      { method: 'GET', path: '/api/v1/channels', summary: 'List channels (?project_id=)' },
+      { method: 'GET', path: '/api/v1/channels/:id', summary: 'Get one channel' },
+      { method: 'PATCH', path: '/api/v1/channels/:id', summary: 'Update a channel' },
+      { method: 'DELETE', path: '/api/v1/channels/:id', summary: 'Delete a channel' }
+    ]
   }
 ];
 

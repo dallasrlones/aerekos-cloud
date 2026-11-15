@@ -90,7 +90,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `x-sdk` | cross | platform | done | not full typed parity (34 svc-only); UI `adonis` vs catalog noise | Wave 9 closeout 34c65b47; notify catalog sync + client.notify + coverage tests (12); see docs/plans/sdk-manager-coverage.md |
 | `x-cli` | cross | platform | done |  | Wave 9 closeout 4ddbfa52; gap matrix + health + help tests; cliParity still partial (E32 not in catalog) |
 | `x-openapi` | cross | platform | done |  | Wave 9 closeout 554261e5; 58 workers: 57 packs + ai_manager parked; CORE_GA regen; check-openapi-pack.mjs |
-| `x-tutorials` | cross | platform | in_progress |  | Wave 9 |
+| `x-tutorials` | cross | platform | done |  | Wave 9 closeout 6faa0f96; ServiceGuide/tutorial index + notify catalog/GA_MATURITY |
 | `x-cross-service` | cross | platform | done | live peer e2e matrix parked | Wave 9 closeout 59cc2c6b; pass doc docs/plans/cross-service-consumption.md; schedule_manager→queue_manager via conductor; next: cicd *_MANAGER_URL fallbacks, notify Phase 2, audit emit, live edge e2e |
 | `x-user-system-safe` | cross | platform | done | db_manager + object-delete + unprotect gaps | Wave 9 closeout 0fbfef4b; SYSTEM_BUCKET_IMMUTABLE; docs/runbooks/system-safe-resources.md |
 | `x-cross-platform` | cross | platform | done | live registry/fleet image mirror + Orin AI pulls parked | Wave 9 closeout 5ae03d86; offline-images + make images-*; DOCKER.md |

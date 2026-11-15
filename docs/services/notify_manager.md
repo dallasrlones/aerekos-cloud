@@ -2,7 +2,7 @@
 
 > **Integrations** · Implemented · needs provider keys for live calls
 
-Unified notify facade (W9a): project-scoped **messages** + **channels** CRUD, `POST …/send` and `POST /api/v1/test` via `worker/shared/notifyFacade`. Non-prod defaults `NOTIFY_USE_MOCK=1` (MockProvider — no paid APIs). Production refuses `NOTIFY_USE_MOCK` / `SKIP_OUTBOUND` (`assertNoSkipFakes`). Legacy email/sms/slack/push managers stay registered until Phase 2. **Tutorial / ServiceGuide:** none standalone — console generic **ManagerConsole**.
+Unified notify facade (W9a): project-scoped **messages** + **channels** CRUD, `POST …/send` and `POST /api/v1/test` via `worker/shared/notifyFacade`. Non-prod defaults `NOTIFY_USE_MOCK=1` (MockProvider — no paid APIs). Production refuses `NOTIFY_USE_MOCK` / `SKIP_OUTBOUND` (`assertNoSkipFakes`). Legacy email/sms/slack/push managers stay registered until Phase 2. **Tutorial / ServiceGuide:** **none yet** — console generic **ManagerConsole** (see [`docs/guides/README.md`](../guides/README.md)).
 
 - **Port:** `3154`
 - **AWS analog:** SNS / SES / Chatbot merge

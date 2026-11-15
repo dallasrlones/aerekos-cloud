@@ -1,6 +1,6 @@
 # aerekos-cloud — service reference
 
-Your self-hosted "private AWS": a conductor control plane + **57 manager services**.
+Your self-hosted "private AWS": a conductor control plane + **58 manager services**.
 All managers are reached through the conductor proxy: `{VERB} {CONDUCTOR}/api/services/{name}{path}`.
 
 See the [web docs](../site/index.html) for a searchable browser. This index and every
@@ -73,6 +73,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Messages CRUD + send (queue without Slack keys); ManagerConsole (no ServiceGuide). |
 | [`event_manager`](event_manager.md) | EventBridge | 3132 | implemented | Buses/rules + put events; ManagerConsole (no ServiceGuide). |
 | [`push_manager`](push_manager.md) | SNS mobile | 3153 | needs-keys | Subscriptions CRUD + send (queue without FCM); ManagerConsole (no ServiceGuide). |
+| [`notify_manager`](notify_manager.md) | SNS / SES / Chatbot | 3154 | needs-keys | Unified notify facade (messages/channels/send/test); MockProvider default; tutorial none yet; live e2e parked. |
 
 ## Dev tools
 

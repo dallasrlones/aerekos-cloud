@@ -94,7 +94,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. |
 | [`crawler_manager`](crawler_manager.md) | Glue Crawler | 3121 | needs-keys | Jobs CRUD + run/canary (single-URL); ManagerConsole (no ServiceGuide). |
-| [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Store notebooks; Run launches a compute oneshot (jupyter/python). |
+| [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Notebooks CRUD + run (compute oneshot); honest queue without conductor; live e2e parked. |
 | [`vector_manager`](vector_manager.md) | OpenSearch kNN | 3152 | implemented | Upsert/query via db_manager vectors or sqlite cosine (facade, not a second RAG). |
 
 ## Platform

@@ -59,7 +59,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `billing_manager` | 3138 | `/api/v1/meters` | Real quota (never unlimited stub) |
 | `iot_manager` | 3140 | `/api/v1/things` + `/publish` | Things CRUD + websocket fan-out; MQTT broker parked |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
-| `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
+| `notebook_manager` | 3142 | `/api/v1/notebooks` + `/run` | Notebooks CRUD + compute oneshot; live e2e parked; no prod mocks |
 | `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |
 | `search_manager` | 3144 | `/api/v1/query` | SQLite FTS hits |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |

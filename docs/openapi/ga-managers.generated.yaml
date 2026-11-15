@@ -720,91 +720,58 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/info:
+  /api/services/notebook_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/series:
+  /api/services/notebook_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a series sample
+      summary: Seed default notebook if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/notebook_manager/api/v1/notebooks:
+    post:
+      summary: Create a notebook
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List series (metric_name, task_id, limit)
+      summary: List notebooks (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/series/sample:
-    post:
-      summary: Upsert sample by name
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/series/scrape:
-    post:
-      summary: Record scrape sample
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/series/{id}:
+  /api/services/notebook_manager/api/v1/notebooks/{id}:
     get:
-      summary: Get one series
+      summary: Get one notebook
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a series
+      summary: Update a notebook
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a series
+      summary: Delete a notebook
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/alarms:
+  /api/services/notebook_manager/api/v1/notebooks/{id}/run:
     post:
-      summary: Create an alarm rule
+      summary: Run notebook via compute oneshot
       responses:
         '200':
           description: Success (shape varies by manager)
-    get:
-      summary: List alarms
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/alarms/evaluate:
-    post:
-      summary: Evaluate alarms (SKIP_OUTBOUND parks publish)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/metrics_manager/api/v1/alarms/{id}:
-    get:
-      summary: Get one alarm
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update an alarm
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete an alarm
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/metrics_manager/health:
+  /api/services/notebook_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/metrics_manager/ready:
+  /api/services/notebook_manager/ready:
     get:
       summary: Readiness
       responses:

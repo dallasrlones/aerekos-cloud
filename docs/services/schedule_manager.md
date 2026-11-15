@@ -38,7 +38,8 @@ Cron schedules that dispatch to a webhook or a queue. Run-now supported. No prod
 |----------|---------|-------------|
 | `PORT` | `3102` | Listen port (collides with key_manager) |
 | `SKIP_CRON` | `0` | Disable the cron loop (tests) |
-| `QUEUE_MANAGER_URL` | `http://127.0.0.1:3101` | Base URL for `action_type: queue` |
+| `CONDUCTOR_URL` | — | Required for `action_type: queue` → conductor `/api/services/queue_manager/…` |
+| `QUEUE_MANAGER_URL` | — | Test/dev escape hatch (direct queue base; no localhost default) |
 
 ## Examples
 

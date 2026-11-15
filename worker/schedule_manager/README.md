@@ -26,9 +26,9 @@ If `key_manager` already owns 3102, set `PORT` to a free port for local-only run
 |----------|---------|---------|
 | `PORT` | `3102` | Listen port (**collides with key_manager**) |
 | `DATABASE_PATH` | `data/schedule_manager.db` | SQLite file |
-| `QUEUE_MANAGER_URL` | `http://127.0.0.1:3101` | Base URL for `action_type: queue` (overridable at dispatch time) |
+| `CONDUCTOR_URL` | — | Registers with conductor; **required** for `action_type: queue` sibling dispatch via `/api/services/queue_manager/…` |
+| `QUEUE_MANAGER_URL` | — | Test/dev escape hatch — direct queue base URL (skips conductor). **No localhost default.** |
 | `WEBHOOK_TIMEOUT_MS` | `30000` | Outbound HTTP timeout |
-| `CONDUCTOR_URL` | — | If set, registers with conductor |
 | `SKIP_SERVICE_REGISTRATION` | — | `true` in tests |
 | `SKIP_START_CRON` | — | `true` to avoid registering crons on server start (rare) |
 | `SKIP_CRON` | — | `1` in tests: persist schedules but do not register `node-cron` jobs |
@@ -102,7 +102,7 @@ docker compose -f docker-compose.yml up --build
 
 ## Related services
 
-- **`queue_manager`** — optional target for `action_type: queue`
+- **`queue_manager`** — target for `action_type: queue` via conductor proxy (`CONDUCTOR_URL/api/services/queue_manager/…`)
 - **`key_manager`** — also mapped to port **3102** (collision)
 - **Conductor** — enable `schedule_manager` on a project; seed includes service row on startup
 

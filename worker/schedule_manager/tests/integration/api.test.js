@@ -57,22 +57,88 @@ describe('schedules (CRUD + run)', () => {
     expect(r.body.schedule.name).toBe(name);
   });
 
-  test('run now dispatches to queue_manager URL', async () => {
+  test('run now dispatches to queue_manager via QUEUE_MANAGER_URL escape hatch', async () => {
     const list = await request(app)
       .get('/api/v1/schedules')
       .query({ project_id: projectId })
       .expect(200);
     const id = list.body.schedules.find((s) => s.name === name).id;
+    const prevQm = process.env.QUEUE_MANAGER_URL;
+    const prevCu = process.env.CONDUCTOR_URL;
     process.env.QUEUE_MANAGER_URL = 'http://q.internal:3101';
-    const r = await request(app)
-      .post(`/api/v1/schedules/${id}/run`)
-      .send({ project_id: projectId })
+    delete process.env.CONDUCTOR_URL;
+    try {
+      const r = await request(app)
+        .post(`/api/v1/schedules/${id}/run`)
+        .send({ project_id: projectId })
+        .expect(200);
+      expect(r.body.success).toBe(true);
+      expect(axios.post).toHaveBeenCalled();
+      const [url, body] = axios.post.mock.calls[0];
+      expect(url).toBe('http://q.internal:3101/api/v1/queues/jobs/messages');
+      expect(body.project_id).toBe(projectId);
+    } finally {
+      if (prevQm === undefined) delete process.env.QUEUE_MANAGER_URL;
+      else process.env.QUEUE_MANAGER_URL = prevQm;
+      if (prevCu === undefined) delete process.env.CONDUCTOR_URL;
+      else process.env.CONDUCTOR_URL = prevCu;
+    }
+  });
+
+  test('run now dispatches to queue_manager via conductor proxy', async () => {
+    const list = await request(app)
+      .get('/api/v1/schedules')
+      .query({ project_id: projectId })
       .expect(200);
-    expect(r.body.success).toBe(true);
-    expect(axios.post).toHaveBeenCalled();
-    const [url, body] = axios.post.mock.calls[0];
-    expect(url).toContain('/api/v1/queues/jobs/messages');
-    expect(body.project_id).toBe(projectId);
+    const id = list.body.schedules.find((s) => s.name === name).id;
+    const prevQm = process.env.QUEUE_MANAGER_URL;
+    const prevCu = process.env.CONDUCTOR_URL;
+    delete process.env.QUEUE_MANAGER_URL;
+    process.env.CONDUCTOR_URL = 'http://conductor.test:3000';
+    try {
+      const r = await request(app)
+        .post(`/api/v1/schedules/${id}/run`)
+        .send({ project_id: projectId })
+        .expect(200);
+      expect(r.body.success).toBe(true);
+      expect(axios.post).toHaveBeenCalled();
+      const [url, body] = axios.post.mock.calls.find((c) =>
+        String(c[0]).includes('/api/services/queue_manager/')
+      );
+      expect(url).toBe(
+        'http://conductor.test:3000/api/services/queue_manager/api/v1/queues/jobs/messages'
+      );
+      expect(body.project_id).toBe(projectId);
+    } finally {
+      if (prevQm === undefined) delete process.env.QUEUE_MANAGER_URL;
+      else process.env.QUEUE_MANAGER_URL = prevQm;
+      if (prevCu === undefined) delete process.env.CONDUCTOR_URL;
+      else process.env.CONDUCTOR_URL = prevCu;
+    }
+  });
+
+  test('queue run without CONDUCTOR_URL or QUEUE_MANAGER_URL fails honestly', async () => {
+    const list = await request(app)
+      .get('/api/v1/schedules')
+      .query({ project_id: projectId })
+      .expect(200);
+    const id = list.body.schedules.find((s) => s.name === name).id;
+    const prevQm = process.env.QUEUE_MANAGER_URL;
+    const prevCu = process.env.CONDUCTOR_URL;
+    delete process.env.QUEUE_MANAGER_URL;
+    delete process.env.CONDUCTOR_URL;
+    try {
+      const r = await request(app)
+        .post(`/api/v1/schedules/${id}/run`)
+        .send({ project_id: projectId });
+      expect(r.status).toBeGreaterThanOrEqual(400);
+      expect(String(r.body.error?.message || r.body.message || '')).toMatch(/CONDUCTOR_URL/i);
+    } finally {
+      if (prevQm === undefined) delete process.env.QUEUE_MANAGER_URL;
+      else process.env.QUEUE_MANAGER_URL = prevQm;
+      if (prevCu === undefined) delete process.env.CONDUCTOR_URL;
+      else process.env.CONDUCTOR_URL = prevCu;
+    }
   });
 
   test('create webhook and run', async () => {

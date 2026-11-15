@@ -71,7 +71,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-sms_manager` | manager | `worker/sms_manager` | in_progress |  | Wave 7 |
 | `mgr-status_manager` | manager | `worker/status_manager` | in_progress |  | Wave 7 |
 | `mgr-storage_manager` | manager | `worker/storage_manager` | done | live proxy manual | Wave 1 closeout 88291cb/234ffa2; 110 tests |
-| `mgr-system_manager` | manager | `worker/system_manager` | in_progress |  | Wave 7 |
+| `mgr-system_manager` | manager | `worker/system_manager` | done | live e2e needs conductor | Wave 7 closeout 4d3ce28d; 14 tests |
 | `mgr-trace_manager` | manager | `worker/trace_manager` | in_progress |  | Wave 7 |
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | in_progress |  | Wave 7 |
 | `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | in_progress |  | Wave 7 |

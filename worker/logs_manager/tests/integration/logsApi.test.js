@@ -84,4 +84,35 @@ describe('logs_manager API', () => {
     expect(res.body.logs[0].message).toBe('a');
     expect(res.body.logs[1].message).toBe('b');
   });
+
+  test('POST /logs rejects missing fields', async () => {
+    const bad = await request(app).post('/api/v1/logs').send({ level: 'info', message: 'x' });
+    expect(bad.status).toBe(400);
+    const badLevel = await request(app)
+      .post('/api/v1/logs')
+      .send({ project_id: projectId, level: 'nope', message: 'x' });
+    expect(badLevel.status).toBe(400);
+  });
+
+  test('DELETE /logs/:id and POST /logs/compact', async () => {
+    const pid = `proj-del-${Date.now()}`;
+    const c = await request(app)
+      .post('/api/v1/logs')
+      .send({ project_id: pid, level: 'info', message: 'to-delete' });
+    expect(c.status).toBe(201);
+    const id = c.body.log.id;
+    const d = await request(app).delete(`/api/v1/logs/${id}?${Q(pid)}`);
+    expect(d.status).toBe(200);
+    expect(d.body.deleted).toBe(true);
+    const miss = await request(app).get(`/api/v1/logs/${id}?${Q(pid)}`);
+    expect(miss.status).toBe(404);
+
+    await request(app).post('/api/v1/logs').send({ project_id: pid, level: 'info', message: 'keep' });
+    const compact = await request(app)
+      .post('/api/v1/logs/compact')
+      .send({ project_id: pid, older_than_days: 9999 });
+    expect(compact.status).toBe(200);
+    expect(compact.body).toHaveProperty('compacted');
+    expect(compact.body).toHaveProperty('older_than');
+  });
 });

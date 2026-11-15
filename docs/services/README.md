@@ -32,7 +32,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`logs_manager`](logs_manager.md) | CloudWatch Logs | 3104 | implemented | Append-only log events with levels and context. |
+| [`logs_manager`](logs_manager.md) | CloudWatch Logs | 3104 | implemented | Append-only logs + batch/query/compact; ManagerConsole guide; no prod mocks. |
 | [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Stored metric samples (name/value/labels). |
 | [`security_manager`](security_manager.md) | Security Hub | 3108 | implemented | Security finding records (severity/source/details). |
 | [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events (event/value/properties). |

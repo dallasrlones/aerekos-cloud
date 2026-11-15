@@ -1,0 +1,207 @@
+openapi: 3.0.3
+info:
+  title: logs_manager (CloudWatch Logs analog)
+  version: 1.0.0
+  description: |
+    Project-scoped append-only log ingest and query (levels, source, free-text q,
+    since/until). Batch ingest for the worker outbox/shipper. Optional compact by
+    retention days. No production skip-fake flags; assertNoSkipFakes() on boot.
+    Conductor proxy prefix: /api/services/logs_manager
+servers:
+  - url: http://localhost:3104
+    description: Direct local
+  - url: http://localhost:3000/api/services/logs_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/logs:
+    post:
+      summary: Append a log event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, level, message]
+              properties:
+                project_id:
+                  type: string
+                level:
+                  type: string
+                  enum: [debug, info, warn, error, fatal]
+                message:
+                  type: string
+                source:
+                  type: string
+                context:
+                  description: object or JSON string
+                  nullable: true
+      responses:
+        '201':
+          description: '{ log }'
+        '400':
+          description: validation error
+    get:
+      summary: Query logs (level, source, q, since, until, limit)
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: level
+          schema:
+            type: string
+            enum: [debug, info, warn, error, fatal]
+        - in: query
+          name: source
+          schema:
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: message substring (case-insensitive)
+        - in: query
+          name: since
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: until
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            maximum: 1000
+      responses:
+        '200':
+          description: '{ logs }'
+        '400':
+          description: validation error
+  /api/v1/logs/batch:
+    post:
+      summary: Batch append (outbox shipper)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, entries]
+              properties:
+                project_id:
+                  type: string
+                entries:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [level, message]
+                    properties:
+                      level:
+                        type: string
+                      message:
+                        type: string
+                      source:
+                        type: string
+                      context:
+                        nullable: true
+      responses:
+        '201':
+          description: '{ logs, count }'
+        '400':
+          description: validation error
+  /api/v1/logs/compact:
+    post:
+      summary: Delete logs older than retention days
+      parameters:
+        - in: query
+          name: project_id
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                older_than_days:
+                  type: number
+                  description: default LOG_RETENTION_DAYS or 14
+      responses:
+        '200':
+          description: '{ compacted, older_than }'
+        '400':
+          description: missing project_id
+  /api/v1/logs/{id}:
+    get:
+      summary: Get a log event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ log }'
+        '404':
+          description: not found
+    delete:
+      summary: Delete a log event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found

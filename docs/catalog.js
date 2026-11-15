@@ -258,13 +258,18 @@ const managers = [
   // --- Observability -------------------------------------------------------
   {
     name: 'logs_manager', aws: 'CloudWatch Logs', category: 'Observability', port: 3104, status: 'implemented',
-    summary: 'Append-only log events with levels and context. Batch ingest for the worker outbox/shipper.',
+    summary: 'Append-only logs + batch ingest/query/compact. ManagerConsole guide. No prod mocks.',
     proxyBase: '/api/v1', capabilities: ['logs', 'ingest'],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
       { method: 'POST', path: '/api/v1/logs', summary: 'Append a log event' },
       { method: 'POST', path: '/api/v1/logs/batch', summary: 'Batch append (outbox shipper)' },
-      { method: 'GET', path: '/api/v1/logs', summary: 'Query logs (level, since, limit)' },
-      { method: 'GET', path: '/api/v1/logs/:id', summary: 'Get a log event' }
+      { method: 'GET', path: '/api/v1/logs', summary: 'Query logs (level, source, q, since, until, limit)' },
+      { method: 'GET', path: '/api/v1/logs/:id', summary: 'Get a log event' },
+      { method: 'DELETE', path: '/api/v1/logs/:id', summary: 'Delete a log event' },
+      { method: 'POST', path: '/api/v1/logs/compact', summary: 'Drop rows older than retention days' }
     ]
   },
   {

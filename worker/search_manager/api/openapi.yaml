@@ -1,0 +1,234 @@
+openapi: 3.0.3
+info:
+  title: search_manager (OpenSearch analog)
+  version: 1.0.0
+  description: |
+    Project-scoped search index metadata (CRUD /api/v1/indexes) plus FTS5
+    document ingest (POST /api/v1/index) and query (POST /api/v1/query).
+    Query returns real hits; empty only when the named index has no docs.
+    Not a full OpenSearch cluster — SQLite FTS5 sidecar.
+    Conductor proxy prefix: /api/services/search_manager
+    No production skip-fake flags; assertNoSkipFakes() + createManagerApp on boot.
+servers:
+  - url: http://localhost:3144
+    description: Direct local
+  - url: http://localhost:3000/api/services/search_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default docs index when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/index:
+    post:
+      summary: Index documents into FTS5 (creates index metadata if missing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                index:
+                  type: string
+                  description: Index name (default docs)
+                title:
+                  type: string
+                body:
+                  type: string
+                text:
+                  type: string
+                docs:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '201':
+          description: '{ indexed, docs, index }'
+        '400':
+          description: missing project_id or content
+  /api/v1/query:
+    post:
+      summary: FTS query → hits (empty only when index has no docs)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                index:
+                  type: string
+                q:
+                  type: string
+                query:
+                  type: string
+      responses:
+        '200':
+          description: '{ hits, index, empty? }'
+        '400':
+          description: missing project_id
+  /api/v1/indexes:
+    post:
+      summary: Create an index
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                engine:
+                  type: string
+                prefix:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List indexes
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/indexes/{id}:
+    get:
+      summary: Get one index
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update an index
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                engine:
+                  type: string
+                prefix:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update an index (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an index
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

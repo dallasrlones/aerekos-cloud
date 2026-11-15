@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes();
 require('./api/models');
 const db = require('./api/utils/dbClient');
 const { createManagerApp } = require('../shared/managerBootstrap');
@@ -9,7 +11,7 @@ const { app, listen } = createManagerApp({
   serviceName: 'search_manager',
   defaultPort: 3144,
   db,
-  register: makeRegister({ serviceName: 'search_manager', defaultPort: 3144, capabilities: ["search"] }),
+  register: makeRegister({ serviceName: 'search_manager', defaultPort: 3144, capabilities: ["search", "fts"] }),
   ensureDefaults: (projectId) => service.ensureDefaults(projectId),
   extraSetup: (expressApp) => {
     expressApp.use('/api/v1', router);

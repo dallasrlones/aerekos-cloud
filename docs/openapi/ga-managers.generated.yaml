@@ -789,6 +789,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default docs index if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/index:
+    post:
+      summary: Index documents into FTS5
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/query:
+    post:
+      summary: FTS query → { hits }
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/indexes:
+    post:
+      summary: Create an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List indexes (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/api/v1/indexes/{id}:
+    get:
+      summary: Get one index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an index
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/search_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/info:
     get:
       summary: Service metadata (info)

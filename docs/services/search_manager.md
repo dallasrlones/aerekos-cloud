@@ -2,25 +2,31 @@
 
 > **Database** · Implemented
 
-SQLite FTS search. POST /query returns real hits (empty only when the index is empty).
+Search index records (name/engine/prefix) plus `ensure-defaults`, FTS5 `index` ingest, and `query` (real hits; `{ empty: true }` only when the index has no docs). No production mocks (`assertNoSkipFakes` via index + `createManagerApp`). **Tutorial:** none standalone — generic ManagerConsole (no dedicated SearchManager ServiceGuide). Live conductor e2e parked. Not a full OpenSearch cluster.
 
 - **Port:** `3144`
 - **AWS analog:** OpenSearch
 - **Proxy base:** `/api/v1`
 - **Access:** `{VERB} {CONDUCTOR}/api/services/search_manager{path}` (JWT or service token)
 - **Capabilities:** `search`, `fts`
+- **OpenAPI:** `worker/search_manager/api/openapi.yaml` (pack copy: `docs/openapi/search_manager.yaml`)
+- **SDK/CLI:** generic `client.resource('search_manager', 'indexes')` / `client.proxy`; CLI `aerekos search_manager indexes …` / `aerekos call`
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/indexes` | Create a indexe ({ project_id, name, ... }) |
+| `GET` | `/health` | Liveness (SQLite) |
+| `GET` | `/ready` | Readiness |
+| `GET` | `/api/v1/info` | Service metadata |
+| `POST` | `/api/v1/ensure-defaults` | Seed default `docs` index if missing |
+| `POST` | `/api/v1/index` | Index documents into FTS5 |
+| `POST` | `/api/v1/query` | FTS query → `{ hits }` |
+| `POST` | `/api/v1/indexes` | Create an index ({ project_id, name, ... }) |
 | `GET` | `/api/v1/indexes` | List indexes (?project_id=) |
-| `GET` | `/api/v1/indexes/:id` | Get one indexe |
-| `PATCH` | `/api/v1/indexes/:id` | Update a indexe |
-| `DELETE` | `/api/v1/indexes/:id` | Delete a indexe |
-| `POST` | `/api/v1/index` | Index documents |
-| `POST` | `/api/v1/query` | FTS query → { hits } |
+| `GET` | `/api/v1/indexes/:id` | Get one index |
+| `PATCH`/`PUT` | `/api/v1/indexes/:id` | Update an index |
+| `DELETE` | `/api/v1/indexes/:id` | Delete an index |
 
 ## Examples
 
@@ -33,6 +39,18 @@ curl -s -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"project_id":"'$PID'","name":"demo"}'
+
+curl -s -X POST \
+  "$CONDUCTOR/api/services/search_manager/api/v1/index" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"project_id":"'$PID'","index":"demo","title":"Hello","body":"widgets"}'
+
+curl -s -X POST \
+  "$CONDUCTOR/api/services/search_manager/api/v1/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"project_id":"'$PID'","index":"demo","q":"widgets"}'
 ```
 
 **SDK (Node)**
@@ -52,4 +70,4 @@ aerekos search_manager indexes list --project $PID
 
 ---
 
-_Generated from `docs/catalog.js`. Edit the catalog and run `make docs` to update._
+_Hand-aligned with `worker/search_manager` for Wave 6 closeout honesty. Catalog CRUD also lives in `docs/catalog.js`; re-run `make docs` carefully so this page stays accurate._

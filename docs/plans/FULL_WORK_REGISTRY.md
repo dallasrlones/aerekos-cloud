@@ -25,22 +25,22 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `mgr-ai_manager` | manager | `worker/ai_manager` | done | live LLM keys; OpenAPI parked | Wave 2 closeout ff2e6ed/7a2fdc1; 6 scoped tests |
-| `mgr-analytics_manager` | manager | `worker/analytics_manager` | pending | | closeout DoD |
+| `mgr-analytics_manager` | manager | `worker/analytics_manager` | in_progress | | Wave 4 |
 | `mgr-api_manager` | manager | `worker/api_manager` | done | live e2e needs conductor | Wave 3 closeout 282aff1/2063a5a; 12 tests |
 | `mgr-app_manager` | manager | `worker/app_manager` | done | live e2e needs conductor | Wave 3 closeout d7d5eab; 12 tests |
-| `mgr-audit_manager` | manager | `worker/audit_manager` | pending | | closeout DoD |
+| `mgr-audit_manager` | manager | `worker/audit_manager` | in_progress | | Wave 4 |
 | `mgr-auth_manager` | manager | `worker/auth_manager` | done | | Wave 1 closeout 6c8054c; 13 tests |
-| `mgr-backup_manager` | manager | `worker/backup_manager` | pending | | closeout DoD |
-| `mgr-balancer_manager` | manager | `worker/balancer_manager` | pending | | closeout DoD |
-| `mgr-billing_manager` | manager | `worker/billing_manager` | pending | | closeout DoD |
-| `mgr-cdn_manager` | manager | `worker/cdn_manager` | pending | | closeout DoD |
-| `mgr-cert_manager` | manager | `worker/cert_manager` | pending | | closeout DoD |
+| `mgr-backup_manager` | manager | `worker/backup_manager` | in_progress | | Wave 4 |
+| `mgr-balancer_manager` | manager | `worker/balancer_manager` | in_progress | | Wave 4 |
+| `mgr-billing_manager` | manager | `worker/billing_manager` | in_progress | | Wave 4 |
+| `mgr-cdn_manager` | manager | `worker/cdn_manager` | in_progress | | Wave 4 |
+| `mgr-cert_manager` | manager | `worker/cert_manager` | in_progress | | Wave 4 |
 | `mgr-cicd_manager` | manager | `worker/cicd_manager` | done | live e2e needs conductor | Wave 3 closeout 0c06752 |
 | `mgr-cluster_manager` | manager | `worker/cluster_manager` | done | live e2e needs conductor | Wave 2 closeout 0997d3b; 12 tests |
 | `mgr-code_as_infra` | manager | `worker/code_as_infra` | done | live e2e needs conductor | Wave 3 closeout a44ee55; 9 tests |
 | `mgr-compute_manager` | manager | `worker/compute_manager` | done | live e2e needs conductor | Wave 2 closeout 4a7d145/5d9396e; 49 tests |
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
-| `mgr-crawler_manager` | manager | `worker/crawler_manager` | pending | | closeout DoD |
+| `mgr-crawler_manager` | manager | `worker/crawler_manager` | in_progress | | Wave 4 |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
@@ -125,6 +125,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 1. **Wave 1:** mgr-auth_manager, mgr-key_manager, mgr-storage_manager, mgr-db_manager, mgr-secrets_manager, mgr-iam_manager, mgr-config_manager, mgr-queue_manager (+ ops-gate0 in orchestrator)
 2. **Wave 2:** mgr-compute_manager, mgr-schedule_manager, mgr-network_manager, mgr-ai_manager, mgr-vector_manager, mgr-function_manager, mgr-workflow_manager, mgr-cluster_manager
 3. **Wave 3:** mgr-git_manager, mgr-cicd_manager, mgr-api_manager, mgr-app_manager, mgr-registry_manager, mgr-mcp_manager, mgr-code_as_infra, mgr-websocket_manager
+4. **Wave 4:** mgr-analytics_manager, mgr-audit_manager, mgr-backup_manager, mgr-balancer_manager, mgr-billing_manager, mgr-cdn_manager, mgr-cert_manager, mgr-crawler_manager
 4. Continue remaining managers → cross-cuts → epics (scaffold slices)
 
 **Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.

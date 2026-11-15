@@ -129,4 +129,4 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 5. **Wave 5:** mgr-domain_manager, mgr-download_manager, mgr-email_manager, mgr-event_manager, mgr-graphql_manager, mgr-host_manager, mgr-iot_manager, mgr-logs_manager
 4. Continue remaining managers → cross-cuts → epics (scaffold slices)
 
-**Catalog gap:** `notify_manager` not in GA_MATURITY — fix in its closeout.
+**Catalog gap:** `notify_manager` added to `docs/catalog.js` (port 3154) in Wave 6 closeout.

@@ -67,6 +67,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `websocket_manager` | 3131 | `/api/v1/channels` + WSS `/ws` | Channel CRUD + HTTP publish; not conductor Socket.IO |
 | `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |
+| `notify_manager` | 3154 | `/api/v1/messages` + `/channels` + `/test` | Unified facade; MockProvider by default; live e2e parked |
 
 **Core (not in P4 table):** worker agent (3001).
 

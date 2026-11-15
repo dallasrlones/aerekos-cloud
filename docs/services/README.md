@@ -73,6 +73,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Slack posts (channel/text). |
 | [`event_manager`](event_manager.md) | EventBridge | 3132 | implemented | Buses/rules + put events; ManagerConsole (no ServiceGuide). |
 | [`push_manager`](push_manager.md) | SNS mobile | 3153 | implemented | Push subscriptions. |
+| [`notify_manager`](notify_manager.md) | SNS / SES / Chatbot | 3154 | needs-keys | Unified notify facade (messages/channels/send/test); MockProvider default; live e2e parked. |
 
 ## Dev tools
 

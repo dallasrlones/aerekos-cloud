@@ -29,7 +29,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-api_manager` | manager | `worker/api_manager` | pending | | closeout DoD |
 | `mgr-app_manager` | manager | `worker/app_manager` | pending | | closeout DoD |
 | `mgr-audit_manager` | manager | `worker/audit_manager` | pending | | closeout DoD |
-| `mgr-auth_manager` | manager | `worker/auth_manager` | in_progress | | Wave 1 |
+| `mgr-auth_manager` | manager | `worker/auth_manager` | in_progress | prior agent crash | Wave 1 relaunch `.wt/mgr-auth_manager` |
 | `mgr-backup_manager` | manager | `worker/backup_manager` | pending | | closeout DoD |
 | `mgr-balancer_manager` | manager | `worker/balancer_manager` | pending | | closeout DoD |
 | `mgr-billing_manager` | manager | `worker/billing_manager` | pending | | closeout DoD |
@@ -39,9 +39,9 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-cluster_manager` | manager | `worker/cluster_manager` | pending | | closeout DoD |
 | `mgr-code_as_infra` | manager | `worker/code_as_infra` | pending | | closeout DoD |
 | `mgr-compute_manager` | manager | `worker/compute_manager` | pending | | closeout DoD |
-| `mgr-config_manager` | manager | `worker/config_manager` | in_progress | | Wave 1 salvage commit; agent stalled |
+| `mgr-config_manager` | manager | `worker/config_manager` | in_progress | | Wave 1 salvage 718c90c; finish DoD |
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | pending | | closeout DoD |
-| `mgr-db_manager` | manager | `worker/db_manager` | in_progress | | Wave 1 |
+| `mgr-db_manager` | manager | `worker/db_manager` | in_progress | | Wave 1 salvage 02a9961; finish DoD |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |
 | `mgr-email_manager` | manager | `worker/email_manager` | pending | | closeout DoD |
@@ -50,9 +50,9 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-git_manager` | manager | `worker/git_manager` | pending | | closeout DoD |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | pending | | closeout DoD |
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
-| `mgr-iam_manager` | manager | `worker/iam_manager` | in_progress | | Wave 1 |
+| `mgr-iam_manager` | manager | `worker/iam_manager` | in_progress | | Wave 1 salvage 2791fd9; finish DoD |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | pending | | closeout DoD |
-| `mgr-key_manager` | manager | `worker/key_manager` | in_progress | prior agent crash | Wave 1 relaunch on `.wt/mgr-key_manager` |
+| `mgr-key_manager` | manager | `worker/key_manager` | in_progress | prior agent crash | Wave 1 relaunch `.wt/mgr-key_manager` |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | pending | | closeout DoD |
 | `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |
@@ -61,16 +61,16 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-notify_manager` | manager | `worker/notify_manager` | pending | | closeout DoD |
 | `mgr-push_manager` | manager | `worker/push_manager` | pending | | closeout DoD |
 | `mgr-query_manager` | manager | `worker/query_manager` | pending | | closeout DoD |
-| `mgr-queue_manager` | manager | `worker/queue_manager` | in_progress | | Wave 1 |
+| `mgr-queue_manager` | manager | `worker/queue_manager` | in_progress | | Wave 1 salvage c56ca6b; finish DoD |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | pending | | closeout DoD |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | pending | | closeout DoD |
 | `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |
-| `mgr-secrets_manager` | manager | `worker/secrets_manager` | in_progress | | Wave 1 |
+| `mgr-secrets_manager` | manager | `worker/secrets_manager` | in_progress | | Wave 1 salvage c0d0b06; finish DoD |
 | `mgr-security_manager` | manager | `worker/security_manager` | pending | | closeout DoD |
 | `mgr-slack_manager` | manager | `worker/slack_manager` | pending | | closeout DoD |
 | `mgr-sms_manager` | manager | `worker/sms_manager` | pending | | closeout DoD |
 | `mgr-status_manager` | manager | `worker/status_manager` | pending | | closeout DoD |
-| `mgr-storage_manager` | manager | `worker/storage_manager` | in_progress | | Wave 1 |
+| `mgr-storage_manager` | manager | `worker/storage_manager` | in_progress | | Wave 1 salvage d0116e3; finish DoD on wt-storage_manager |
 | `mgr-system_manager` | manager | `worker/system_manager` | pending | | closeout DoD |
 | `mgr-trace_manager` | manager | `worker/trace_manager` | pending | | closeout DoD |
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | pending | | closeout DoD |

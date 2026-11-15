@@ -1,0 +1,173 @@
+openapi: 3.0.3
+info:
+  title: analytics_manager (Pinpoint / Kinesis Analytics analog)
+  version: 1.0.0
+  description: |
+    Project-scoped product analytics events plus query-on-storage over loaded rows
+    (in-memory SQLite; DuckDB naming analog). No AWS Pinpoint/Kinesis client.
+    No production skip-fake flags; assertNoSkipFakes({ extra: ['SKIP_DUCKDB'] }) on boot.
+    Conductor proxy prefix: /api/services/analytics_manager
+servers:
+  - url: http://localhost:3117
+    description: Direct local
+  - url: http://localhost:3000/api/services/analytics_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/events:
+    post:
+      summary: Create analytics event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                event:
+                  type: string
+                value:
+                  type: string
+                properties:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id or name
+        '409':
+          description: name taken
+    get:
+      summary: List events
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/events/{id}:
+    get:
+      summary: Get event
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update event
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                event:
+                  type: string
+                value:
+                  type: string
+                properties:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update event (alias of PATCH)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete event
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/query-on-storage:
+    post:
+      summary: Run SELECT over loaded events (SQLite engine)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                sql:
+                  type: string
+                  description: Read SQL against table `events`
+                prefix:
+                  type: string
+                bucket:
+                  type: string
+      responses:
+        '200':
+          description: '{ rows, sql, engine, count }'
+        '400':
+          description: invalid SQL or ATTACH/VACUUM rejected
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

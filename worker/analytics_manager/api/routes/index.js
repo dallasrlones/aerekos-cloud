@@ -1,7 +1,16 @@
 const express = require('express');
 const resR = require('./events');
 const router = express.Router();
-router.get('/info', (req, res) => { res.json({ service: process.env.SERVICE_NAME || 'analytics_manager', title: 'analytics_manager', version: process.env.SERVICE_VERSION || '1.0.0', status: 'active', message: "Structured analytics events + DuckDB query-on-storage." }); });
+router.get('/info', (req, res) => {
+  res.json({
+    service: process.env.SERVICE_NAME || 'analytics_manager',
+    title: 'analytics_manager',
+    version: process.env.SERVICE_VERSION || '1.0.0',
+    status: 'active',
+    aws: 'Pinpoint / Kinesis Analytics',
+    message: 'Structured analytics events + query-on-storage (SQLite in-memory; DuckDB naming analog).',
+  });
+});
 router.post('/query-on-storage', async (req, res) => {
   const sql = String(req.body?.sql || 'SELECT * FROM events LIMIT 100').trim();
   if (process.env.SKIP_DUCKDB === '1' || process.env.SKIP_DUCKDB === 'true') {

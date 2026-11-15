@@ -35,7 +35,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`logs_manager`](logs_manager.md) | CloudWatch Logs | 3104 | implemented | Append-only log events with levels and context. |
 | [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Stored metric samples (name/value/labels). |
 | [`security_manager`](security_manager.md) | Security Hub | 3108 | implemented | Security finding records (severity/source/details). |
-| [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events (event/value/properties). |
+| [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events + query-on-storage (SQLite; Pinpoint/Kinesis naming analog). |
 | [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP/HTTP ingest plus span list/query in SQLite. |
 | [`query_manager`](query_manager.md) | Athena | 3145 | implemented | SQL queries. |
 | [`audit_manager`](audit_manager.md) | CloudTrail | 3149 | implemented | Audit events. |

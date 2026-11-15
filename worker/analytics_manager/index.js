@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes({ extra: ['SKIP_DUCKDB'] });
 const express = require('express');
 const cors = require('cors');
 require('./api/models');

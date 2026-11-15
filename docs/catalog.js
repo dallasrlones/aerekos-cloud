@@ -279,7 +279,7 @@ const managers = [
   },
   {
     name: 'analytics_manager', aws: 'Pinpoint / Kinesis Analytics', category: 'Observability', port: 3117, status: 'implemented',
-    summary: 'Product analytics events (event/value/properties).',
+    summary: 'Product analytics events + query-on-storage (SQLite; Pinpoint/Kinesis naming analog).',
     proxyBase: '/api/v1', crud: { segment: 'events' }, capabilities: ['analytics', 'events']
   },
 

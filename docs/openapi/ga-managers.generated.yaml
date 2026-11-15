@@ -720,6 +720,96 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/series:
+    post:
+      summary: Create a series sample
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List series (metric_name, task_id, limit)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/series/sample:
+    post:
+      summary: Upsert sample by name
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/series/scrape:
+    post:
+      summary: Record scrape sample
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/series/{id}:
+    get:
+      summary: Get one series
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a series
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a series
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/alarms:
+    post:
+      summary: Create an alarm rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List alarms
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/alarms/evaluate:
+    post:
+      summary: Evaluate alarms (SKIP_OUTBOUND parks publish)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/api/v1/alarms/{id}:
+    get:
+      summary: Get one alarm
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update an alarm
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete an alarm
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/metrics_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)

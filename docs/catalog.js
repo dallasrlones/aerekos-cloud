@@ -274,8 +274,26 @@ const managers = [
   },
   {
     name: 'metrics_manager', aws: 'CloudWatch Metrics', category: 'Observability', port: 3105, status: 'implemented',
-    summary: 'Stored metric samples (name/value/labels). Aggregation cluster is future work.',
-    proxyBase: '/api/v1', crud: { segment: 'series' }, capabilities: ['metrics', 'samples']
+    summary: 'Series samples + alarms (evaluate→event_manager). No prod mocks. Aggregation cluster future.',
+    proxyBase: '/api/v1', crud: { segment: 'series' }, capabilities: ['metrics', 'samples', 'alarms'],
+    endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/series', summary: 'Create a series sample' },
+      { method: 'POST', path: '/api/v1/series/sample', summary: 'Upsert sample by name' },
+      { method: 'POST', path: '/api/v1/series/scrape', summary: 'Record scrape sample' },
+      { method: 'GET', path: '/api/v1/series', summary: 'List series (metric_name, task_id, limit)' },
+      { method: 'GET', path: '/api/v1/series/:id', summary: 'Get one series' },
+      { method: 'PATCH', path: '/api/v1/series/:id', summary: 'Update a series' },
+      { method: 'DELETE', path: '/api/v1/series/:id', summary: 'Delete a series' },
+      { method: 'POST', path: '/api/v1/alarms', summary: 'Create an alarm rule' },
+      { method: 'GET', path: '/api/v1/alarms', summary: 'List alarms' },
+      { method: 'GET', path: '/api/v1/alarms/:id', summary: 'Get one alarm' },
+      { method: 'PATCH', path: '/api/v1/alarms/:id', summary: 'Update an alarm' },
+      { method: 'DELETE', path: '/api/v1/alarms/:id', summary: 'Delete an alarm' },
+      { method: 'POST', path: '/api/v1/alarms/evaluate', summary: 'Evaluate alarms (SKIP_OUTBOUND parks publish)' }
+    ]
   },
   {
     name: 'security_manager', aws: 'Security Hub', category: 'Observability', port: 3108, status: 'implemented',

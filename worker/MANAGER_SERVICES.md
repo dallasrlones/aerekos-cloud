@@ -32,7 +32,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 
 | Service | Port | Main route | Without keys you get |
 |---------|------|------------|----------------------|
-| `metrics_manager` | 3105 | `/api/v1/series` | Stored metric samples |
+| `metrics_manager` | 3105 | `/api/v1/series` (+ `/alarms`); no prod mocks | Series + alarms; evaluate publish parked via `SKIP_OUTBOUND` |
 | `security_manager` | 3108 | `/api/v1/findings` | Security finding rows |
 | `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |

@@ -1,0 +1,349 @@
+openapi: 3.0.3
+info:
+  title: metrics_manager (CloudWatch Metrics analog)
+  version: 1.0.0
+  description: |
+    Project-scoped metric series samples (name/value/labels) plus alarm rules that
+    can publish into event_manager when evaluated. Aggregation cluster / Prometheus
+    federation is out of scope for the MVP. No production skip-fake flags;
+    assertNoSkipFakes() on boot. SKIP_OUTBOUND parks alarm publish to event_manager
+    (test/dev only). Conductor proxy prefix: /api/services/metrics_manager
+servers:
+  - url: http://localhost:3105
+    description: Direct local
+  - url: http://localhost:3000/api/services/metrics_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/series:
+    post:
+      summary: Create a metric series sample
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                metric_name:
+                  type: string
+                value:
+                  type: string
+                labels:
+                  description: object or JSON string
+                  nullable: true
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List series (metric_name, task_id via labels, limit)
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metric_name
+          schema:
+            type: string
+        - in: query
+          name: task_id
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            maximum: 1000
+      responses:
+        '200':
+          description: '{ items }'
+        '400':
+          description: validation error
+  /api/v1/series/sample:
+    post:
+      summary: Upsert a sample by name (create or update value/labels)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                metric_name:
+                  type: string
+                value:
+                  type: string
+                labels:
+                  nullable: true
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+  /api/v1/series/scrape:
+    post:
+      summary: Record a scrape sample (default metric healthy_host_count)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                metric_name:
+                  type: string
+                value:
+                  type: string
+                labels:
+                  nullable: true
+      responses:
+        '201':
+          description: '{ item }'
+  /api/v1/series/{id}:
+    get:
+      summary: Get one series sample
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a series sample
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    put:
+      summary: Update a series sample (alias of PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a series sample
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found
+  /api/v1/alarms:
+    post:
+      summary: Create an alarm rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                metric_name:
+                  type: string
+                threshold:
+                  type: string
+                op:
+                  type: string
+                  enum: [gt, lt]
+                  default: gt
+                enabled:
+                  type: string
+                  description: "'true' | 'false'"
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List alarms
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/alarms/evaluate:
+    post:
+      summary: Evaluate alarms against a value; publish to event_manager unless SKIP_OUTBOUND
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                metric_name:
+                  type: string
+                value:
+                  type: number
+      responses:
+        '200':
+          description: '{ fired, value, skipped }'
+  /api/v1/alarms/{id}:
+    get:
+      summary: Get one alarm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update an alarm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update an alarm (alias of PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an alarm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found

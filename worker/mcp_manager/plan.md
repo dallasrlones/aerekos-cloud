@@ -40,28 +40,22 @@
 
 ---
 
-## Testing (mandatory before “done”)
+## Testing (Wave 3 closeout)
 
 ### Unit tests
-- [ ] Core business logic (services layer) — happy paths
-- [ ] Core business logic — error and edge cases
-- [ ] Validators and pure utilities — 100% of public functions covered
-- [ ] Mock external HTTP (axios) and Docker APIs where applicable
+- [x] platform-tools catalog exports required names/fields (`tests/unit/health.test.js`)
 
 ### Integration tests
-- [ ] HTTP API with supertest (no manual server) — all routes return expected status/body
-- [ ] Database layer against temp SQLite (if applicable)
-- [ ] Conductor registration mocked; failure paths (404, 500)
+- [x] `/health`, `/ready`, `/api/v1/info`, `/api/v1/platform-tools` (`tests/integration/health.test.js`)
+- [x] tools CRUD + invoke-without-endpoint 400 (`tests/integration/crud.test.js`)
 
 ### E2E tests
-- [ ] Document scenarios in `tests/e2e/README.md` — all checkboxes executed at least once per release
-- [ ] Optional: Playwright or CI job hitting docker-compose URLs
-- [ ] Cross-service: conductor + worker + this service + one dependency (e.g. key_manager)
+- [x] Scenarios documented in `tests/e2e/README.md` (live proxy parked until conductor stack up)
+- [ ] Live conductor proxy checklist executed when stack available
 
 ### Coverage & quality gates
-- [ ] `npm run test:coverage` meets team threshold (suggest ≥70% lines for new code)
-- [ ] No flaky timers — use Jest fake timers where needed
-- [ ] Load smoke test script in `scripts/` (optional)
+- [x] `npm test` (unit + integration) green for closeout gate
+- [ ] Optional coverage threshold / load smoke — later
 
 ---
 

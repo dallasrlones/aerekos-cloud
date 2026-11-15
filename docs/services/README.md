@@ -84,7 +84,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`code_as_infra`](code_as_infra.md) | CloudFormation | 3120 | implemented | Infrastructure-as-code modules / snippets (kind + content). |
 | [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway route definitions (method/public_path/backend_url). |
 | [`app_manager`](app_manager.md) | Amplify / App Runner | 3125 | implemented | App project metadata (repo_url/build_command). |
-| [`mcp_manager`](mcp_manager.md) | Bedrock Agents (tools) | 3123 | implemented | MCP tool registry (description + input_schema). |
+| [`mcp_manager`](mcp_manager.md) | Bedrock Agents (tools) | 3123 | implemented | MCP tool registry + platform-tools + invoke; ManagerConsole ServiceGuide. |
 | [`websocket_manager`](websocket_manager.md) | API Gateway WebSocket | 3131 | implemented | WebSocket channels. |
 | [`graphql_manager`](graphql_manager.md) | AppSync | 3141 | implemented | GraphQL APIs compiled from Data API models. |
 

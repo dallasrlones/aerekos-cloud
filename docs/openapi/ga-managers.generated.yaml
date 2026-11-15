@@ -402,6 +402,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/platform-tools:
+    get:
+      summary: Catalog input_schema for platform tools
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/tools:
+    post:
+      summary: Create a tool
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List tools (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/tools/{id}:
+    get:
+      summary: Get one tool
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a tool
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a tool
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/api/v1/tools/{id}/invoke:
+    post:
+      summary: Invoke a registered tool against input_schema.endpoint
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/mcp_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)

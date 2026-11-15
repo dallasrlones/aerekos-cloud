@@ -43,7 +43,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e / egress parked | Wave 4 closeout b7e447e; 11 tests |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | in_progress | | Wave 5 |
-| `mgr-download_manager` | manager | `worker/download_manager` | in_progress | | Wave 5 |
+| `mgr-download_manager` | manager | `worker/download_manager` | done | live e2e needs conductor; qbit/yt-dlp for live download | Wave 5 closeout; health+CRUD+windows/tick tests |
 | `mgr-email_manager` | manager | `worker/email_manager` | in_progress | | Wave 5 |
 | `mgr-event_manager` | manager | `worker/event_manager` | in_progress | | Wave 5 |
 | `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |

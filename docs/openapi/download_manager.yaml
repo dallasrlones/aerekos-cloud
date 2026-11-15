@@ -1,0 +1,345 @@
+openapi: 3.0.3
+info:
+  title: download_manager (MediaConvert + ingest analog)
+  version: 1.0.0
+  description: |
+    Project-scoped download lists/items with optional qBittorrent + yt-dlp + tor-dl search.
+    SKIP_DOWNLOAD / SKIP_TORRENT skip live engines in tests/dev only — refused when
+    NODE_ENV=production (assertNoSkipFakes + SKIP_TORRENT extra).
+    Conductor proxy prefix: /api/services/download_manager
+servers:
+  - url: http://localhost:3133
+    description: Direct local
+  - url: http://localhost:3000/api/services/download_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, aws, status, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed inbox list + overnight window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok: true, defaults... }'
+        '400':
+          description: missing project_id
+  /api/v1/quick-add:
+    post:
+      summary: Add URLs/magnets to a list (default inbox)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                urls:
+                  type: array
+                  items:
+                    type: string
+                url:
+                  type: string
+                list:
+                  type: string
+                window:
+                  type: string
+                format:
+                  type: string
+      responses:
+        '201':
+          description: '{ items }'
+  /api/v1/search:
+    post:
+      summary: Torrent search via tor-dl scrapers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '200':
+          description: '{ results, errors? }'
+  /api/v1/search/youtube:
+    post:
+      summary: YouTube search via yt-dlp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                max:
+                  type: integer
+      responses:
+        '200':
+          description: '{ results, source, engine }'
+  /api/v1/lists:
+    post:
+      summary: Create a download list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                bucket:
+                  type: string
+                prefix:
+                  type: string
+                window_id:
+                  type: string
+                system_id:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+    get:
+      summary: List lists
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/lists/{id}:
+    get:
+      summary: Get one list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/lists/{id}/items:
+    get:
+      summary: List items on a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Add items to a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: '{ items }'
+  /api/v1/items:
+    get:
+      summary: List all items for project
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/items/{id}:
+    get:
+      summary: Get one item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    patch:
+      summary: Update an item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: delete result
+  /api/v1/items/{id}/pause:
+    post:
+      summary: Pause item
+      responses:
+        '200':
+          description: '{ item }'
+  /api/v1/items/{id}/resume:
+    post:
+      summary: Resume item (pending)
+      responses:
+        '200':
+          description: '{ item }'
+  /api/v1/items/{id}/retry:
+    post:
+      summary: Retry item (pending)
+      responses:
+        '200':
+          description: '{ item }'
+  /api/v1/tick:
+    post:
+      summary: Advance pending downloads (optional body.now for window tests)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                now:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: '{ started, ... }'
+  /api/v1/windows:
+    get:
+      summary: List download windows
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Create a window
+      responses:
+        '201':
+          description: '{ item }'
+  /api/v1/indexers:
+    get:
+      summary: List indexers
+      responses:
+        '200':
+          description: '{ items }'
+    post:
+      summary: Create an indexer
+      responses:
+        '201':
+          description: '{ item }'

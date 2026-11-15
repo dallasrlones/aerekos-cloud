@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+// SKIP_DOWNLOAD is in the shared default list; SKIP_TORRENT is download-specific.
+assertNoSkipFakes({ extra: ['SKIP_TORRENT'] });
 require('./api/models');
 const db = require('./api/utils/dbClient');
 // Add system_id to existing volumes (no-op on fresh DBs / missing files).

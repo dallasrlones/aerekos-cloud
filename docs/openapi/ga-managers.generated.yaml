@@ -340,6 +340,69 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed inbox list + overnight window
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/quick-add:
+    post:
+      summary: Add URLs/magnets to a list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/lists:
+    post:
+      summary: Create a download list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List lists (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/lists/{id}:
+    get:
+      summary: Get one list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a list
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/api/v1/tick:
+    post:
+      summary: Advance pending downloads
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/download_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/function_manager/api/v1/info:
     get:
       summary: Service metadata (info)

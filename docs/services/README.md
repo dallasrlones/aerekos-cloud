@@ -109,7 +109,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`download_manager`](download_manager.md) | MediaConvert + ingest | 3133 | implemented | Download lists. |
+| [`download_manager`](download_manager.md) | MediaConvert + ingest | 3133 | implemented | Lists/items + qbit/yt-dlp; DownloadManager screen (no ServiceGuide). |
 | [`backup_manager`](backup_manager.md) | AWS Backup | 3134 | implemented | Backup vaults and snapshot jobs into the aerekos-backups bucket. |
 | [`transfer_manager`](transfer_manager.md) | Transfer Family | 3148 | implemented | SFTP endpoints that put/get objects through storage_manager. |
 

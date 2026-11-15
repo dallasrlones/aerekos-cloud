@@ -25,22 +25,22 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | id | type | owner_path | status | blocker | notes |
 |----|------|------------|--------|---------|-------|
 | `mgr-ai_manager` | manager | `worker/ai_manager` | done | live LLM keys; OpenAPI parked | Wave 2 closeout ff2e6ed/7a2fdc1; 6 scoped tests |
-| `mgr-analytics_manager` | manager | `worker/analytics_manager` | done | live e2e needs conductor | Wave 4 closeout 0611439; 16 tests |
+| `mgr-analytics_manager` | manager | `worker/analytics_manager` | done | live e2e needs conductor | Wave 4 closeout 0611439/acb0871; 16 tests |
 | `mgr-api_manager` | manager | `worker/api_manager` | done | live e2e needs conductor | Wave 3 closeout 282aff1/2063a5a; 12 tests |
 | `mgr-app_manager` | manager | `worker/app_manager` | done | live e2e needs conductor | Wave 3 closeout d7d5eab; 12 tests |
-| `mgr-audit_manager` | manager | `worker/audit_manager` | done | live e2e needs conductor | Wave 4 closeout 0dc94bf; 10 tests |
+| `mgr-audit_manager` | manager | `worker/audit_manager` | done | live e2e needs conductor | Wave 4 closeout 48003207 |
 | `mgr-auth_manager` | manager | `worker/auth_manager` | done | | Wave 1 closeout 6c8054c; 13 tests |
-| `mgr-backup_manager` | manager | `worker/backup_manager` | done | live e2e needs conductor | Wave 4 closeout; health+CRUD+jobs+prod-guard tests |
-| `mgr-balancer_manager` | manager | `worker/balancer_manager` | in_progress | | Wave 4 |
-| `mgr-billing_manager` | manager | `worker/billing_manager` | done | live e2e needs conductor | Wave 4 closeout; health+CRUD+quota+prod-guard tests |
-| `mgr-cdn_manager` | manager | `worker/cdn_manager` | in_progress | | Wave 4 |
-| `mgr-cert_manager` | manager | `worker/cert_manager` | done | live e2e needs conductor | Wave 4 closeout 8362807; 14 tests |
+| `mgr-backup_manager` | manager | `worker/backup_manager` | done | live e2e needs conductor | Wave 4 closeout 97a7281; 13 tests |
+| `mgr-balancer_manager` | manager | `worker/balancer_manager` | done | live e2e needs conductor | Wave 4 closeout a0b2aa0c |
+| `mgr-billing_manager` | manager | `worker/billing_manager` | done | live e2e needs conductor | Wave 4 closeout b9c4410; 11 tests |
+| `mgr-cdn_manager` | manager | `worker/cdn_manager` | done | live e2e needs conductor | Wave 4 closeout f3dbf22e |
+| `mgr-cert_manager` | manager | `worker/cert_manager` | done | live e2e needs conductor | Wave 4 closeout 8415d3e2 |
 | `mgr-cicd_manager` | manager | `worker/cicd_manager` | done | live e2e needs conductor | Wave 3 closeout 0c06752 |
 | `mgr-cluster_manager` | manager | `worker/cluster_manager` | done | live e2e needs conductor | Wave 2 closeout 0997d3b; 12 tests |
 | `mgr-code_as_infra` | manager | `worker/code_as_infra` | done | live e2e needs conductor | Wave 3 closeout a44ee55; 9 tests |
 | `mgr-compute_manager` | manager | `worker/compute_manager` | done | live e2e needs conductor | Wave 2 closeout 4a7d145/5d9396e; 49 tests |
 | `mgr-config_manager` | manager | `worker/config_manager` | done | live e2e needs conductor | Wave 1 closeout d949915; 9 tests |
-| `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e needs conductor; egress needs-keys | Wave 4 closeout; health+CRUD+run/canary tests |
+| `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e / egress parked | Wave 4 closeout b7e447e; 11 tests |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | pending | | closeout DoD |
 | `mgr-download_manager` | manager | `worker/download_manager` | pending | | closeout DoD |

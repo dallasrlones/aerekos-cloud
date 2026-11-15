@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: tunnel_manager (Cloudflare Tunnel)
+  version: 1.0.0
+  description: |
+    Project-scoped Cloudflare Tunnel (cloudflared) lifecycle: create/list/get/delete,
+    ingress get/merge/set, adopt/import/reconcile. Tunnel token returned once on create
+    (never stored in DB). SKIP_CLOUDFLARE mocks CF API in tests/dev only —
+    refused when NODE_ENV=production (assertNoSkipFakes).
+    Conductor proxy prefix: /api/services/tunnel_manager
+servers:
+  - url: http://localhost:3110
+    description: Direct local
+  - url: http://localhost:3000/api/services/tunnel_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/tunnels:
+    post:
+      summary: Create a tunnel (token returned once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '201':
+          description: '{ tunnel, token, credentials_file }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+        '503':
+          description: CLOUDFLARE_NOT_CONFIGURED / ACCOUNT_ID_MISSING
+    get:
+      summary: List tunnels
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ tunnels }'
+  /api/v1/tunnels/{id}:
+    get:
+      summary: Get one tunnel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ tunnel }'
+        '404':
+          description: not found
+    delete:
+      summary: Delete tunnel in Cloudflare and local DB
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+        '404':
+          description: not found
+  /api/v1/tunnels/{id}/ingress:
+    get:
+      summary: Get ingress rules (+ cname_target)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ tunnel_id, ingress, ingress_rules, cname_target }'
+    patch:
+      summary: Merge one hostname→service into ingress
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                service:
+                  type: string
+                removeHostname:
+                  type: string
+      responses:
+        '200':
+          description: updated ingress payload
+    put:
+      summary: Replace full ingress array
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ingress:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: updated ingress payload
+  /api/v1/tunnels/adopt-known:
+    post:
+      summary: Adopt known CF tunnel ids into local DB
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                tunnels:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: '{ adopted }'
+  /api/v1/tunnels/import:
+    post:
+      summary: Import tunnels from Cloudflare account (skipped under SKIP_CLOUDFLARE)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ imported, skipped? }'
+  /api/v1/tunnels/import-from-cloudflare:
+    post:
+      summary: Alias of /import
+      responses:
+        '200':
+          description: '{ imported, skipped? }'
+  /api/v1/tunnels/reconcile:
+    post:
+      summary: Reconcile local rows vs Cloudflare (when configured)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: reconcile result

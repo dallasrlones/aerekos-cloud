@@ -55,7 +55,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Create/delete Cloudflare tunnels (cloudflared) from the edge to private origins. |
+| [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Tunnel CRUD + ingress; tutorial none; no prod mocks. |
 | [`domain_manager`](domain_manager.md) | Route 53 | 3111 | needs-keys | Cloudflare DNS + hostnames; tutorial none; no prod mocks. |
 | [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | Cache rules CRUD + CF purge; Cache Rulesets write parked. |
 | [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |

@@ -381,15 +381,24 @@ const managers = [
   // --- Edge ----------------------------------------------------------------
   {
     name: 'tunnel_manager', aws: 'Cloudflare Tunnel', category: 'Edge', port: 3110, status: 'needs-keys',
-    summary: 'Create/delete Cloudflare tunnels (cloudflared) from the edge to private origins. Token returned once on create.',
+    summary: 'Cloudflare Tunnel CRUD + ingress; token once on create. Pairs with domain_manager. Tutorial: none. No prod mocks.',
     proxyBase: '/api/v1', capabilities: ['tunnels', 'edge'],
     endpoints: [
-      { method: 'POST', path: '/api/v1/tunnels', summary: 'Create a tunnel' },
+      { method: 'GET', path: '/health', summary: 'Liveness' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/tunnels', summary: 'Create a tunnel (token once)' },
       { method: 'GET', path: '/api/v1/tunnels', summary: 'List tunnels' },
       { method: 'GET', path: '/api/v1/tunnels/:id', summary: 'Get a tunnel' },
-      { method: 'DELETE', path: '/api/v1/tunnels/:id', summary: 'Delete a tunnel' }
+      { method: 'DELETE', path: '/api/v1/tunnels/:id', summary: 'Delete a tunnel' },
+      { method: 'GET', path: '/api/v1/tunnels/:id/ingress', summary: 'Get ingress rules' },
+      { method: 'PATCH', path: '/api/v1/tunnels/:id/ingress', summary: 'Merge hostname into ingress' },
+      { method: 'PUT', path: '/api/v1/tunnels/:id/ingress', summary: 'Replace ingress' },
+      { method: 'POST', path: '/api/v1/tunnels/adopt-known', summary: 'Adopt known CF tunnel ids' },
+      { method: 'POST', path: '/api/v1/tunnels/import', summary: 'Import from Cloudflare' },
+      { method: 'POST', path: '/api/v1/tunnels/reconcile', summary: 'Reconcile local vs Cloudflare' }
     ],
-    needsKeys: 'CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID. SKIP_CLOUDFLARE=1 for tests.'
+    needsKeys: 'CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID. SKIP_CLOUDFLARE=1 for tests (forbidden in production).'
   },
   {
     name: 'domain_manager', aws: 'Route 53', category: 'Edge', port: 3111, status: 'needs-keys',

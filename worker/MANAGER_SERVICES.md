@@ -18,7 +18,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `queue_manager` | 3101 | SQS-like |
 | `schedule_manager` | 3102 | Cron + dispatch (**collides with key_manager 3102** — documented; do not silently reassign key) |
 | `network_manager` | 3103 | Per-project Docker networks |
-| `logs_manager` | 3104 | Log events |
+| `logs_manager` | 3104 | `/api/v1/logs` (+ batch/compact); append-only ingest/query; ManagerConsole guide; no prod mocks |
 | `iam_manager` | 3106 | RBAC (authZ data) |
 | `secrets_manager` | 3107 | Encrypted secrets |
 | `tunnel_manager` | 3110 | Cloudflare Tunnel (needs `CLOUDFLARE_*`) |

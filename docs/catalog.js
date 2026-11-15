@@ -120,6 +120,7 @@ const managers = [
     proxyBase: '/api', capabilities: ['object-storage', 'buckets', 'signed-urls', 'encryption'],
     projectInPath: true,
     endpoints: [
+      { method: 'GET', path: '/ready', summary: 'Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)' },
       { method: 'POST', path: '/api/projects/:projectId/buckets', summary: 'Create a bucket' },
       { method: 'GET', path: '/api/projects/:projectId/buckets', summary: 'List buckets' },
       { method: 'GET', path: '/api/projects/:projectId/buckets/:bucket', summary: 'Get a bucket' },
@@ -129,8 +130,11 @@ const managers = [
       { method: 'GET', path: '/api/projects/:projectId/buckets/:bucket/files', summary: 'List objects' },
       { method: 'POST', path: '/api/projects/:projectId/buckets/:bucket/files/:key/signed-url/download', summary: 'Create a signed download URL' }
     ],
-    env: [{ name: 'STORAGE_ROOT', default: './data', desc: 'Where object data is stored' },
-          { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Use a local dev key instead of key_manager' }]
+    env: [
+      { name: 'STORAGE_PATH', default: './storage', desc: 'Where object bytes are stored' },
+      { name: 'AUTH_REQUIRED', default: 'true', desc: 'Compose default; fail start if key_manager health fails when not mocking' },
+      { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Local/tests only; refused when NODE_ENV=production' }
+    ]
   },
   {
     name: 'db_manager', aws: 'RDS', category: 'Core', port: 3004, status: 'implemented',

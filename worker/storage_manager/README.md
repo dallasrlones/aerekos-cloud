@@ -1,175 +1,109 @@
 # Storage Manager Service
 
-S3-compatible object storage service for aerekos-cloud with automatic encryption, chunked uploads, and signed URLs.
+S3-compatible object storage for aerekos-cloud: **Projects → Buckets → Files**, envelope encryption via **key_manager**, chunked uploads, and signed URLs.
 
-## Overview
+## Status
 
-Storage Manager provides a hierarchical object storage system: **Projects → Buckets → Files**. Every file is automatically encrypted using keys from the key_manager service, and the service supports massive file uploads via chunked/multipart uploads.
+**Implemented** — REST under `/api/projects/…` and `/api/systems/…`. Full contract: [`api/openapi.yaml`](./api/openapi.yaml). Conductor pack paths also appear in `docs/openapi/ga-managers.generated.yaml`.
+
+**Tutorial:** none (standalone). No conductor ServiceGuide for this manager.
+
+## No production mocks
+
+`MOCK_KEY_MANAGER=true` is for **tests and local-only** encryption without conductor/`key_manager`. The process **exits** if `NODE_ENV=production` and `MOCK_KEY_MANAGER=true`. Compose sets `MOCK_KEY_MANAGER=${STORAGE_MOCK_KEY_MANAGER:-false}`. Production must use real key_manager through conductor.
+
+## Auth
+
+- API routes require `Authorization: Bearer …`.
+- Middleware accepts conductor **`POST /api/services/validate-token`** or **`auth_manager` verify** (see `api/middleware/auth.js`).
+- Compose: `AUTH_REQUIRED=${AUTH_REQUIRED:-true}`. When `AUTH_REQUIRED=true` and mock is off, startup **exits** if key_manager health via conductor fails.
 
 ## Features
 
-- **Project-based organization**: Projects contain buckets, buckets contain files
-- **Automatic encryption**: Every file is encrypted using keys from key_manager
-- **Chunked uploads**: Support for large file uploads via multipart/chunked uploads
-- **Massive file support**: Handle files of any size efficiently
-- **Signed URLs**: Generate time-limited signed URLs for upload/download with TTLs
-- **S3-Compatible API**: Follows S3 API patterns for easy integration
+- Project-based hierarchy; system buckets for host paths
+- Automatic encryption with per-bucket keys from key_manager
+- Chunked / multipart uploads for large objects
+- Signed upload/download URLs with TTLs
 
 ### Host devices & performance *(planned)*
 
-Aerekos storage should understand **where data physically lives** on worker machines, not only the logical `STORAGE_PATH`:
-
-- **Drive detection**: Discover attached block devices and mount points (capacity, filesystem, mount path, removable vs fixed where the OS exposes it).
-- **Drive speed**: Report or measure **throughput** (e.g. sequential read/write MB/s or a short bounded benchmark) so the control plane and operators can compare tiers (NVMe vs SATA vs USB) and place buckets or cache policies appropriately.
-
-Details, API sketches, and platform notes live in **`plan.md`** → *Host drives, devices & performance*.
+Drive detection and throughput tiers are sketched in **`plan.md`** → *Host drives, devices & performance* — not shipped.
 
 ## Architecture
 
-### Hierarchy
-- **Projects**: Top-level containers
-- **Buckets**: Belong to projects, contain files
-- **Files**: Belong to buckets, automatically encrypted
+### Dependencies
 
-### Service Dependencies
-- **Conductor**: Service registration, routing, authentication
-- **key_manager**: Encryption keys (can be stubbed during development)
-- **db_manager**: Database for metadata (falls back to SQLite if not available)
+- **Conductor** — registration, proxy, validate-token
+- **key_manager** — encryption keys (required unless mock / local)
+- **auth_manager** — optional verify path for app JWTs
+- **db_manager** — preferred metadata DB; falls back to SQLite
 
 ## Setup
 
-### Prerequisites
-- Node.js 18+
-- Docker and Docker Compose (optional)
+```bash
+cd worker/storage_manager
+cp .env_example .env
+npm install
+npm start
+```
 
-### Installation
-
-1. Copy `.env_example` to `.env`:
-   ```bash
-   cp .env_example .env
-   ```
-
-2. Update environment variables in `.env`
-
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-4. Start the service:
-   ```bash
-   npm start
-   ```
-
-### Docker
+Docker (build context is `worker/`):
 
 ```bash
-docker-compose up --build
+docker compose -f docker-compose.yml up --build
 ```
 
 ## Configuration
 
-See `.env_example` for all configuration options. Key variables:
+See [`.env_example`](./.env_example). Important vars:
 
-- `SERVICE_NAME`: Service name (default: `storage_manager`)
-- `PORT`: Service port (default: `3003`, auto-detected if in use)
-- `CONDUCTOR_URL`: Conductor API URL
-- `STORAGE_PATH`: Storage root directory (default: `./storage`)
-- `MOCK_KEY_MANAGER`: Set to `true` for local dev only (encryption uses `MOCK_KEY_MATERIAL` or a default hex string). **Forbidden** when `NODE_ENV=production` (process exits). Production must use real `key_manager` via conductor.
-- `DATABASE_PATH`: SQLite database path (default: `./data/storage_manager.db`)
+| Variable | Notes |
+|----------|--------|
+| `STORAGE_PATH` | Object byte root (default `./storage`) — not `STORAGE_ROOT` |
+| `CONDUCTOR_URL` | Required for real key_manager |
+| `AUTH_REQUIRED` | `true` in prod compose |
+| `AUTH_MANAGER_URL` | For auth_manager verify fallback |
+| `MOCK_KEY_MANAGER` | `false` for prod; local/tests only |
 
-## API Documentation
+## SDK / CLI
 
-See `api/openapi.yaml` for full API documentation.
+Typed helper: **`client.storage`** (`StorageManagerApi` in `aerekos-sdk`) — `listBuckets` / `createBucket` / `listObjects` / upload/download / signed URLs / system buckets. Prefer `baseUrl` pointed at the service (or conductor proxy) per SDK notes.
 
-### Quick Examples
-
-#### Create a Project
-```bash
-curl -X POST http://localhost:3003/api/projects \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-project"}'
+```js
+const buckets = await client.storage.listBuckets(PID);
+await client.storage.createBucket(PID, { name: 'demo' });
+// Or generic proxy:
+await client.proxy('storage_manager', {
+  method: 'POST',
+  path: '/api/projects/:projectId/buckets',
+  projectId: PID,
+  body: { name: 'demo' },
+});
 ```
 
-#### Create a Bucket
 ```bash
-curl -X POST http://localhost:3003/api/projects/PROJECT_ID/buckets \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-bucket"}'
+aerekos call storage_manager POST "/api/projects/:projectId/buckets" --project $PID --data '{"name":"demo"}'
 ```
-
-#### Upload a File
-```bash
-curl -X POST http://localhost:3003/api/projects/PROJECT_ID/buckets/BUCKET_NAME/files/path/to/file.txt \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@/path/to/local/file.txt"
-```
-
-#### Download a File
-```bash
-curl -X GET http://localhost:3003/api/projects/PROJECT_ID/buckets/BUCKET_NAME/files/path/to/file.txt \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -o downloaded_file.txt
-```
-
-## Development
-
-### Parallel Development with key_manager
-
-During parallel development, the service uses stubbed key_manager calls. Set `MOCK_KEY_MANAGER=true` in `.env` to enable this mode.
-
-When key_manager is ready, remove `MOCK_KEY_MANAGER` or set it to `false`, and the service will use real key_manager API calls.
-
-### Database
-
-The service uses SQLite by default for development. In production, it will attempt to use db_manager to create a PostgreSQL database. If db_manager is not available, it falls back to SQLite.
 
 ## Testing
 
-Comprehensive test suite covering unit tests, integration tests, and end-to-end tests.
-
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
+# Prefer Node 20 for better-sqlite3 native builds on this package pin
+npm test                 # unit + integration + e2e
 npm run test:coverage
 ```
 
-See `tests/README.md` for detailed testing documentation and `plan.md` Phase 6 for complete test case list.
+See `tests/README.md`. Tests set `MOCK_KEY_MANAGER=true` via `tests/helpers/setup.js`; that is not a prod path.
 
-## Health Checks
+## Health / meta
 
-- `GET /health` - Liveness probe
-- `GET /ready` - Readiness probe
-- `GET /metrics` - Service metrics
+- `GET /health` — liveness (DB + writable `STORAGE_PATH`); conductor proxies without `project_id`
+- `GET /ready` — readiness including key_manager via conductor (skipped only when mock)
+- `GET /api/info` — unauthenticated service metadata (OpenAPI / CORE_GA pack)
+- `GET /metrics` — Prometheus
 
-## Project Structure
+## Related
 
-```
-storage_manager/
-├── api/
-│   ├── routes/          # Express routes
-│   ├── services/         # Business logic
-│   ├── repos/           # Data access
-│   ├── middleware/      # Express middleware
-│   ├── utils/           # Utilities
-│   └── models/          # Database models
-├── storage/             # Object storage (gitignored)
-├── data/                # SQLite database (gitignored)
-├── index.js             # Main entry point
-└── package.json
-```
-
-## Integration with Other Services
-
-See `plan.md` for examples of how other services can use storage_manager.
-
-## License
-
-ISC
+- `docs/services/storage_manager.md` — catalog surface
+- `docs/runbooks/auth-required.md` — AUTH_REQUIRED flip
+- `plan.md` — deeper design / future storage-pro items

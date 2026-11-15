@@ -1,0 +1,5 @@
+'use strict';
+const { assertLayaGate } = require('../../api/services/LayaGateScaffold');
+test('assertLayaGate passes', () => { expect(assertLayaGate({ ok: true })).toBe(true); });
+test('assertLayaGate fails', () => { expect(() => assertLayaGate({ ok: false })).toThrow(/laya_gate_failed/); });
+

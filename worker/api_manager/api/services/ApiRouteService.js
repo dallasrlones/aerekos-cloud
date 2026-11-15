@@ -5,6 +5,25 @@ function prettyBase() {
   return (process.env.PUBLIC_API_URL || process.env.CONDUCTOR_PUBLIC_URL || '').replace(/\/$/, '');
 }
 
+function assertArnTemplate(tpl) {
+  if (tpl == null || String(tpl).trim() === '') return;
+  const s = String(tpl).trim();
+  // Templates may use {placeholders}; require platform prefix + at least one segment after project.
+  if (!/^arn:aerekos:(?:\{[^}]+\}|[0-9a-f-]{36}):.+/i.test(s)) {
+    const e = new Error('resource_arn_template must look like arn:aerekos:{project_id}:…');
+    e.status = 400;
+    e.code = 'INVALID_ARN_TEMPLATE';
+    throw e;
+  }
+}
+
+function buildProxyPath(targetService, targetPath) {
+  if (!targetService) return null;
+  const tp = String(targetPath || '');
+  const path = tp ? (tp.startsWith('/') ? tp : `/${tp}`) : '';
+  return `/api/services/${targetService}${path}`;
+}
+
 function serialize(row) {
   if (!row) return row;
   const o = typeof row.toJSON === 'function' ? row.toJSON() : { ...row };
@@ -12,6 +31,7 @@ function serialize(row) {
   o.pretty_invoke_url = o.public_path
     ? buildPublicUrl(prettyBase() || 'https://cloudapi.aerekos.com', o.public_path, params)
     : null;
+  o.proxy_path = buildProxyPath(o.target_service, o.target_path);
   return o;
 }
 
@@ -22,6 +42,7 @@ class ApiRouteService {
     this.assertP(body.project_id);
     const name = String(body.name||'').trim();
     if (!name) { const e = new Error('name required'); e.status=400; throw e; }
+    assertArnTemplate(body.resource_arn_template);
     const d = await this.M.findAll({ where: { project_id: body.project_id, name } });
     if (d.length) { const e = new Error('name taken'); e.status=409; throw e; }
     return serialize(await this.M.create(body));
@@ -32,6 +53,7 @@ class ApiRouteService {
     await this.get(id, projectId);
     const patch = { ...(body || {}) };
     delete patch.id; delete patch.project_id; delete patch.created_at; delete patch.updated_at;
+    if (patch.resource_arn_template !== undefined) assertArnTemplate(patch.resource_arn_template);
     if (patch.name !== undefined) {
       const name = String(patch.name || '').trim();
       if (!name) { const e = new Error('name required'); e.status = 400; throw e; }
@@ -102,6 +124,7 @@ class ApiRouteService {
         public_path: row.public_path,
         target_service: row.target_service,
         target_path,
+        proxy_path: buildProxyPath(row.target_service, target_path),
         resource_arn_template: row.resource_arn_template,
         resource_arn,
         required_scope: row.required_scope,

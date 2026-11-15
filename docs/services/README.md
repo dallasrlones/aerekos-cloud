@@ -82,7 +82,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`registry_manager`](registry_manager.md) | ECR | 3129 | implemented | Container registry discovery: per-project registry entries (no pull secrets) + a public config endpoint. |
 | [`cicd_manager`](cicd_manager.md) | CodePipeline | 3119 | implemented | Pipelines CRUD + run/run-for-repo; CicdManager console (no ServiceGuide). |
 | [`code_as_infra`](code_as_infra.md) | CloudFormation | 3120 | implemented | Infrastructure-as-code modules / snippets (kind + content). |
-| [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway route definitions (method/public_path/backend_url). |
+| [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway routes + match/ARN + Data API; ApiGatewayManager ServiceGuide. |
 | [`app_manager`](app_manager.md) | Amplify / App Runner | 3125 | implemented | App project metadata (repo_url/build_command). |
 | [`mcp_manager`](mcp_manager.md) | Bedrock Agents (tools) | 3123 | implemented | MCP tool registry (description + input_schema). |
 | [`websocket_manager`](websocket_manager.md) | API Gateway WebSocket | 3131 | implemented | WebSocket channels. |

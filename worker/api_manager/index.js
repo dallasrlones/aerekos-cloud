@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes({ extra: ['SKIP_DB_PROVISION', 'SKIP_WAF'] });
 const { ensureApiRouteColumns } = require('./api/utils/migrations');
 ensureApiRouteColumns();
 const express = require('express');

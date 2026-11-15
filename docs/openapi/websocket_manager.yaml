@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: websocket_manager (API Gateway WebSocket analog)
+  version: 1.0.0
+  description: |
+    Project-scoped channel records, in-process WSS subscribe at /ws,
+    and HTTP publish. Distinct from conductor Socket.IO.
+    Conductor proxy prefix: /api/services/websocket_manager
+servers:
+  - url: http://localhost:3131
+    description: Direct local
+  - url: http://localhost:3000/api/services/websocket_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default app channel when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/publish:
+    post:
+      summary: Publish payload to subscribers by channel name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                channel:
+                  type: string
+                  default: app
+                name:
+                  type: string
+                  description: Alias for channel
+                payload:
+                  description: Message body
+                data:
+                  description: Alias for payload
+      responses:
+        '200':
+          description: '{ ok, delivered, channel }'
+        '400':
+          description: missing project_id
+  /api/v1/channels:
+    post:
+      summary: Create channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                auth_mode:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List channels
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/channels/{id}:
+    get:
+      summary: Get channel
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update channel
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                auth_mode:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete channel
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+  /api/v1/channels/{id}/publish:
+    post:
+      summary: Publish to channel by id
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                payload: {}
+                data: {}
+      responses:
+        '200':
+          description: '{ ok, delivered, channel }'
+        '404':
+          description: channel not found
+  /api/v1/internal/deliver:
+    post:
+      summary: Replica fan-out deliver hook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                channel:
+                  type: string
+                payload: {}
+      responses:
+        '200':
+          description: '{ ok, delivered, channel }'
+  /ws:
+    get:
+      summary: WebSocket upgrade — subscribe with ?project_id=&channel=
+      responses:
+        '101':
+          description: Switching Protocols
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

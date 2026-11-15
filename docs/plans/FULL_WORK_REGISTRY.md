@@ -52,7 +52,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-host_manager` | manager | `worker/host_manager` | pending | | closeout DoD |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | in_progress | | Wave 1 salvage 2791fd9; finish DoD |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | pending | | closeout DoD |
-| `mgr-key_manager` | manager | `worker/key_manager` | done | | Wave 1 closeout on `.wt/mgr-key_manager` (`work/mgr-key_manager`): port 3102 + isLiveness docs, OpenAPI, unit/integration, SDK/CLI/tutorial notes, no prod weak MASTER_KEY |
+| `mgr-key_manager` | manager | `worker/key_manager` | done | | Wave 1 closeout `c8f8c4f` on `.wt/mgr-key_manager` (`work/mgr-key_manager`): port 3102 + isLiveness docs, OpenAPI, unit/integration, SDK/CLI/tutorial notes, no prod weak MASTER_KEY |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | pending | | closeout DoD |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | pending | | closeout DoD |
 | `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |

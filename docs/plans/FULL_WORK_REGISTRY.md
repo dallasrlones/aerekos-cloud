@@ -73,7 +73,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-storage_manager` | manager | `worker/storage_manager` | done | live proxy manual | Wave 1 closeout 88291cb/234ffa2; 110 tests |
 | `mgr-system_manager` | manager | `worker/system_manager` | in_progress |  | Wave 7 |
 | `mgr-trace_manager` | manager | `worker/trace_manager` | in_progress |  | Wave 7 |
-| `mgr-transfer_manager` | manager | `worker/transfer_manager` | done | live e2e needs conductor; storage put/get + no live SFTP | Wave 7 closeout; 10 tests |
+| `mgr-transfer_manager` | manager | `worker/transfer_manager` | done | live e2e needs conductor; storage put/get + no live SFTP | Wave 7 closeout ce6aa35b; 10 tests |
 | `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | in_progress |  | Wave 7 |
 | `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout cbe5f91; 8 tests |
 | `mgr-vpn_manager` | manager | `worker/vpn_manager` | in_progress |  | Wave 7 |

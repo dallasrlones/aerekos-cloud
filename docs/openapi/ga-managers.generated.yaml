@@ -834,57 +834,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/sms_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/sms_manager/api/v1/messages:
-    post:
-      summary: Create a queued message
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List messages (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/sms_manager/api/v1/messages/{id}:
-    get:
-      summary: Get one message
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a message
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a message
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/sms_manager/api/v1/messages/{id}/send:
-    post:
-      summary: Attempt SMS send / stay queued without secrets
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/sms_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/sms_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/slack_manager/api/v1/info:
     get:
       summary: Service metadata (info)
@@ -931,63 +880,6 @@ paths:
         '200':
           description: Success (shape varies by manager)
   /api/services/slack_manager/ready:
-    get:
-      summary: Readiness
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed all-clear incident if missing
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/api/v1/public:
-    get:
-      summary: Public status aggregate (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/api/v1/incidents:
-    post:
-      summary: Create an incident
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List incidents (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/api/v1/incidents/{id}:
-    get:
-      summary: Get one incident
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update an incident
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete an incident
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/status_manager/ready:
     get:
       summary: Readiness
       responses:
@@ -1056,69 +948,70 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/info:
+  /api/services/trace_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/tasks:
+  /api/services/trace_manager/api/v1/ensure-defaults:
     post:
-      summary: Create a maintenance task
+      summary: Seed sample trace if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/trace_manager/v1/traces:
+    post:
+      summary: OTLP HTTP ingest
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/trace_manager/api/v1/spans:
+    get:
+      summary: List stored spans
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/trace_manager/api/v1/query:
+    get:
+      summary: Query spans
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/trace_manager/api/v1/traces:
+    post:
+      summary: Create a trace
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List tasks (?project_id=)
+      summary: List traces (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/tasks/{id}:
+  /api/services/trace_manager/api/v1/traces/{id}:
     get:
-      summary: Get one task
+      summary: Get one trace
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a task
+      summary: Update a trace
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a task
+      summary: Delete a trace
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/tasks/{id}/run:
-    post:
-      summary: Run task from spec_json (image or url)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/hosts/{workerId}/check:
-    get:
-      summary: Host OS/Docker freshness (conductor proxy)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    post:
-      summary: Re-probe host OS/Docker
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/system_manager/api/v1/hosts/{workerId}/update:
-    post:
-      summary: Update host OS or Docker ({ target })
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/system_manager/health:
+  /api/services/trace_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/system_manager/ready:
+  /api/services/trace_manager/ready:
     get:
       summary: Readiness
       responses:

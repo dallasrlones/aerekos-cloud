@@ -51,8 +51,6 @@ router.get('/info', (req, res) => {
   });
 });
 
-router.post('/v1/traces', ingestTraces);
-
 router.get('/spans', wrap(async (req, res) => {
   res.json({ spans: spans.list({
     project_id: projectId(req),

@@ -796,12 +796,21 @@ const managers = [
   },
   {
     name: 'trace_manager', aws: 'X-Ray', category: 'Observability', port: 3143, status: 'implemented',
-    summary: 'OTLP/HTTP ingest plus span list/query in SQLite.',
+    summary: 'OTLP/HTTP ingest + traces CRUD + span query (SQLite); live e2e parked; ManagerConsole (no ServiceGuide); no prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'traces' }, capabilities: ["tracing"],
     endpoints: [
+      { method: 'GET', path: '/health', summary: 'Liveness (SQLite)' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed sample trace if missing' },
       { method: 'POST', path: '/v1/traces', summary: 'OTLP HTTP ingest' },
       { method: 'GET', path: '/api/v1/spans', summary: 'List stored spans' },
-      { method: 'GET', path: '/api/v1/query', summary: 'Query spans' }
+      { method: 'GET', path: '/api/v1/query', summary: 'Query spans' },
+      { method: 'POST', path: '/api/v1/traces', summary: 'Create a trace' },
+      { method: 'GET', path: '/api/v1/traces', summary: 'List traces (?project_id=)' },
+      { method: 'GET', path: '/api/v1/traces/:id', summary: 'Get one trace' },
+      { method: 'PATCH', path: '/api/v1/traces/:id', summary: 'Update a trace' },
+      { method: 'DELETE', path: '/api/v1/traces/:id', summary: 'Delete a trace' }
     ]
   },
   {

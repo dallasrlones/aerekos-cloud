@@ -228,15 +228,24 @@ const managers = [
   },
   {
     name: 'network_manager', aws: 'VPC', category: 'Compute', port: 3103, status: 'implemented',
-    summary: 'Per-project Docker bridge networks with stable names. Attach service containers for isolation.',
+    summary: 'Per-project Docker bridge networks with stable names. Attach service containers for isolation. Mesh helpers optional.',
     proxyBase: '/api/v1', capabilities: ['networking', 'docker-networks'],
     endpoints: [
-      { method: 'POST', path: '/api/v1/networks', summary: 'Create a network' },
+      { method: 'GET', path: '/health', summary: 'Liveness' },
+      { method: 'GET', path: '/ready', summary: 'Readiness' },
+      { method: 'GET', path: '/api/v1/info', summary: 'Service metadata' },
+      { method: 'POST', path: '/api/v1/networks', summary: 'Create a network (bridge only)' },
       { method: 'GET', path: '/api/v1/networks', summary: 'List networks' },
       { method: 'GET', path: '/api/v1/networks/:id', summary: 'Get a network' },
-      { method: 'DELETE', path: '/api/v1/networks/:id', summary: 'Delete a network' }
+      { method: 'DELETE', path: '/api/v1/networks/:id', summary: 'Delete a network' },
+      { method: 'POST', path: '/api/v1/networks/ensure-default', summary: 'Ensure logical default network' },
+      { method: 'GET', path: '/api/v1/mesh', summary: 'Headscale mesh status' },
+      { method: 'POST', path: '/api/v1/mesh/preauth', summary: 'Mint mesh preauth key' }
     ],
-    env: [{ name: 'SKIP_DOCKER', default: '0', desc: 'Metadata-only mode' }]
+    env: [
+      { name: 'SKIP_DOCKER', default: '0', desc: 'Metadata-only mode (tests only; refused in production)' },
+      { name: 'HEADSCALE_URL', default: '', desc: 'Optional Headscale control plane URL' }
+    ]
   },
 
   // --- Observability -------------------------------------------------------

@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: network_manager (VPC analog)
+  version: 1.0.0
+  description: |
+    Project-scoped Docker bridge networks (VPC-lite) plus optional Headscale mesh helpers.
+    Conductor proxy prefix: /api/services/network_manager
+    SKIP_DOCKER=1 is test-only; refused when NODE_ENV=production.
+servers:
+  - url: http://localhost:3103
+    description: Direct local
+  - url: http://localhost:3000/api/services/network_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/networks:
+    post:
+      summary: Create a project network (bridge only in MVP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                driver:
+                  type: string
+                  default: bridge
+                  description: Only bridge is implemented (host/overlay → 501)
+      responses:
+        '201':
+          description: '{ network }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+        '501':
+          description: non-bridge driver
+    get:
+      summary: List networks for a project
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ networks }'
+        '400':
+          description: missing project_id
+  /api/v1/networks/ensure-default:
+    post:
+      summary: Ensure a logical network named default exists
+      parameters:
+        - $ref: '#/components/parameters/projectIdOptional'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ network }'
+  /api/v1/networks/{id}:
+    get:
+      summary: Get one network
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ network }'
+        '404':
+          description: not found
+    delete:
+      summary: Delete Docker network (unless SKIP_DOCKER) and DB row
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/mesh:
+    get:
+      summary: Headscale mesh status (enabled when HEADSCALE_URL set)
+      responses:
+        '200':
+          description: '{ enabled, login_server, base_domain, nodes }'
+  /api/v1/mesh/preauth:
+    post:
+      summary: Mint a preauth key (shown once)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: '{ id, preauth_key, shown_once, tags }'
+  /api/v1/mesh/preauth/{id}/revoke:
+    post:
+      summary: Revoke a preauth record (refuses tag:worker/platform unless force)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+      responses:
+        '200':
+          description: '{ revoked, id }'
+        '403':
+          description: fleet mesh node protected
+        '404':
+          description: not found
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string
+    projectIdOptional:
+      in: query
+      name: project_id
+      required: false
+      schema:
+        type: string

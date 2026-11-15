@@ -328,6 +328,64 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/networks:
+    post:
+      summary: Create a project Docker bridge network
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List networks (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/networks/ensure-default:
+    post:
+      summary: Ensure logical network named default
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/networks/{id}:
+    get:
+      summary: Get one network
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete network
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/mesh:
+    get:
+      summary: Headscale mesh status
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/api/v1/mesh/preauth:
+    post:
+      summary: Mint mesh preauth key
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/network_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)

@@ -885,6 +885,22 @@ const managers = [
     summary: 'Push subscriptions. Send when FCM secret exists; otherwise queue-only.',
     proxyBase: '/api/v1', crud: { segment: 'subscriptions' }, capabilities: ["push"],
     needsKeys: 'Queued only this pass. Do not retry live FCM send.'
+  },
+  {
+    name: 'notify_manager', aws: 'SNS / SES / Chatbot', category: 'Integrations', port: 3154, status: 'needs-keys',
+    summary: 'Unified notify facade (W9a): messages + channels CRUD; send/test via MockProvider by default. Legacy email/sms/slack/push stay until Phase 2. ManagerConsole (no ServiceGuide).',
+    proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['notify', 'transactional', 'alerts'],
+    needsKeys: 'Mock/queue-only without channel secrets. Do not retry live send in e2e without keys. Live conductor e2e parked.',
+    endpoints: [
+      { method: 'GET', path: '/api/v1/providers', summary: 'List channel providers' },
+      { method: 'POST', path: '/api/v1/test', summary: 'Facade test send (mock by default)' },
+      { method: 'POST', path: '/api/v1/messages/:id/send', summary: 'Send via facade / stay queued' },
+      { method: 'POST', path: '/api/v1/channels', summary: 'Create a channel config ({ project_id, name, ... })' },
+      { method: 'GET', path: '/api/v1/channels', summary: 'List channels (?project_id=)' },
+      { method: 'GET', path: '/api/v1/channels/:id', summary: 'Get one channel' },
+      { method: 'PATCH', path: '/api/v1/channels/:id', summary: 'Update a channel' },
+      { method: 'DELETE', path: '/api/v1/channels/:id', summary: 'Delete a channel' }
+    ]
   }
 ];
 

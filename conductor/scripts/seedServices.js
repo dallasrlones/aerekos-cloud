@@ -159,7 +159,8 @@ async function seedServices() {
       { name: 'status_manager', docker_image: 'aerekos-status_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3150': '3150' } }) },
       { name: 'cluster_manager', docker_image: 'aerekos-cluster_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3151': '3151' } }) },
       { name: 'vector_manager', docker_image: 'aerekos-vector_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3152': '3152' } }) },
-      { name: 'push_manager', docker_image: 'aerekos-push_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3153': '3153' } }) }
+      { name: 'push_manager', docker_image: 'aerekos-push_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3153': '3153' } }) },
+      { name: 'notify_manager', docker_image: 'aerekos-notify_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3154': '3154' } }) }
     ];
 
     console.log('Seeding services...');
@@ -333,7 +334,8 @@ async function ensureMissingDefaultServices() {
     { name: 'status_manager', docker_image: 'aerekos-status_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3150': '3150' } }) },
     { name: 'cluster_manager', docker_image: 'aerekos-cluster_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3151': '3151' } }) },
     { name: 'vector_manager', docker_image: 'aerekos-vector_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3152': '3152' } }) },
-    { name: 'push_manager', docker_image: 'aerekos-push_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3153': '3153' } }) }
+    { name: 'push_manager', docker_image: 'aerekos-push_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3153': '3153' } }) },
+    { name: 'notify_manager', docker_image: 'aerekos-notify_manager:latest', enabled: 0, config: JSON.stringify({ ports: { '3154': '3154' } }) }
   ];
   for (const serviceData of servicesToSeed) {
     const existing = await Service.findAll({ where: { name: serviceData.name } });

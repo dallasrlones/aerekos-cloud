@@ -33,7 +33,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | Service | Port | Main route | Without keys you get |
 |---------|------|------------|----------------------|
 | `metrics_manager` | 3105 | `/api/v1/series` | Stored metric samples |
-| `security_manager` | 3108 | `/api/v1/findings` | Security finding rows |
+| `security_manager` | 3108 | `/api/v1/findings` + `POST …/scan` | Findings CRUD; metadata-only scan (no live scanner) |
 | `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |

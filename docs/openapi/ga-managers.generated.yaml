@@ -954,6 +954,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/security_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/security_manager/api/v1/findings:
+    post:
+      summary: Create a finding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List findings (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/security_manager/api/v1/findings/scan:
+    post:
+      summary: Metadata-only scan note (no live scanner)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/security_manager/api/v1/findings/{id}:
+    get:
+      summary: Get one finding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a finding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a finding
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/security_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/security_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/storage_manager/api/info:
     get:
       summary: Service metadata (info)

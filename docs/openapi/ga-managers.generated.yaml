@@ -106,57 +106,6 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/config_manager/api/v1/info:
-    get:
-      summary: Service metadata (info)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/config_manager/api/v1/ensure-defaults:
-    post:
-      summary: Seed default app namespace if empty
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/config_manager/api/v1/namespaces:
-    post:
-      summary: Create a namespace
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    get:
-      summary: List namespaces (?project_id=)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/config_manager/api/v1/namespaces/{id}:
-    get:
-      summary: Get one namespace
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    patch:
-      summary: Update a namespace
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-    delete:
-      summary: Delete a namespace
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/config_manager/api/v1/evaluate:
-    post:
-      summary: Evaluate flags from stored namespaces
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/config_manager/health:
-    get:
-      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
-      responses:
-        '200':
-          description: Success (shape varies by manager)
   /api/services/compute_manager/api/v1/deployments/{id}:
     put:
       summary: Apply declarative Deployment
@@ -346,7 +295,18 @@ paths:
           description: Success (shape varies by manager)
   /api/services/key_manager/api/keys/{name}:
     get:
-      summary: Get a key (no secret material)
+      summary: Get a key (includes key_material for authorized callers)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a key (all versions)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/api/keys/{name}/archive:
+    post:
+      summary: Archive a key (mark inactive)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -359,6 +319,12 @@ paths:
   /api/services/key_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/key_manager/ready:
+    get:
+      summary: Readiness (DB + MASTER_KEY); conductor proxy skips projectId (isLiveness)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -439,12 +405,12 @@ paths:
           description: Success (shape varies by manager)
   /api/services/secrets_manager/api/v1/secrets:
     post:
-      summary: "Create a secret ({ name, value })"
+      summary: "Create a secret ({ name, value }, optional environment)"
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List secrets (no values)
+      summary: List secrets (no values; optional environment)
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -461,6 +427,12 @@ paths:
           description: Success (shape varies by manager)
     delete:
       summary: Delete a secret
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/secrets_manager/api/v1/secrets/values:
+    get:
+      summary: Name→plaintext map for an environment
       responses:
         '200':
           description: Success (shape varies by manager)
@@ -524,6 +496,12 @@ paths:
   /api/services/storage_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/storage_manager/ready:
+    get:
+      summary: Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)
       responses:
         '200':
           description: Success (shape varies by manager)

@@ -1,0 +1,169 @@
+openapi: 3.0.3
+info:
+  title: balancer_manager (ELB analog)
+  version: 1.0.0
+  description: |
+    Project-scoped load-balancer target hints (addresses + optional health probes).
+    No cloud LB provisioning in MVP. Conductor proxy prefix: /api/services/balancer_manager
+    SKIP_HEALTH / SKIP_DOCKER are test-only; refused when NODE_ENV=production.
+servers:
+  - url: http://localhost:3109
+    description: Direct local
+  - url: http://localhost:3000/api/services/balancer_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/targets:
+    post:
+      summary: Create a target hint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                address:
+                  type: string
+                  description: http(s) base for health probes
+                pool:
+                  type: string
+                weight:
+                  type: string
+                health_check_path:
+                  type: string
+                  default: /health
+                health_check_interval:
+                  type: number
+                  default: 15
+                desired:
+                  type: number
+                  default: 1
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List targets for a project
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ items }'
+        '400':
+          description: missing project_id
+  /api/v1/targets/health:
+    get:
+      summary: Probe health for all (or pool-filtered) targets
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - in: query
+          name: pool
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items, healthy_host_count, total }'
+  /api/v1/targets/{id}:
+    get:
+      summary: Get one target
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a target
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a target (same as PATCH)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a target
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/targets/{id}/health:
+    get:
+      summary: Probe health for one target
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ items, healthy_host_count, total }'
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

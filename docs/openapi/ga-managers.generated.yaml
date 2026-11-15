@@ -106,6 +106,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets:
+    post:
+      summary: Create a target hint
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List targets (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets/health:
+    get:
+      summary: Probe target health (optional ?pool=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets/{id}:
+    get:
+      summary: Get one target
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a target
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a target
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/api/v1/targets/{id}/health:
+    get:
+      summary: Probe one target health
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/balancer_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/code_as_infra/api/v1/info:
     get:
       summary: Service metadata (info)

@@ -37,7 +37,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |
-| `sms_manager` | 3114 | `/api/v1/messages` + `POST …/send` | Messages CRUD; Twilio send when keys exist else queue-only |
+| `sms_manager` | 3114 | `/api/v1/messages` | Queued; outbound send disabled |
 | `slack_manager` | 3115 | `/api/v1/messages` + `POST …/send` | Messages CRUD; Slack send when keys exist else queue-only |
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
@@ -50,7 +50,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `api_manager` | 3124 | `/api/v1/endpoints` | Gateway route definitions |
 | `app_manager` | 3125 | `/api/v1/apps` | App metadata + FE scaffold; deploy via compute/cicd/tunnel |
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
-| `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Tasks CRUD + host OS/Docker check/update (conductor proxy); live e2e parked; no prod SKIP_HOST_PATCH |
+| `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |
 | `worker_manager` | 3128 | `/api/v1/annotations` | Worker/fleet labels + sync from Devices |
 | `backup_manager` | 3134 | `/api/v1/jobs` | Snapshots into `aerekos-backups` + restore |
 | `workflow_manager` | 3135 | `/api/v1/machines` | State machines subset; outbound notify skipped; tutorial none |
@@ -60,11 +60,10 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `iot_manager` | 3140 | `/api/v1/things` + `/publish` | Things CRUD + websocket fan-out; MQTT broker parked |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
-| `trace_manager` | 3143 | `/api/v1/traces` + `POST /v1/traces`; no prod mocks | OTLP ingest + traces CRUD + span query; live e2e parked |
+| `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |
 | `search_manager` | 3144 | `/api/v1/indexes` + `/index` + `/query` | Indexes CRUD + FTS5 hits; live e2e parked; no prod mocks |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
-| `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
-| `status_manager` | 3150 | `/api/v1/incidents` + `/public` | Incidents CRUD + public aggregate; live e2e parked; no prod mocks |
+| `transfer_manager` | 3148 | `/api/v1/endpoints` + put/get | Endpoints CRUD + storage copy; no live SFTP; live e2e parked; no prod mocks |
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `websocket_manager` | 3131 | `/api/v1/channels` + WSS `/ws` | Channel CRUD + HTTP publish; not conductor Socket.IO |
 | `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |

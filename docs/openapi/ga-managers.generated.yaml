@@ -948,70 +948,64 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/info:
+  /api/services/transfer_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/ensure-defaults:
+  /api/services/transfer_manager/api/v1/ensure-defaults:
     post:
-      summary: Seed sample trace if missing
+      summary: Seed default sftp endpoint if missing
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/v1/traces:
+  /api/services/transfer_manager/api/v1/endpoints:
     post:
-      summary: OTLP HTTP ingest
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/spans:
-    get:
-      summary: List stored spans
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/query:
-    get:
-      summary: Query spans
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/traces:
-    post:
-      summary: Create a trace
+      summary: Create an endpoint
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List traces (?project_id=)
+      summary: List endpoints (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/api/v1/traces/{id}:
+  /api/services/transfer_manager/api/v1/endpoints/{id}:
     get:
-      summary: Get one trace
+      summary: Get one endpoint
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a trace
+      summary: Update an endpoint
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a trace
+      summary: Delete an endpoint
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/health:
+  /api/services/transfer_manager/api/v1/endpoints/{id}/put:
+    post:
+      summary: Write an object via storage_manager (needs CONDUCTOR_URL)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/transfer_manager/api/v1/endpoints/{id}/get:
+    post:
+      summary: Read an object via storage_manager (needs CONDUCTOR_URL)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/transfer_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/trace_manager/ready:
+  /api/services/transfer_manager/ready:
     get:
       summary: Readiness
       responses:

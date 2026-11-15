@@ -3,6 +3,7 @@ process.env.NODE_ENV = 'test'; process.env.SKIP_SERVICE_REGISTRATION = 'true';
 process.env.SKIP_DOWNLOAD = '1'; process.env.SKIP_TORRENT = '1'; process.env.SKIP_INVOKE = '1';
 process.env.SKIP_POLLER = '1'; process.env.SKIP_OUTBOUND = '1'; process.env.SKIP_BROKER = '1';
 process.env.SKIP_BACKUP = '1'; process.env.SKIP_ACME = '1'; process.env.SKIP_HEAL = '1';
+process.env.SKIP_PUSH = '1';
 if (!process.env.DATABASE_PATH) {
   const dir = path.join(os.tmpdir(), 'aerekos-push_manager-tests');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

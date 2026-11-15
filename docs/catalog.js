@@ -862,10 +862,14 @@ const managers = [
     ]
   },
   {
-    name: 'push_manager', aws: 'SNS mobile', category: 'Integrations', port: 3153, status: 'implemented',
-    summary: 'Push subscriptions. Send when FCM secret exists; otherwise queue-only.',
+    name: 'push_manager', aws: 'SNS mobile', category: 'Integrations', port: 3153, status: 'needs-keys',
+    summary: 'Subscriptions CRUD + send. FCM when secret exists; otherwise queue-only. ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'subscriptions' }, capabilities: ["push"],
-    needsKeys: 'Queued only this pass. Do not retry live FCM send.'
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default subscription if missing' },
+      { method: 'POST', path: '/api/v1/send', summary: 'Attempt FCM send / stay queued (SKIP_PUSH / missing FCM → queue_only)' }
+    ],
+    needsKeys: 'Queued without FCM secrets. Do not retry live FCM send in e2e without keys.'
   }
 ];
 

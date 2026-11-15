@@ -720,6 +720,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/push_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default subscription if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/api/v1/send:
+    post:
+      summary: Attempt FCM send / stay queued
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/api/v1/subscriptions:
+    post:
+      summary: Create a subscription
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List subscriptions (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/api/v1/subscriptions/{id}:
+    get:
+      summary: Get one subscription
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a subscription
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a subscription
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/push_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/queue_manager/api/v1/info:
     get:
       summary: Service metadata (info)

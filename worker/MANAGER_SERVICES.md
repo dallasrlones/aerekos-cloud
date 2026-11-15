@@ -66,7 +66,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |
 | `websocket_manager` | 3131 | `/api/v1/channels` + WSS `/ws` | Channel CRUD + HTTP publish; not conductor Socket.IO |
-| `push_manager` | 3153 | `/api/v1/subscriptions` | Queued; outbound send disabled |
+| `push_manager` | 3153 | `/api/v1/subscriptions` + `/send` | Subscriptions CRUD + FCM send when keyed; else queue-only (`needs-keys`) |
 
 **Core (not in P4 table):** worker agent (3001).
 

@@ -59,7 +59,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759/870a48e; 12 tests |
 | `mgr-notebook_manager` | manager | `worker/notebook_manager` | in_progress |  | Wave 6 |
 | `mgr-notify_manager` | manager | `worker/notify_manager` | in_progress |  | Wave 6 |
-| `mgr-push_manager` | manager | `worker/push_manager` | in_progress |  | Wave 6 |
+| `mgr-push_manager` | manager | `worker/push_manager` | done | live e2e needs conductor; FCM keys parked | Wave 6 closeout d4fce8e8; 13 tests |
 | `mgr-query_manager` | manager | `worker/query_manager` | in_progress |  | Wave 6 |
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | done | live e2e needs conductor | Wave 3 closeout ef6dd9b; 12 tests |

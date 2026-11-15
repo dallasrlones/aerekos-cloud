@@ -72,7 +72,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`sms_manager`](sms_manager.md) | SNS SMS | 3114 | needs-keys | SMS messages (to_number/body). |
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Slack posts (channel/text). |
 | [`event_manager`](event_manager.md) | EventBridge | 3132 | implemented | Buses/rules + put events; ManagerConsole (no ServiceGuide). |
-| [`push_manager`](push_manager.md) | SNS mobile | 3153 | implemented | Push subscriptions. |
+| [`push_manager`](push_manager.md) | SNS mobile | 3153 | needs-keys | Subscriptions CRUD + send (queue without FCM); ManagerConsole (no ServiceGuide). |
 
 ## Dev tools
 

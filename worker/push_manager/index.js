@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+// SKIP_PUSH / SKIP_OUTBOUND force queue-only send in tests/dev — refused in production.
+assertNoSkipFakes({ extra: ['SKIP_PUSH', 'SKIP_OUTBOUND'] });
 require('./api/models');
 const db = require('./api/utils/dbClient');
 const { createManagerApp } = require('../shared/managerBootstrap');

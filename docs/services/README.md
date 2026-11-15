@@ -36,10 +36,10 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Stored metric samples (name/value/labels). |
 | [`security_manager`](security_manager.md) | Security Hub | 3108 | implemented | Findings CRUD + metadata-only scan; ManagerConsole (no ServiceGuide); no prod mocks. |
 | [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events (event/value/properties). |
-| [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP ingest + traces CRUD + span query; live e2e parked; no prod mocks. |
+| [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP/HTTP ingest plus span list/query in SQLite. |
 | [`query_manager`](query_manager.md) | Athena | 3145 | implemented | Query defs CRUD + per-project SQLite `/sql`; Athena analog; no prod SKIP_DUCKDB. |
 | [`audit_manager`](audit_manager.md) | CloudTrail | 3149 | implemented | Audit events. |
-| [`status_manager`](status_manager.md) | Statuspage | 3150 | implemented | Incidents CRUD + /public aggregate; Statuspage analog; live e2e parked; no prod mocks. |
+| [`status_manager`](status_manager.md) | Statuspage | 3150 | implemented | Status incidents. |
 
 ## Identity
 
@@ -55,13 +55,13 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Tunnel CRUD + ingress; tutorial none; no prod mocks. |
+| [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Create/delete Cloudflare tunnels (cloudflared) from the edge to private origins. |
 | [`domain_manager`](domain_manager.md) | Route 53 | 3111 | needs-keys | Cloudflare DNS + hostnames; tutorial none; no prod mocks. |
 | [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | Cache rules CRUD + CF purge; Cache Rulesets write parked. |
 | [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |
 | [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | Things CRUD + publish (websocket fan-out); MQTT parked; ManagerConsole (no ServiceGuide). |
-| [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | WAF rules. |
-| [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Peers CRUD + Headscale preauth when URL/key set; otherwise not-hooked-up; no prod mocks. |
+| [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | Rules CRUD + local evaluate; live e2e parked; ManagerConsole (no ServiceGuide). |
+| [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Headscale preauth keys when HEADSCALE_URL is set; otherwise not-hooked-up. |
 
 ## Integrations
 
@@ -69,7 +69,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`webhook_manager`](webhook_manager.md) | EventBridge / SNS (HTTP) | 3112 | implemented | Outbound webhooks: endpoints with secret + headers, and a dispatch action. |
 | [`email_manager`](email_manager.md) | SES | 3113 | needs-keys | Messages CRUD + send (queue without SMTP); ManagerConsole (no ServiceGuide). |
-| [`sms_manager`](sms_manager.md) | SNS SMS | 3114 | needs-keys | Messages CRUD + send (queue without Twilio keys); ManagerConsole (no ServiceGuide). |
+| [`sms_manager`](sms_manager.md) | SNS SMS | 3114 | needs-keys | SMS messages (to_number/body). |
 | [`slack_manager`](slack_manager.md) | Chatbot | 3115 | needs-keys | Messages CRUD + send (queue without Slack keys); ManagerConsole (no ServiceGuide). |
 | [`event_manager`](event_manager.md) | EventBridge | 3132 | implemented | Buses/rules + put events; ManagerConsole (no ServiceGuide). |
 | [`push_manager`](push_manager.md) | SNS mobile | 3153 | needs-keys | Subscriptions CRUD + send (queue without FCM); ManagerConsole (no ServiceGuide). |
@@ -103,7 +103,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`host_manager`](host_manager.md) | EC2 / SSM inventory | 3122 | implemented | Hosts CRUD + sync from `/api/workers`; ManagerConsole (no ServiceGuide). |
 | [`worker_manager`](worker_manager.md) | SSM fleet / tags | 3128 | implemented | Worker/fleet labels synced from conductor /api/workers. |
-| [`system_manager`](system_manager.md) | Systems Manager | 3127 | implemented | Tasks CRUD + host OS/Docker check/update via conductor proxy; SSM analog; no prod SKIP_HOST_PATCH. |
+| [`system_manager`](system_manager.md) | Systems Manager | 3127 | implemented | Fleet patch board plus host OS/Docker check and update. |
 
 ## Storage & Content
 
@@ -111,7 +111,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`download_manager`](download_manager.md) | MediaConvert + ingest | 3133 | implemented | Lists/items + qbit/yt-dlp; DownloadManager screen (no ServiceGuide). |
 | [`backup_manager`](backup_manager.md) | AWS Backup | 3134 | implemented | Backup vaults and snapshot jobs into the aerekos-backups bucket. |
-| [`transfer_manager`](transfer_manager.md) | Transfer Family | 3148 | implemented | Endpoints CRUD + put/get via storage_manager (no live SFTP); live e2e parked; ManagerConsole (no ServiceGuide). |
+| [`transfer_manager`](transfer_manager.md) | Transfer Family | 3148 | implemented | SFTP endpoints that put/get objects through storage_manager. |
 
 ## Management
 

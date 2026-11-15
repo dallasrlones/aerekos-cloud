@@ -948,64 +948,58 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/info:
+  /api/services/waf_manager/api/v1/info:
     get:
       summary: Service metadata (info)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/status:
-    get:
-      summary: Headscale hookup status
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/ensure-defaults:
+  /api/services/waf_manager/api/v1/ensure-defaults:
     post:
-      summary: Seed default laptop peer if missing
+      summary: Seed default-rate rule if missing
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/peers:
+  /api/services/waf_manager/api/v1/evaluate:
     post:
-      summary: Create a peer
+      summary: Local allow/block from stored rules (not cloud WAF)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/rules:
+    post:
+      summary: Create a rule
       responses:
         '200':
           description: Success (shape varies by manager)
     get:
-      summary: List peers (?project_id=)
+      summary: List rules (?project_id=)
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/peers/{id}:
+  /api/services/waf_manager/api/v1/rules/{id}:
     get:
-      summary: Get one peer
+      summary: Get one rule
       responses:
         '200':
           description: Success (shape varies by manager)
     patch:
-      summary: Update a peer
+      summary: Update a rule
       responses:
         '200':
           description: Success (shape varies by manager)
     delete:
-      summary: Delete a peer
+      summary: Delete a rule
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/api/v1/preauth-keys:
-    post:
-      summary: Create a Headscale preauth key (or not-hooked-up)
-      responses:
-        '200':
-          description: Success (shape varies by manager)
-  /api/services/vpn_manager/health:
+  /api/services/waf_manager/health:
     get:
       summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
       responses:
         '200':
           description: Success (shape varies by manager)
-  /api/services/vpn_manager/ready:
+  /api/services/waf_manager/ready:
     get:
       summary: Readiness
       responses:

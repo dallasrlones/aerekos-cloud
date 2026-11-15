@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: waf_manager (WAF analog)
+  version: 1.0.0
+  description: |
+    Project-scoped WAF rule rows (name/action/cidr/path/rate) with CRUD
+    /api/v1/rules, ensure-defaults, and POST /api/v1/evaluate (local matcher:
+    exact cidr string equality and path prefix — not Cloudflare/AWS WAF).
+    Conductor proxy prefix: /api/services/waf_manager
+    No production skip-fake flags; assertNoSkipFakes() + createManagerApp on boot.
+servers:
+  - url: http://localhost:3146
+    description: Direct local
+  - url: http://localhost:3000/api/services/waf_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default-rate rule when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/evaluate:
+    post:
+      summary: Local rule evaluate (exact cidr / path prefix; not cloud WAF)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                ip:
+                  type: string
+                path:
+                  type: string
+      responses:
+        '200':
+          description: '{ action, matched }'
+  /api/v1/rules:
+    post:
+      summary: Create a rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                action:
+                  type: string
+                cidr:
+                  type: string
+                path:
+                  type: string
+                rate:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id/name
+        '409':
+          description: name taken
+    get:
+      summary: List rules
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/rules/{id}:
+    get:
+      summary: Get one rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                action:
+                  type: string
+                cidr:
+                  type: string
+                path:
+                  type: string
+                rate:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a rule (same as PATCH)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a rule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'

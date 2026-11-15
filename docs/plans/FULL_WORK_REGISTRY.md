@@ -70,7 +70,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-slack_manager` | manager | `worker/slack_manager` | pending | | closeout DoD |
 | `mgr-sms_manager` | manager | `worker/sms_manager` | pending | | closeout DoD |
 | `mgr-status_manager` | manager | `worker/status_manager` | pending | | closeout DoD |
-| `mgr-storage_manager` | manager | `worker/storage_manager` | done | | Wave 1 closeout on `work/mgr-storage_manager` (salvage e249d5e); health/proxy + `/api/info`, OpenAPI, SDK `client.storage`, tests, no prod mocks; live proxy checklist manual |
+| `mgr-storage_manager` | manager | `worker/storage_manager` | done | | Wave 1 closeout 88291cb on `work/mgr-storage_manager` (salvage e249d5e); health/proxy + `/api/info`, OpenAPI, SDK `client.storage`, tests 110, no prod mocks; live proxy checklist manual |
 | `mgr-system_manager` | manager | `worker/system_manager` | pending | | closeout DoD |
 | `mgr-trace_manager` | manager | `worker/trace_manager` | pending | | closeout DoD |
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | pending | | closeout DoD |

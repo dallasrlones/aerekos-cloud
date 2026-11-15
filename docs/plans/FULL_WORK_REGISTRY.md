@@ -31,7 +31,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-audit_manager` | manager | `worker/audit_manager` | in_progress | | Wave 4 |
 | `mgr-auth_manager` | manager | `worker/auth_manager` | done | | Wave 1 closeout 6c8054c; 13 tests |
 | `mgr-backup_manager` | manager | `worker/backup_manager` | in_progress | | Wave 4 |
-| `mgr-balancer_manager` | manager | `worker/balancer_manager` | done | live e2e needs conductor | Wave 4 closeout; health+CRUD+prod-guard tests |
+| `mgr-balancer_manager` | manager | `worker/balancer_manager` | done | live e2e needs conductor | Wave 4 closeout 2ce2108; 13 tests |
 | `mgr-billing_manager` | manager | `worker/billing_manager` | in_progress | | Wave 4 |
 | `mgr-cdn_manager` | manager | `worker/cdn_manager` | in_progress | | Wave 4 |
 | `mgr-cert_manager` | manager | `worker/cert_manager` | in_progress | | Wave 4 |

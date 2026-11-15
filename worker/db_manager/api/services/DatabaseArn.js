@@ -32,7 +32,14 @@ function plainRow(row) {
 function enrichDatabase(row) {
   if (!row) return row;
   const base = plainRow(row);
-  const databaseArn = base.arn || buildDatabaseArn(base.project_id, base.name);
+  let databaseArn = base.arn || null;
+  if (!databaseArn) {
+    try {
+      databaseArn = buildDatabaseArn(base.project_id, base.name);
+    } catch {
+      databaseArn = null;
+    }
+  }
   return {
     ...base,
     arn: databaseArn,
@@ -40,9 +47,13 @@ function enrichDatabase(row) {
   };
 }
 
-/** Strip secrets before API responses. */
-function presentDatabase(row) {
-  const e = enrichDatabase(row);
+/** Strip secrets before API responses. Optional projectIdHint fills missing project_id. */
+function presentDatabase(row, projectIdHint) {
+  const base = plainRow(row) || {};
+  const e = enrichDatabase({
+    ...base,
+    project_id: base.project_id || projectIdHint || undefined,
+  });
   const {
     password_hash: _ph,
     password_encrypted: _pe,

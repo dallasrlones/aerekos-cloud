@@ -39,6 +39,9 @@ class MemorySqlService {
       fileMustExist: false,
       timeout: 5000
     });
+    if (typeof Record.registerMemoryModels !== 'function') {
+      throw new Error('aerekos-record registerMemoryModels is required for memory SQL APIs');
+    }
     const models = Record.registerMemoryModels(db);
     const conn = { dbInstance, databasePath, db, models };
     this._connections.set(cacheKey, conn);

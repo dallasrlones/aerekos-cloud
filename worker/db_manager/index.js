@@ -52,8 +52,8 @@ app.get('/health', async (req, res) => {
 // Readiness check endpoint
 app.get('/ready', async (req, res) => {
   try {
-    // Check key_manager is accessible (REQUIRED)
-    if (process.env.CONDUCTOR_URL) {
+    // key_manager is required unless MOCK_KEY_MANAGER (dev/tests only; refused when NODE_ENV=production)
+    if (process.env.MOCK_KEY_MANAGER !== 'true' && process.env.CONDUCTOR_URL) {
       try {
         const projectId = process.env.PROJECT_ID;
         const url = projectId 

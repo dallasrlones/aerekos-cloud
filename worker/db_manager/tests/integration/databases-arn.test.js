@@ -6,6 +6,10 @@ const PID = 'd57d380d-acfe-49b0-b5a9-ba973892bc8b';
 
 jest.mock('../../api/services/DatabaseService');
 jest.mock('../../api/services/BackupService', () => jest.fn().mockImplementation(() => ({})));
+jest.mock('../../api/middleware/auth', () => (req, res, next) => {
+  req.service = { name: 'test-service' };
+  next();
+});
 jest.mock('../../../shared/authManagerClient', () => ({
   requireAuth: () => (req, res, next) => {
     req.auth = { typ: 'service', sub: 'test' };

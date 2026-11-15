@@ -22,7 +22,7 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`compute_manager`](compute_manager.md) | ECS / Fargate | 3100 | implemented | Run containerized tasks (dockerode): create/list/get/stop/delete project-scoped tasks with port maps and labels. |
 | [`queue_manager`](queue_manager.md) | SQS | 3101 | implemented | Project-scoped queues (SQLite/fifo/rabbitmq/redis_stream); at-least-once + visibility; no capacity-wait auto-create. |
-| [`schedule_manager`](schedule_manager.md) | EventBridge Scheduler | 3102 | implemented | Cron schedules that dispatch to a webhook or a queue. |
+| [`schedule_manager`](schedule_manager.md) | EventBridge Scheduler | 3102 | implemented | Cron → webhook/queue. Port collides with key_manager. Tutorial: none. No prod mocks. |
 | [`network_manager`](network_manager.md) | VPC | 3103 | implemented | Per-project Docker bridge networks with stable names. |
 | [`workflow_manager`](workflow_manager.md) | Step Functions | 3135 | implemented | Run state machines (http, queue, wait, choice, function). |
 | [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Lambda analog. |

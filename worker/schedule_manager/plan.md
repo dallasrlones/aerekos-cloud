@@ -1,9 +1,11 @@
 # Schedule Manager — implementation plan
 
 **Service:** `schedule_manager`  
-**Default port:** 3102  
-**Capabilities (registry):** cron, scheduling, events  
-**Description:** Cron and one-shot schedules; dispatches to HTTP webhooks or queue_manager (EventBridge-like).
+**Default port:** 3102 (**collides with `key_manager` in managerServicePorts / seed — Wave 2 documents; do not silently reassign key**)  
+**Capabilities (registry/catalog):** cron, scheduling, dispatch (manifest still says `events`)  
+**Description:** Cron and one-shot schedules; dispatches to HTTP webhooks or queue_manager (EventBridge-like).  
+**OpenAPI:** `api/openapi.yaml` · pack `docs/openapi/schedule_manager.yaml`  
+**SDK/CLI/tutorial:** generic proxy / `aerekos call` only; no dedicated ServiceGuide.
 
 ## Dependencies
 - **Platform:** Conductor, worker (Docker), optional key_manager / db_manager

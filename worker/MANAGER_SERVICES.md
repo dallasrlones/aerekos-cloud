@@ -16,7 +16,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `db_manager` | 3004 | Managed DB control plane |
 | `compute_manager` | 3100 | ECS-style tasks (dockerode) |
 | `queue_manager` | 3101 | SQS-like |
-| `schedule_manager` | 3102 | Cron + dispatch |
+| `schedule_manager` | 3102 | Cron + dispatch (**collides with key_manager 3102** — documented; do not silently reassign key) |
 | `network_manager` | 3103 | Per-project Docker networks |
 | `logs_manager` | 3104 | Log events |
 | `iam_manager` | 3106 | RBAC (authZ data) |

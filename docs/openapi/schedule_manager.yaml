@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: schedule_manager (EventBridge Scheduler analog)
+  version: 1.0.0
+  description: |
+    Cron schedules that dispatch to an HTTP webhook or queue_manager.
+    Conductor proxy prefix: /api/services/schedule_manager
+
+    Port honesty: default listen port is 3102, same as key_manager in
+    conductor/api/config/managerServicePorts.js. Both services cannot bind
+    3102 on one host simultaneously; reassignment is a fleet follow-up
+    (do not silently change key_manager).
+servers:
+  - url: http://localhost:3102
+    description: Direct local (collides with key_manager on same host)
+  - url: http://localhost:3000/api/services/schedule_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (conductor proxy isLiveness — no projectId)
+      responses:
+        '200':
+          description: '{ status: healthy, service, timestamp }'
+  /ready:
+    get:
+      summary: Readiness / SQLite (conductor proxy isLiveness — no projectId)
+      responses:
+        '200':
+          description: '{ status: ready, service, database: ok }'
+        '503':
+          description: '{ status: not_ready }'
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status: active, description }'
+  /api/v1/schedules:
+    post:
+      summary: Create a schedule (cron + webhook|queue target)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, project_id, cron_expression, action_type]
+              properties:
+                name: { type: string }
+                project_id: { type: string }
+                cron_expression: { type: string }
+                timezone: { type: string, default: UTC }
+                action_type: { type: string, enum: [webhook, queue] }
+                target_url: { type: string }
+                target_queue: { type: string }
+                http_method: { type: string, enum: [GET, POST, HEAD] }
+                message_template: { type: string }
+                request_headers: { type: string, description: JSON string for webhook headers }
+                enabled: { type: boolean }
+      responses:
+        '201':
+          description: '{ schedule }'
+        '400':
+          description: validation error
+    get:
+      summary: List schedules (?project_id=)
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: '{ schedules }'
+  /api/v1/schedules/{id}:
+    get:
+      summary: Get one schedule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: project_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: '{ schedule }'
+        '404':
+          description: not found
+    patch:
+      summary: Partial update
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: '{ schedule }'
+    delete:
+      summary: Delete schedule and unregister cron
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: project_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: deleted
+  /api/v1/schedules/{id}/run:
+    post:
+      summary: Run once now (ops / tests)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id: { type: string }
+      responses:
+        '200':
+          description: '{ success, ... }'

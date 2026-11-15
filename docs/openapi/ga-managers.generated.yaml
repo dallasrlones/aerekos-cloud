@@ -391,6 +391,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/schedule_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/schedule_manager/api/v1/schedules:
+    post:
+      summary: Create a schedule (cron + webhook|queue target)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List schedules (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/schedule_manager/api/v1/schedules/{id}:
+    get:
+      summary: Get a schedule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a schedule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a schedule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/schedule_manager/api/v1/schedules/{id}/run:
+    post:
+      summary: Run now
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/schedule_manager/health:
+    get:
+      summary: "Liveness (isLiveness; port 3102 collides with key_manager)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/schedule_manager/ready:
+    get:
+      summary: Readiness (SQLite); conductor proxy skips projectId (isLiveness)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/register:
     post:
       summary: Manager self-registration (service token issued)

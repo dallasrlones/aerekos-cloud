@@ -31,7 +31,7 @@ Counts: **47** GA · **8** needs-keys · **1** preview (managers only).
 | `db_manager` | 3004 | Core | implemented | **GA** | liveness / proxy | — |
 | `compute_manager` | 3100 | Compute | implemented | **GA** | liveness / proxy | — |
 | `queue_manager` | 3101 | Compute | implemented | **GA** | liveness / proxy | — |
-| `schedule_manager` | 3102 | Compute | implemented | **GA** | liveness / proxy | — |
+| `schedule_manager` | 3102 (collides w/ key_manager) | Compute | implemented | **GA** | liveness / proxy (live parked) | — |
 | `network_manager` | 3103 | Compute | implemented | **GA** | liveness / proxy | — |
 | `logs_manager` | 3104 | Observability | implemented | **GA** | liveness / proxy | — |
 | `metrics_manager` | 3105 | Observability | implemented | **GA** | liveness + P4 CRUD round-trip | — |

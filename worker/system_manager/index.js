@@ -1,48 +1,28 @@
+'use strict';
+
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+// Shared skip-fakes (incl. SKIP_HOST_PATCH) refused in production — real host probe lives on the worker.
+assertNoSkipFakes();
 require('./api/models');
 const db = require('./api/utils/dbClient');
-const { registerWithConductor } = require('./api/utils/serviceRegistration');
-const { setupPrometheus } = require('../shared/simplePrometheusMetrics');
-const routes = require('./api/routes');
-const errorHandler = require('./api/middleware/errorHandler');
-const app = express();
-const PORT = parseInt(process.env.PORT || '3127', 10);
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-setupPrometheus(app, { serviceName: 'system_manager' });
-app.get('/health', async (req, res) => {
-  try {
-    const health = await db.healthCheck();
-    if (!health.healthy) {
-      return res.status(503).json({ status: 'unhealthy', service: process.env.SERVICE_NAME || 'system_manager', error: health.error || 'Database check failed', timestamp: new Date().toISOString() });
-    }
-    res.status(200).json({ status: 'healthy', service: process.env.SERVICE_NAME || 'system_manager', timestamp: new Date().toISOString() });
-  } catch (error) {
-    res.status(503).json({ status: 'unhealthy', service: process.env.SERVICE_NAME || 'system_manager', error: error.message, timestamp: new Date().toISOString() });
-  }
+const { createManagerApp } = require('../shared/managerBootstrap');
+const { makeRegister } = require('../shared/serviceRegistration');
+const router = require('./api/routes');
+
+const { app, listen } = createManagerApp({
+  serviceName: 'system_manager',
+  defaultPort: 3127,
+  db,
+  register: makeRegister({
+    serviceName: 'system_manager',
+    defaultPort: 3127,
+    capabilities: ['maintenance', 'tasks'],
+  }),
+  extraSetup: (expressApp) => {
+    expressApp.use('/api/v1', router);
+  },
 });
-app.get('/ready', async (req, res) => {
-  try {
-    const health = await db.healthCheck();
-    if (!health.healthy) {
-      return res.status(503).json({ status: 'not ready', service: process.env.SERVICE_NAME || 'system_manager', error: health.error || 'Database not available', timestamp: new Date().toISOString() });
-    }
-    res.status(200).json({ status: 'ready', service: process.env.SERVICE_NAME || 'system_manager' });
-  } catch (error) {
-    res.status(503).json({ status: 'not ready', error: error.message, timestamp: new Date().toISOString() });
-  }
-});
-app.use('/api/v1', routes);
-app.use(errorHandler);
-if (require.main === module) {
-  app.listen(PORT, async () => {
-    console.log(`[system_manager] listening on ${PORT}`);
-    if (process.env.SKIP_SERVICE_REGISTRATION === 'true') return;
-    if (!process.env.CONDUCTOR_URL) { console.warn('[system_manager] CONDUCTOR_URL not set; skipping registration'); return; }
-    try { await registerWithConductor(); } catch (e) { console.warn('Registration error:', e.message); }
-  });
-}
+
+if (require.main === module) listen();
 module.exports = app;

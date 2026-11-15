@@ -948,6 +948,74 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/tasks:
+    post:
+      summary: Create a maintenance task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List tasks (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/tasks/{id}:
+    get:
+      summary: Get one task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a task
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/tasks/{id}/run:
+    post:
+      summary: Run task from spec_json (image or url)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/hosts/{workerId}/check:
+    get:
+      summary: Host OS/Docker freshness (conductor proxy)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    post:
+      summary: Re-probe host OS/Docker
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/api/v1/hosts/{workerId}/update:
+    post:
+      summary: Update host OS or Docker ({ target })
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/system_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/workflow_manager/api/v1/info:
     get:
       summary: Service metadata (info)

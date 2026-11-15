@@ -50,7 +50,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `api_manager` | 3124 | `/api/v1/endpoints` | Gateway route definitions |
 | `app_manager` | 3125 | `/api/v1/apps` | App metadata + FE scaffold; deploy via compute/cicd/tunnel |
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
-| `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |
+| `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Tasks CRUD + host OS/Docker check/update (conductor proxy); live e2e parked; no prod SKIP_HOST_PATCH |
 | `worker_manager` | 3128 | `/api/v1/annotations` | Worker/fleet labels + sync from Devices |
 | `backup_manager` | 3134 | `/api/v1/jobs` | Snapshots into `aerekos-backups` + restore |
 | `workflow_manager` | 3135 | `/api/v1/machines` | State machines subset; outbound notify skipped; tutorial none |

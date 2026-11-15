@@ -17,10 +17,14 @@ Node SDK and CLI for conductor + catalog-driven manager accessors. **Every conso
 | Catalog sync | `managers.generated.js` from `docs/catalog.js` |
 | Manager accessors | `aerekos {manager} {segment} list|create|get|…` |
 | Generic proxy | `aerekos call {manager} {METHOD} {path}` |
+| Health | `aerekos health [service] [--project P]` |
 | Config | `~/.aerekos/config.json` (mode 0600) |
 | App credentials | **Not implemented** |
 | Shell completion | **Not implemented** |
 | OpenAPI-driven types | **Not implemented** |
+| **`cliParity` (E32)** | **Incomplete** — see [cli-manager-coverage.md](./cli-manager-coverage.md). No manager is `complete`; ~42 partial CRUD, ~15 thin (`call`-only), catalog field not shipped. |
+
+**Coverage audit:** [cli-manager-coverage.md](./cli-manager-coverage.md) (Wave 9 x-cli gap matrix).
 
 ---
 
@@ -98,6 +102,8 @@ aerekos info ai_manager --project $PID  # capabilities, scopes, example curl
 
 ### Phase B — Catalog-driven CLI parity
 
+- [x] Gap matrix + honest `cliParity` notes — [cli-manager-coverage.md](./cli-manager-coverage.md)
+- [x] `aerekos health` + HELP Operate verbs smoke test (`aerekos-sdk/tests/cli-help.test.js`)
 - [ ] Add `tier`, `cliParity`, `appScopes` to `docs/catalog.js`
 - [ ] Generate `aerekos {mgr} {resource} test` when catalog has test endpoint
 - [ ] `aerekos --help` lists all managers with tier badge

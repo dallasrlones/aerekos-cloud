@@ -81,7 +81,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |
 | `mgr-websocket_manager` | manager | `worker/websocket_manager` | pending | | closeout DoD |
 | `mgr-worker_manager` | manager | `worker/worker_manager` | pending | | closeout DoD |
-| `mgr-workflow_manager` | manager | `worker/workflow_manager` | pending | | closeout DoD |
+| `mgr-workflow_manager` | manager | `worker/workflow_manager` | done | live e2e needs conductor | Wave 2 closeout: health/proxy, OpenAPI, integration tests, README+docs honesty, SDK resource + aerekos call, tutorial none; no prod mocks |
 
 ## Cross-cutting
 

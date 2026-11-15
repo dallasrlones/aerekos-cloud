@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: workflow_manager (Step Functions analog)
+  version: 1.0.0
+  description: |
+    Project-scoped state machines (subset of Step Functions).
+    Email/SMS/Slack/push steps are skipped when outbound is disabled.
+    Conductor proxy prefix: /api/services/workflow_manager
+servers:
+  - url: http://localhost:3135
+    description: Direct local
+  - url: http://localhost:3000/api/services/workflow_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed hello machine when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/machines:
+    post:
+      summary: Create a machine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                definition:
+                  type: string
+                  description: JSON string — steps[] or States/StartAt
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List machines
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/machines/{id}:
+    get:
+      summary: Get machine
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+    patch:
+      summary: Update machine
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                definition:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete machine
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+  /api/v1/machines/{id}/run:
+    post:
+      summary: Run a machine (skips email/sms/slack/push when outbound disabled)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                input:
+                  type: object
+      responses:
+        '200':
+          description: '{ item, steps, status }'
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

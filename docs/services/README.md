@@ -23,9 +23,9 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`compute_manager`](compute_manager.md) | ECS / Fargate | 3100 | implemented | Run containerized tasks (dockerode): create/list/get/stop/delete project-scoped tasks with port maps and labels. |
 | [`queue_manager`](queue_manager.md) | SQS | 3101 | implemented | Project-scoped queues (SQLite/fifo/rabbitmq/redis_stream); at-least-once + visibility; no capacity-wait auto-create. |
 | [`schedule_manager`](schedule_manager.md) | EventBridge Scheduler | 3102 | implemented | Cron schedules that dispatch to a webhook or a queue. |
-| [`network_manager`](network_manager.md) | VPC | 3103 | implemented | Per-project Docker bridge networks + optional mesh; OpenAPI pack; no prod mocks. |
-| [`workflow_manager`](workflow_manager.md) | Step Functions | 3135 | implemented | Run state machines (http, queue, wait, choice, function). |
-| [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Lambda analog; sync invoke + EventSource/poller; ServiceGuide. |
+| [`network_manager`](network_manager.md) | VPC | 3103 | implemented | Per-project Docker bridge networks with stable names. |
+| [`workflow_manager`](workflow_manager.md) | Step Functions | 3135 | implemented | State machines (subset ASL). Outbound notify skipped. Tutorial: none. No prod mocks. |
+| [`function_manager`](function_manager.md) | Lambda | 3139 | implemented | Lambda analog. |
 | [`cluster_manager`](cluster_manager.md) | EKS | 3151 | implemented | Docker fleet inventory on the worker host. |
 
 ## Observability
@@ -92,10 +92,10 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Icarus (/icarus): talk + graph, Fleet, Models, Apps. Wave 2 closeout; OpenAPI none; live needs LLM URL/keys. |
+| [`ai_manager`](ai_manager.md) | Bedrock | 3126 | needs-keys | Icarus console (/icarus): talk + live plan graph, Fleet, Models, Apps. |
 | [`crawler_manager`](crawler_manager.md) | Glue Crawler | 3121 | needs-keys | Crawl job metadata (start_url/max_depth/state). |
 | [`notebook_manager`](notebook_manager.md) | SageMaker notebook | 3142 | implemented | Store notebooks; Run launches a compute oneshot (jupyter/python). |
-| [`vector_manager`](vector_manager.md) | OpenSearch kNN | 3152 | implemented | Upsert/query facade (sqlite cosine / db_manager). Tutorial: none. No prod mocks. |
+| [`vector_manager`](vector_manager.md) | OpenSearch kNN | 3152 | implemented | Upsert/query via db_manager vectors or sqlite cosine (facade, not a second RAG). |
 
 ## Platform
 

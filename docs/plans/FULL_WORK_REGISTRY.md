@@ -68,7 +68,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
 | `mgr-security_manager` | manager | `worker/security_manager` | done | live e2e needs conductor | Wave 6 closeout f0b336c5; 11 tests (health+CRUD+scan+prod-guard) |
 | `mgr-slack_manager` | manager | `worker/slack_manager` | done | live e2e / Slack keys parked | Wave 6 closeout fdc133b1; 10 tests |
-| `mgr-sms_manager` | manager | `worker/sms_manager` | in_progress |  | Wave 7 |
+| `mgr-sms_manager` | manager | `worker/sms_manager` | done | live e2e / Twilio keys parked | Wave 7 closeout fcb95066; 10 tests |
 | `mgr-status_manager` | manager | `worker/status_manager` | in_progress |  | Wave 7 |
 | `mgr-storage_manager` | manager | `worker/storage_manager` | done | live proxy manual | Wave 1 closeout 88291cb/234ffa2; 110 tests |
 | `mgr-system_manager` | manager | `worker/system_manager` | in_progress |  | Wave 7 |

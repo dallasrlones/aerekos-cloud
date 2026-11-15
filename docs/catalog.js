@@ -119,8 +119,11 @@ const managers = [
       { method: 'GET', path: '/api/projects/:projectId/buckets/:bucket/files', summary: 'List objects' },
       { method: 'POST', path: '/api/projects/:projectId/buckets/:bucket/files/:key/signed-url/download', summary: 'Create a signed download URL' }
     ],
-    env: [{ name: 'STORAGE_ROOT', default: './data', desc: 'Where object data is stored' },
-          { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Use a local dev key instead of key_manager' }]
+    env: [
+      { name: 'STORAGE_PATH', default: './storage', desc: 'Where object bytes are stored' },
+      { name: 'AUTH_REQUIRED', default: 'true', desc: 'Compose default; fail start if key_manager health fails when not mocking' },
+      { name: 'MOCK_KEY_MANAGER', default: 'false', desc: 'Local/tests only; refused when NODE_ENV=production' }
+    ]
   },
   {
     name: 'db_manager', aws: 'RDS', category: 'Core', port: 3004, status: 'implemented',

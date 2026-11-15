@@ -11,7 +11,7 @@ Object storage: buckets + objects with envelope encryption via **key_manager**, 
 - **Auth:** Bearer required. Accepts conductor `POST /api/services/validate-token` **or** `auth_manager` verify (`AUTH_REQUIRED=true` in compose; key_manager readiness fails hard when required).
 - **Capabilities:** `object-storage`, `buckets`, `signed-urls`, `encryption`
 - **OpenAPI:** [`worker/storage_manager/api/openapi.yaml`](../../worker/storage_manager/api/openapi.yaml) · pack fragment in [`docs/openapi/ga-managers.generated.yaml`](../openapi/ga-managers.generated.yaml)
-- **Tutorial:** none (standalone). No conductor ServiceGuide for this manager.
+- **Tutorial:** none standalone. **ServiceGuide:** exists on conductor StorageManager (see [`docs/guides/README.md`](../guides/README.md)).
 
 ## Endpoints
 

@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: vector_manager (OpenSearch kNN analog)
+  version: 1.0.0
+  description: |
+    Project-scoped vector index metadata plus upsert/query facade
+    (sqlite cosine or db_manager when conductor is reachable).
+    Conductor proxy prefix: /api/services/vector_manager
+servers:
+  - url: http://localhost:3152
+    description: Direct local
+  - url: http://localhost:3000/api/services/vector_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed default rag index when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/indexes:
+    post:
+      summary: Create index
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                dim:
+                  type: string
+                backend:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List indexes
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/indexes/{id}:
+    get:
+      summary: Get one index
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update an index
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                dim:
+                  type: string
+                backend:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete an index
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: deleted
+  /api/v1/upsert:
+    post:
+      summary: Upsert vectors (db_manager or local sqlite)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                index:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                rows:
+                  type: array
+                  items:
+                    type: object
+                id:
+                  type: string
+                vector:
+                  type: array
+                  items:
+                    type: number
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: '{ upserted, items, backend }'
+        '400':
+          description: validation error
+  /api/v1/query:
+    post:
+      summary: Query nearest neighbors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                index:
+                  type: string
+                vector:
+                  type: array
+                  items:
+                    type: number
+                text:
+                  type: string
+                input:
+                  type: string
+                top_k:
+                  type: integer
+                k:
+                  type: integer
+      responses:
+        '200':
+          description: '{ hits, backend }'
+        '400':
+          description: validation error

@@ -75,7 +75,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-trace_manager` | manager | `worker/trace_manager` | pending | | closeout DoD |
 | `mgr-transfer_manager` | manager | `worker/transfer_manager` | pending | | closeout DoD |
 | `mgr-tunnel_manager` | manager | `worker/tunnel_manager` | pending | | closeout DoD |
-| `mgr-vector_manager` | manager | `worker/vector_manager` | pending | | closeout DoD |
+| `mgr-vector_manager` | manager | `worker/vector_manager` | done | live e2e needs conductor | Wave 2 closeout; indexes + local upsert/query tests |
 | `mgr-vpn_manager` | manager | `worker/vpn_manager` | pending | | closeout DoD |
 | `mgr-waf_manager` | manager | `worker/waf_manager` | pending | | closeout DoD |
 | `mgr-webhook_manager` | manager | `worker/webhook_manager` | pending | | closeout DoD |

@@ -24,7 +24,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `tunnel_manager` | 3110 | Cloudflare Tunnel (needs `CLOUDFLARE_*`) |
 | `domain_manager` | 3111 | Cloudflare DNS (needs `CLOUDFLARE_*`) |
 | `registry_manager` | 3129 | Registry discovery (no pull secrets) |
-| `git_manager` | 3130 | Self-hosted Git (CodeCommit); Smart HTTP `/git/:project/:repo.git` + REST; no prod `SKIP_GIT` |
+| `git_manager` | 3130 | Self-hosted Git hosting (CodeCommit-style); real clone/push/pull over Smart HTTP at `/git/:project/:repo.git` |
 
 `GET /metrics` (Prometheus text) is wired on conductor, worker agent, several managers; see each `index.js`.
 
@@ -42,13 +42,13 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
 | `cdn_manager` | 3118 | `/api/v1/rules` | CDN-style rules (config only) |
-| `cicd_manager` | 3119 | `/api/v1/pipelines` (+ `/run`, `/run-for-repo`) | Pipelines CRUD + run actions; runners OOS |
+| `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |
 | `code_as_infra` | 3120 | `/api/v1/modules` | Snippets / small IaC blobs |
 | `crawler_manager` | 3121 | `/api/v1/jobs` | Crawl job metadata; add fetch with network later |
 | `host_manager` | 3122 | `/api/v1/hosts` | Host inventory |
 | `mcp_manager` | 3123 | `/api/v1/tools` | MCP tool registry |
-| `api_manager` | 3124 | `/api/v1/endpoints` | Gateway routes + match/ARN + Data API |
-| `app_manager` | 3125 | `/api/v1/apps` | App project metadata |
+| `api_manager` | 3124 | `/api/v1/endpoints` | Gateway route definitions |
+| `app_manager` | 3125 | `/api/v1/apps` | App metadata + FE scaffold; deploy via compute/cicd/tunnel |
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
 | `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |
 | `worker_manager` | 3128 | `/api/v1/annotations` | Worker/fleet labels + sync from Devices |

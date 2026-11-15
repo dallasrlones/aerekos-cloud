@@ -52,7 +52,7 @@ class AppProjectService {
       name,
       repo_url: body.repo_url || '',
       build_command: body.build_command || 'npm run build',
-      meta: { scaffold: true, pages, files: Object.keys(files) },
+      metadata: JSON.stringify({ scaffold: true, pages, files: Object.keys(files) }),
     });
     return { item: app, files, open_in_ide: true };
   }

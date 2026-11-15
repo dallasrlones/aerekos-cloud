@@ -78,12 +78,12 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`git_manager`](git_manager.md) | CodeCommit | 3130 | implemented | Self-hosted Git hosting (Smart HTTP + REST). Tutorial: none. No prod mocks (`SKIP_GIT` refused). |
+| [`git_manager`](git_manager.md) | CodeCommit | 3130 | implemented | Self-hosted Git hosting: bare repos + full clone/push/pull over Git Smart HTTP, plus push-event hooks. |
 | [`registry_manager`](registry_manager.md) | ECR | 3129 | implemented | Container registry discovery: per-project registry entries (no pull secrets) + a public config endpoint. |
-| [`cicd_manager`](cicd_manager.md) | CodePipeline | 3119 | implemented | Pipelines CRUD + run/run-for-repo; CicdManager console (no ServiceGuide). |
+| [`cicd_manager`](cicd_manager.md) | CodePipeline | 3119 | implemented | Pipeline definitions (steps JSON + state). |
 | [`code_as_infra`](code_as_infra.md) | CloudFormation | 3120 | implemented | Infrastructure-as-code modules / snippets (kind + content). |
-| [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway routes + match/ARN + Data API; ApiGatewayManager ServiceGuide. |
-| [`app_manager`](app_manager.md) | Amplify / App Runner | 3125 | implemented | App project metadata (repo_url/build_command). |
+| [`api_manager`](api_manager.md) | API Gateway | 3124 | implemented | Gateway route definitions (method/public_path/backend_url). |
+| [`app_manager`](app_manager.md) | Amplify / App Runner | 3125 | implemented | App metadata + FE scaffold for Icarus IDE; deploy via compute/cicd/tunnel. |
 | [`mcp_manager`](mcp_manager.md) | Bedrock Agents (tools) | 3123 | implemented | MCP tool registry (description + input_schema). |
 | [`websocket_manager`](websocket_manager.md) | API Gateway WebSocket | 3131 | implemented | WebSocket channels. |
 | [`graphql_manager`](graphql_manager.md) | AppSync | 3141 | implemented | GraphQL APIs compiled from Data API models. |

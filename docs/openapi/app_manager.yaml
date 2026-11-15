@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: app_manager (Amplify / App Runner analog)
+  version: 1.0.0
+  description: |
+    Project-scoped app metadata (repo_url / build_command) plus FE scaffold
+    files for Icarus IDE. Deploy remains compute_manager / cicd_manager / tunnel_manager.
+    Conductor proxy prefix: /api/services/app_manager
+servers:
+  - url: http://localhost:3125
+    description: Direct local
+  - url: http://localhost:3000/api/services/app_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/apps:
+    post:
+      summary: Create app project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                repo_url:
+                  type: string
+                build_command:
+                  type: string
+                metadata:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: missing project_id or name
+        '409':
+          description: name taken
+    get:
+      summary: List apps
+      parameters:
+        - in: query
+          name: project_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/apps/scaffold:
+    post:
+      summary: Scaffold FE starter files for Icarus IDE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                pages:
+                  type: array
+                  items:
+                    type: string
+                repo_url:
+                  type: string
+                build_command:
+                  type: string
+                template:
+                  type: string
+      responses:
+        '201':
+          description: '{ item, files, open_in_ide }'
+        '400':
+          description: missing project_id
+  /api/v1/apps/{id}:
+    get:
+      summary: Get app
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update app
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                repo_url:
+                  type: string
+                build_command:
+                  type: string
+                metadata:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update app (alias of PATCH)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete app
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ deleted, id }'
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

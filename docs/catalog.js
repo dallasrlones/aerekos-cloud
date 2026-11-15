@@ -456,9 +456,9 @@ const managers = [
   },
   {
     name: 'slack_manager', aws: 'Chatbot', category: 'Integrations', port: 3115, status: 'needs-keys',
-    summary: 'Slack posts (channel/text). Send when Slack secrets exist; otherwise queue-only.',
+    summary: 'Slack messages CRUD + send. Webhook/API when secrets exist; otherwise queue-only. ManagerConsole (no ServiceGuide).',
     proxyBase: '/api/v1', crud: { segment: 'messages' }, capabilities: ['slack', 'chatops'],
-    needsKeys: 'Queued only this pass. Do not retry live Slack post.'
+    needsKeys: 'Queued without Slack secrets. Do not retry live Slack post in e2e without keys.'
   },
 
   // --- Dev tools -----------------------------------------------------------

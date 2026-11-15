@@ -834,6 +834,57 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/slack_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/api/v1/messages:
+    post:
+      summary: Create a queued message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List messages (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/api/v1/messages/{id}:
+    get:
+      summary: Get one message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a message
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/api/v1/messages/{id}/send:
+    post:
+      summary: Attempt Slack send / stay queued without secrets
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/slack_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/storage_manager/api/info:
     get:
       summary: Service metadata (info)

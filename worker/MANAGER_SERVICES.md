@@ -38,7 +38,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |
 | `sms_manager` | 3114 | `/api/v1/messages` | Queued; outbound send disabled |
-| `slack_manager` | 3115 | `/api/v1/messages` | Queued; outbound send disabled |
+| `slack_manager` | 3115 | `/api/v1/messages` + `POST …/send` | Messages CRUD; Slack send when keys exist else queue-only |
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
 | `cdn_manager` | 3118 | `/api/v1/rules`, `/purge` | Cache rules CRUD + CF purge; Cache Rulesets write parked |

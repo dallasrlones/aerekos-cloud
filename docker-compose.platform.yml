@@ -2,6 +2,9 @@
 # Use WITH core, never --remove-orphans:
 #   docker compose -f docker-compose.core.yml -f docker-compose.platform.yml up -d --build --no-deps <svc>
 #
+# External images (rabbitmq/redis): docs/ops/offline-images.txt + `make images-pull|save|load`.
+# One-shot laptop stack is docker-compose.full.yml / `make up` — see DOCKER.md.
+#
 # Data is still project_id-scoped. Do not start these on orin (GPU) or as a second copy per project.
 # billing / ai / comms / app stay out of this file. function_manager is here so Lambda drains.
 services:

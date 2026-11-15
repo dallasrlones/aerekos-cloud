@@ -11,7 +11,11 @@
 
 COMPOSE := docker compose -f docker-compose.full.yml
 
-.PHONY: help gen build up start down restart ps health logs clean dockerfiles e2e test docs docs-serve detect worker catalog-check e2e-icarus-wants e2e-icarus-wants-live
+.PHONY: help gen build up start down restart ps health logs clean dockerfiles e2e test docs docs-serve detect worker catalog-check e2e-icarus-wants e2e-icarus-wants-live images-list images-pull images-save images-load
+
+# Offline image bucket (external pulls only). Override: CACHE_DIR=./my-bucket
+CACHE_DIR ?= ./offline-image-cache
+IMAGES_SH := bash scripts/ops/offline-image-cache.sh
 
 help:
 	@echo "aerekos-cloud targets:"
@@ -27,6 +31,10 @@ help:
 	@echo "  make ps           List stack containers"
 	@echo "  make health       Show health status of every container"
 	@echo "  make logs         Tail logs for the whole stack"
+	@echo "  make images-list  List external images for offline cache (docs/ops/offline-images.txt)"
+	@echo "  make images-pull  docker pull those images (needs network)"
+	@echo "  make images-save  docker save → \$$(CACHE_DIR) (default ./offline-image-cache)"
+	@echo "  make images-load  docker load from \$$(CACHE_DIR) on an air-gapped host"
 	@echo "  make test         Run worker + conductor unit tests in Docker (Node 20)"
 	@echo "  make e2e          Run the full-stack E2E suite against the live conductor"
 	@echo "  make clean        Stop stack and remove volumes (DESTROYS DATA)"
@@ -61,6 +69,19 @@ docs-serve: docs
 
 build:
 	$(COMPOSE) build
+
+# External image cache / offline bucket — see DOCKER.md + docs/ops/offline-images.txt
+images-list:
+	$(IMAGES_SH) list
+
+images-pull:
+	$(IMAGES_SH) pull
+
+images-save:
+	$(IMAGES_SH) save "$(CACHE_DIR)"
+
+images-load:
+	$(IMAGES_SH) load "$(CACHE_DIR)"
 
 up: detect
 	$(COMPOSE) up -d --build

@@ -18,6 +18,10 @@ VERSION
 !**/.env_example
 !**/.env.example
 
+# --- Offline image cache bucket (make images-save) ---
+offline-image-cache/
+**/offline-image-cache/
+
 # --- Build / dist output ---
 dist/
 build/

@@ -340,6 +340,74 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default + aerekos.fleet buses
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/events:
+    post:
+      summary: Put event → 202 { event, deliveries }
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/rules:
+    post:
+      summary: Create a rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List rules (?project_id= / bus_id)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/buses:
+    post:
+      summary: Create a bus
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List buses (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/api/v1/buses/{id}:
+    get:
+      summary: Get one bus
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a bus
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a bus
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/event_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/function_manager/api/v1/info:
     get:
       summary: Service metadata (info)

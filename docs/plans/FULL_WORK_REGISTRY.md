@@ -43,31 +43,31 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-crawler_manager` | manager | `worker/crawler_manager` | done | live e2e / egress parked | Wave 4 closeout b7e447e; 11 tests |
 | `mgr-db_manager` | manager | `worker/db_manager` | done | live e2e needs conductor | Wave 1 closeout 64d76dc; 61 tests |
 | `mgr-domain_manager` | manager | `worker/domain_manager` | done | live e2e needs conductor; CF needs-keys | Wave 5 closeout; 15 tests (health+DNS CRUD+hostnames+prod-guard) |
-| `mgr-download_manager` | manager | `worker/download_manager` | in_progress | | Wave 5 |
+| `mgr-download_manager` | manager | `worker/download_manager` | done | live e2e needs conductor; qbit/yt-dlp for live download | Wave 5 closeout 2f999412; 14 tests |
 | `mgr-email_manager` | manager | `worker/email_manager` | done | live e2e / SMTP keys parked | Wave 5 closeout; health+CRUD+send+prod-guard tests |
-| `mgr-event_manager` | manager | `worker/event_manager` | in_progress | | Wave 5 |
+| `mgr-event_manager` | manager | `worker/event_manager` | done | live e2e needs conductor | Wave 5 closeout; health+CRUD+events/rules+prod-guard tests |
 | `mgr-function_manager` | manager | `worker/function_manager` | done | live e2e needs conductor | Wave 2 closeout 505b26d; 8 tests |
 | `mgr-git_manager` | manager | `worker/git_manager` | done | live e2e / Smart HTTP parked | Wave 3 closeout 5ffea59; 20 tests |
 | `mgr-graphql_manager` | manager | `worker/graphql_manager` | done | live e2e needs conductor + api_manager | Wave 5 closeout; health+CRUD+compile/execute+prod-guard tests |
-| `mgr-host_manager` | manager | `worker/host_manager` | in_progress | | Wave 5 |
+| `mgr-host_manager` | manager | `worker/host_manager` | done | live e2e / sync needs conductor | Wave 5 closeout; health+CRUD+sync-guard tests |
 | `mgr-iam_manager` | manager | `worker/iam_manager` | done | live e2e needs stack | Wave 1 closeout b51e1c4; 17 tests |
 | `mgr-iot_manager` | manager | `worker/iot_manager` | done | live e2e needs conductor; MQTT broker parked | Wave 5 closeout 2ebdce5b; 11 tests |
 | `mgr-key_manager` | manager | `worker/key_manager` | done | schedule_manager also 3102 | Wave 1 closeout c8f8c4f/83d68da; 55 tests |
 | `mgr-logs_manager` | manager | `worker/logs_manager` | done | live e2e needs conductor | Wave 5 closeout 3cf7dab4; 20 tests |
 | `mgr-mcp_manager` | manager | `worker/mcp_manager` | done | live e2e needs conductor | Wave 3 closeout 9f8575b |
-| `mgr-metrics_manager` | manager | `worker/metrics_manager` | pending | | closeout DoD |
+| `mgr-metrics_manager` | manager | `worker/metrics_manager` | in_progress |  | Wave 6 |
 | `mgr-network_manager` | manager | `worker/network_manager` | done | live e2e needs conductor | Wave 2 closeout 12ee759/870a48e; 12 tests |
-| `mgr-notebook_manager` | manager | `worker/notebook_manager` | pending | | closeout DoD |
-| `mgr-notify_manager` | manager | `worker/notify_manager` | pending | | closeout DoD |
-| `mgr-push_manager` | manager | `worker/push_manager` | pending | | closeout DoD |
-| `mgr-query_manager` | manager | `worker/query_manager` | pending | | closeout DoD |
+| `mgr-notebook_manager` | manager | `worker/notebook_manager` | in_progress |  | Wave 6 |
+| `mgr-notify_manager` | manager | `worker/notify_manager` | in_progress |  | Wave 6 |
+| `mgr-push_manager` | manager | `worker/push_manager` | in_progress |  | Wave 6 |
+| `mgr-query_manager` | manager | `worker/query_manager` | in_progress |  | Wave 6 |
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | done | live e2e needs conductor | Wave 3 closeout ef6dd9b; 12 tests |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager | Wave 2 closeout 7761122/8f07368; 9 tests |
-| `mgr-search_manager` | manager | `worker/search_manager` | pending | | closeout DoD |
+| `mgr-search_manager` | manager | `worker/search_manager` | in_progress |  | Wave 6 |
 | `mgr-secrets_manager` | manager | `worker/secrets_manager` | done | live proxy manual | Wave 1 closeout 09ee11a/cdfebab; 26 tests |
-| `mgr-security_manager` | manager | `worker/security_manager` | pending | | closeout DoD |
-| `mgr-slack_manager` | manager | `worker/slack_manager` | pending | | closeout DoD |
+| `mgr-security_manager` | manager | `worker/security_manager` | in_progress |  | Wave 6 |
+| `mgr-slack_manager` | manager | `worker/slack_manager` | in_progress |  | Wave 6 |
 | `mgr-sms_manager` | manager | `worker/sms_manager` | pending | | closeout DoD |
 | `mgr-status_manager` | manager | `worker/status_manager` | pending | | closeout DoD |
 | `mgr-storage_manager` | manager | `worker/storage_manager` | done | live proxy manual | Wave 1 closeout 88291cb/234ffa2; 110 tests |

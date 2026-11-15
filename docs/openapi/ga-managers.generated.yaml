@@ -376,6 +376,12 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/storage_manager/ready:
+    get:
+      summary: Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/workers:
     get:
       summary: List workers

@@ -67,9 +67,12 @@ See [`.env_example`](./.env_example). Important vars:
 
 ## SDK / CLI
 
-No dedicated typed client. Use generic proxy:
+Typed helper: **`client.storage`** (`StorageManagerApi` in `aerekos-sdk`) — `listBuckets` / `createBucket` / `listObjects` / upload/download / signed URLs / system buckets. Prefer `baseUrl` pointed at the service (or conductor proxy) per SDK notes.
 
 ```js
+const buckets = await client.storage.listBuckets(PID);
+await client.storage.createBucket(PID, { name: 'demo' });
+// Or generic proxy:
 await client.proxy('storage_manager', {
   method: 'POST',
   path: '/api/projects/:projectId/buckets',
@@ -86,16 +89,17 @@ aerekos call storage_manager POST "/api/projects/:projectId/buckets" --project $
 
 ```bash
 # Prefer Node 20 for better-sqlite3 native builds on this package pin
-npm test                 # unit + integration + e2e (105 tests)
+npm test                 # unit + integration + e2e
 npm run test:coverage
 ```
 
 See `tests/README.md`. Tests set `MOCK_KEY_MANAGER=true` via `tests/helpers/setup.js`; that is not a prod path.
 
-## Health
+## Health / meta
 
-- `GET /health` — liveness (DB + writable `STORAGE_PATH`)
+- `GET /health` — liveness (DB + writable `STORAGE_PATH`); conductor proxies without `project_id`
 - `GET /ready` — readiness including key_manager via conductor (skipped only when mock)
+- `GET /api/info` — unauthenticated service metadata (OpenAPI / CORE_GA pack)
 - `GET /metrics` — Prometheus
 
 ## Related

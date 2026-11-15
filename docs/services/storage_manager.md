@@ -17,6 +17,9 @@ Object storage: buckets + objects with envelope encryption via **key_manager**, 
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/health` | Liveness (DB + writable `STORAGE_PATH`); proxy OK without `project_id` |
+| `GET` | `/ready` | Readiness (key_manager via conductor unless `MOCK_KEY_MANAGER`) |
+| `GET` | `/api/info` | Service metadata (unauthenticated) |
 | `POST` | `/api/projects/:projectId/buckets` | Create a bucket |
 | `GET` | `/api/projects/:projectId/buckets` | List buckets |
 | `GET` | `/api/projects/:projectId/buckets/:bucket` | Get a bucket |
@@ -37,11 +40,10 @@ Object storage: buckets + objects with envelope encryption via **key_manager**, 
 
 ## SDK / CLI
 
-No dedicated typed SDK client. Use generic conductor proxy:
-
-**SDK (Node)**
+**SDK (Node)** — typed helper `client.storage` (`listBuckets` / `createBucket` / `listObjects` / upload/download / signed URLs). Also generic proxy:
 
 ```js
+await client.storage.createBucket(PID, { name: 'demo' });
 await client.proxy('storage_manager', {
   method: 'POST',
   path: '/api/projects/:projectId/buckets',
@@ -71,4 +73,4 @@ curl -s -X POST \
 
 ---
 
-_Honesty pass for `mgr-storage_manager`. Catalog env keys should match `STORAGE_PATH` / prod mock policy; run `make docs` when regenerating from `docs/catalog.js`._
+_Wave 1 closeout for `mgr-storage_manager`: health/proxy + `/api/info`, SDK `client.storage`, OpenAPI pack, no prod mocks. Regenerate docs with `make docs` / `node scripts/oss/gen-openapi-from-catalog.mjs` when catalog changes._

@@ -29,11 +29,35 @@ paths:
     get:
       summary: Readiness check
       tags: [Health]
+      description: Requires key_manager via conductor unless MOCK_KEY_MANAGER=true (local/tests only).
       responses:
         '200':
           description: Service is ready
         '503':
           description: Service is not ready
+
+  /api/info:
+    get:
+      summary: Service metadata
+      tags: [Health]
+      responses:
+        '200':
+          description: Unauthenticated service identity payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  title:
+                    type: string
+                  version:
+                    type: string
+                  status:
+                    type: string
+                  message:
+                    type: string
 
   /metrics:
     get:

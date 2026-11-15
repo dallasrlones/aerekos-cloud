@@ -110,6 +110,7 @@ const managers = [
     proxyBase: '/api', capabilities: ['object-storage', 'buckets', 'signed-urls', 'encryption'],
     projectInPath: true,
     endpoints: [
+      { method: 'GET', path: '/ready', summary: 'Readiness (key_manager via conductor unless MOCK_KEY_MANAGER)' },
       { method: 'POST', path: '/api/projects/:projectId/buckets', summary: 'Create a bucket' },
       { method: 'GET', path: '/api/projects/:projectId/buckets', summary: 'List buckets' },
       { method: 'GET', path: '/api/projects/:projectId/buckets/:bucket', summary: 'Get a bucket' },

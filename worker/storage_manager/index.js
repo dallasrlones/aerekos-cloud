@@ -5,6 +5,7 @@ const fs = require('fs');
 const { registerWithConductor } = require('./api/utils/serviceRegistration');
 const { getDatabase } = require('./api/utils/dbClient');
 const { initializeModels } = require('./api/models');
+const metaRoutes = require('./api/routes/meta');
 const projectRoutes = require('./api/routes/projects');
 const bucketRoutes = require('./api/routes/buckets');
 const signedUrlRoutes = require('./api/routes/signedUrls');
@@ -26,7 +27,11 @@ app.use(cors());
 app.use((req, res, next) => {
   const start = Date.now();
   const now = () => new Date().toISOString();
-  const quiet = req.path.startsWith('/health') || req.path.startsWith('/metrics');
+  const quiet =
+    req.path.startsWith('/health') ||
+    req.path.startsWith('/ready') ||
+    req.path.startsWith('/metrics') ||
+    req.path === '/api/info';
   if (!quiet) console.log(`[${now()}] --> ${req.method} ${req.path}${req.search || ''}`);
   res.on('finish', () => {
     let bodyLog = '';
@@ -195,6 +200,9 @@ app.get('/metrics', async (req, res) => {
     });
   }
 });
+
+// Service metadata (no auth; matches OpenAPI CORE_GA /api/info)
+app.use('/api', metaRoutes);
 
 // API routes
 app.get('/api/storage-classes', (_req, res) => {

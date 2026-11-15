@@ -28,13 +28,10 @@ router.get('/info', (req, res) => {
 router.post('/evaluate', wrap(async (req, res) => {
   const pid = projectId(req);
   if (!pid) return res.status(400).json({ error: { message: 'project_id required' } });
-  const ns = req.body?.namespace || 'app';
-  const flag = req.body?.flag || 'example';
-  const items = await service.list(pid);
-  const row = items.find((i) => i.name === ns);
-  let flags = {};
-  try { flags = JSON.parse(row?.flags || '{}'); } catch { flags = {}; }
-  res.json({ namespace: ns, flag, value: Object.prototype.hasOwnProperty.call(flags, flag) ? flags[flag] : false });
+  res.json(await service.evaluate(pid, {
+    namespace: req.body?.namespace,
+    flag: req.body?.flag,
+  }));
 }));
 
 router.use(knockoutTry(process.env.SERVICE_NAME || 'config_manager'));

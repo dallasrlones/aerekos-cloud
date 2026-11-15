@@ -575,9 +575,10 @@ const managers = [
   },
   {
     name: 'config_manager', aws: 'AppConfig', category: 'Identity', port: 3136, status: 'implemented',
-    summary: 'Config namespaces plus /evaluate against stored flags.',
+    summary: 'Config namespaces plus /evaluate against stored flags. Tutorial: none. No prod mocks.',
     proxyBase: '/api/v1', crud: { segment: 'namespaces' }, capabilities: ["config","flags"],
     endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default app namespace if empty' },
       { method: 'POST', path: '/api/v1/evaluate', summary: 'Evaluate flags from stored namespaces' }
     ]
   },

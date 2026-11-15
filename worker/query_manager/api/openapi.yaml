@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: query_manager (Athena analog)
+  version: 1.0.0
+  description: |
+    Project-scoped SQL query definitions (CRUD /api/v1/queries) plus POST /api/v1/sql
+    that runs statements against a per-project better-sqlite3 file (not AWS Athena / DuckDB).
+    ATTACH/VACUUM are rejected. SKIP_DUCKDB short-circuits /sql in tests/dev only —
+    refused when NODE_ENV=production (assertNoSkipFakes extra).
+    Conductor proxy prefix: /api/services/query_manager
+servers:
+  - url: http://localhost:3145
+    description: Direct local
+  - url: http://localhost:3000/api/services/query_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, aws, message }'
+  /api/v1/ensure-defaults:
+    post:
+      summary: Seed a sample query when project has none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: '{ ok, defaults }'
+        '400':
+          description: missing project_id
+  /api/v1/sql:
+    post:
+      summary: Run SQL against per-project SQLite (or skipped under SKIP_DUCKDB)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                sql:
+                  type: string
+                bucket:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: '{ rows, sql, engine, database?, skipped?, changes? }'
+        '400':
+          description: ATTACH/VACUUM or SQL error
+  /api/v1/queries:
+    post:
+      summary: Create a query definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                sql:
+                  type: string
+                bucket:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+    get:
+      summary: List queries (?project_id=)
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/queries/{id}:
+    get:
+      summary: Get one query
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a query
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                sql:
+                  type: string
+                bucket:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Replace/update a query
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a query
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: deleted
+components:
+  parameters:
+    id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    projectId:
+      in: query
+      name: project_id
+      required: true
+      schema:
+        type: string

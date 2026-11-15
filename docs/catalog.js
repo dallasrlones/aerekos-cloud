@@ -803,9 +803,14 @@ const managers = [
   },
   {
     name: 'query_manager', aws: 'Athena', category: 'Observability', port: 3145, status: 'implemented',
-    summary: 'SQL queries.',
-    proxyBase: '/api/v1', crud: { segment: 'queries' }, capabilities: ["athena","sql"]
+    summary: 'Query defs CRUD + per-project SQLite /sql; Athena analog; SKIP_DUCKDB test-only; ManagerConsole (no ServiceGuide).',
+    proxyBase: '/api/v1', crud: { segment: 'queries' }, capabilities: ["athena","sql"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed sample query if missing' },
+      { method: 'POST', path: '/api/v1/sql', summary: 'Run SQL against per-project SQLite (may skip under SKIP_DUCKDB)' }
+    ]
   },
+
   {
     name: 'waf_manager', aws: 'WAF', category: 'Edge', port: 3146, status: 'implemented',
     summary: 'WAF rules.',

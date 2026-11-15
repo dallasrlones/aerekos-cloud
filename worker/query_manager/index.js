@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertNoSkipFakes } = require('../shared/prodGuards');
+assertNoSkipFakes({ extra: ['SKIP_DUCKDB'] });
 require('./api/models');
 const db = require('./api/utils/dbClient');
 const { createManagerApp } = require('../shared/managerBootstrap');

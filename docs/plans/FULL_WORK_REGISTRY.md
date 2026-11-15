@@ -60,7 +60,7 @@ Health/proxy (or parked) · unit/e2e · README + docs/services honesty · OpenAP
 | `mgr-notebook_manager` | manager | `worker/notebook_manager` | done | live e2e needs conductor; compute oneshot run parked | Wave 6 closeout 3818529c; 11 tests |
 | `mgr-notify_manager` | manager | `worker/notify_manager` | done | live e2e needs conductor; provider keys for live send | Wave 6 closeout c2164d3c; 15 tests |
 | `mgr-push_manager` | manager | `worker/push_manager` | done | live e2e needs conductor; FCM keys parked | Wave 6 closeout b1471c28; 13 tests |
-| `mgr-query_manager` | manager | `worker/query_manager` | in_progress |  | Wave 6 |
+| `mgr-query_manager` | manager | `worker/query_manager` | done | live e2e needs conductor | Wave 6 closeout 53c3c6fd; 13 tests |
 | `mgr-queue_manager` | manager | `worker/queue_manager` | done | capacity-wait UI 404 parked | Wave 1 closeout ca059d1; 17 tests |
 | `mgr-registry_manager` | manager | `worker/registry_manager` | done | live e2e needs conductor | Wave 3 closeout ef6dd9b; 12 tests |
 | `mgr-schedule_manager` | manager | `worker/schedule_manager` | done | port 3102 collides with key_manager | Wave 2 closeout 7761122/8f07368; 9 tests |

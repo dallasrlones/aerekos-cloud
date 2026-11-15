@@ -2,6 +2,23 @@ const axios = require('axios');
 
 const DEFAULT_WEBHOOK_TIMEOUT = parseInt(process.env.WEBHOOK_TIMEOUT_MS || '30000', 10);
 
+/** Mirror worker/shared/conductorProxy.authHeaders without requiring that module (axios resolve). */
+function conductorAuthHeaders(projectId, extra = {}) {
+  const tok = process.env.CONDUCTOR_TOKEN
+    || process.env.SERVICE_TOKEN
+    || process.env.AEREKOS_AGENT_TOKEN
+    || '';
+  return {
+    'Content-Type': 'application/json',
+    ...(tok ? {
+      Authorization: `Bearer ${tok}`,
+      'x-aerekos-agent-token': tok,
+    } : {}),
+    ...(projectId ? { 'x-project-id': projectId } : {}),
+    ...extra,
+  };
+}
+
 class DispatchService {
   /**
    * @param {{ get: (url, opts?) => Promise, post: (url, data, opts?) => Promise }} [http]
@@ -65,16 +82,33 @@ class DispatchService {
     if (!s.target_queue) {
       throw new Error('target_queue is required for queue');
     }
-    const base = (process.env.QUEUE_MANAGER_URL || 'http://127.0.0.1:3101').replace(/\/$/, '');
-    const url = `${base}/api/v1/queues/${encodeURIComponent(s.target_queue)}/messages`;
     const body = s.message_template != null && String(s.message_template).length > 0
       ? s.message_template
       : JSON.stringify({ event: 'scheduled', schedule: s.name, at: new Date().toISOString() });
+
+    // Prefer conductor sibling proxy (platform rule: never call managers by host port).
+    // QUEUE_MANAGER_URL remains a test/dev escape hatch only — no localhost default.
+    let url;
+    let headers = { 'Content-Type': 'application/json' };
+    if (process.env.QUEUE_MANAGER_URL) {
+      const base = String(process.env.QUEUE_MANAGER_URL).replace(/\/$/, '');
+      url = `${base}/api/v1/queues/${encodeURIComponent(s.target_queue)}/messages`;
+    } else {
+      const conductor = process.env.CONDUCTOR_URL || process.env.CONDUCTOR_INTERNAL_BASE_URL;
+      if (!conductor) {
+        const err = new Error('CONDUCTOR_URL required to reach queue_manager (or set QUEUE_MANAGER_URL for direct/test)');
+        err.status = 503;
+        throw err;
+      }
+      url = `${String(conductor).replace(/\/$/, '')}/api/services/queue_manager/api/v1/queues/${encodeURIComponent(s.target_queue)}/messages`;
+      headers = conductorAuthHeaders(s.project_id);
+    }
+
     const res = await this.http.post(
       url,
       { project_id: s.project_id, body },
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         timeout: DEFAULT_WEBHOOK_TIMEOUT,
         validateStatus: () => true
       }

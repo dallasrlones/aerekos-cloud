@@ -35,10 +35,10 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | [`logs_manager`](logs_manager.md) | CloudWatch Logs | 3104 | implemented | Append-only log events with levels and context. |
 | [`metrics_manager`](metrics_manager.md) | CloudWatch Metrics | 3105 | implemented | Stored metric samples (name/value/labels). |
 | [`security_manager`](security_manager.md) | Security Hub | 3108 | implemented | Security finding records (severity/source/details). |
-| [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events + query-on-storage (SQLite; Pinpoint/Kinesis naming analog). |
+| [`analytics_manager`](analytics_manager.md) | Pinpoint / Kinesis Analytics | 3117 | implemented | Product analytics events (event/value/properties). |
 | [`trace_manager`](trace_manager.md) | X-Ray | 3143 | implemented | OTLP/HTTP ingest plus span list/query in SQLite. |
 | [`query_manager`](query_manager.md) | Athena | 3145 | implemented | SQL queries. |
-| [`audit_manager`](audit_manager.md) | CloudTrail | 3149 | implemented | Audit events CRUD + ingest; tutorial none (ManagerConsole). |
+| [`audit_manager`](audit_manager.md) | CloudTrail | 3149 | implemented | Audit events. |
 | [`status_manager`](status_manager.md) | Statuspage | 3150 | implemented | Status incidents. |
 
 ## Identity
@@ -57,8 +57,8 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 |---------|-----------|------|--------|---------|
 | [`tunnel_manager`](tunnel_manager.md) | Cloudflare Tunnel | 3110 | needs-keys | Create/delete Cloudflare tunnels (cloudflared) from the edge to private origins. |
 | [`domain_manager`](domain_manager.md) | Route 53 | 3111 | needs-keys | Cloudflare DNS records (CRUD per zone + project). |
-| [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | CDN-style cache rules (path pattern, origin, TTL). |
-| [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints + optional health probes; no cloud LB. |
+| [`cdn_manager`](cdn_manager.md) | CloudFront | 3118 | implemented | Cache rules CRUD + CF purge; Cache Rulesets write parked. |
+| [`balancer_manager`](balancer_manager.md) | ELB | 3109 | implemented | Load-balancer target hints (addresses). |
 | [`iot_manager`](iot_manager.md) | IoT Core | 3140 | implemented | IoT things. |
 | [`waf_manager`](waf_manager.md) | WAF | 3146 | implemented | WAF rules. |
 | [`vpn_manager`](vpn_manager.md) | Client VPN | 3147 | implemented | Headscale preauth keys when HEADSCALE_URL is set; otherwise not-hooked-up. |
@@ -110,14 +110,14 @@ per-service page are generated from [`docs/catalog.js`](../catalog.js) via `make
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
 | [`download_manager`](download_manager.md) | MediaConvert + ingest | 3133 | implemented | Download lists. |
-| [`backup_manager`](backup_manager.md) | AWS Backup | 3134 | implemented | Vaults + snapshot jobs into aerekos-backups; restore adapters; tutorial none; no prod mocks. |
+| [`backup_manager`](backup_manager.md) | AWS Backup | 3134 | implemented | Backup vaults and snapshot jobs into the aerekos-backups bucket. |
 | [`transfer_manager`](transfer_manager.md) | Transfer Family | 3148 | implemented | SFTP endpoints that put/get objects through storage_manager. |
 
 ## Management
 
 | Service | AWS analog | Port | Status | Summary |
 |---------|-----------|------|--------|---------|
-| [`billing_manager`](billing_manager.md) | Cost Explorer | 3138 | implemented | Meters CRUD + evaluate-quota (never unlimited); ManagerConsole (no ServiceGuide). |
+| [`billing_manager`](billing_manager.md) | Cost Explorer | 3138 | implemented | Usage meters. |
 
 ## Database
 

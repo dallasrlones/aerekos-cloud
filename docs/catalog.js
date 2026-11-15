@@ -390,7 +390,7 @@ const managers = [
   },
   {
     name: 'cdn_manager', aws: 'CloudFront', category: 'Edge', port: 3118, status: 'implemented',
-    summary: 'CDN-style cache rules (path pattern, origin, TTL). Config only in MVP.',
+    summary: 'Cache rules CRUD + optional CF purge. Cache Rulesets write parked (EDGE-PRO-4).',
     proxyBase: '/api/v1', crud: { segment: 'rules' }, capabilities: ['cdn', 'cache-rules']
   },
   {

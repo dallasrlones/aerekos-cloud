@@ -1,0 +1,214 @@
+openapi: 3.0.3
+info:
+  title: cdn_manager (CloudFront analog)
+  version: 1.0.0
+  description: |
+    Project-scoped CDN cache rules (CRUD) plus optional Cloudflare purge.
+    CF Cache Rulesets write and WAF helpers are parked (EDGE-PRO-4) — never fake applied:true.
+    Conductor proxy prefix: /api/services/cdn_manager
+    No production skip-fake flags; assertNoSkipFakes() on boot.
+servers:
+  - url: http://localhost:3118
+    description: Direct local
+  - url: http://localhost:3000/api/services/cdn_manager
+    description: Via conductor proxy
+paths:
+  /health:
+    get:
+      summary: Liveness (SQLite)
+      responses:
+        '200':
+          description: healthy
+        '503':
+          description: unhealthy
+  /ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: ready
+        '503':
+          description: not ready
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: text exposition
+  /api/v1/info:
+    get:
+      summary: Service metadata
+      responses:
+        '200':
+          description: '{ service, title, version, status, message }'
+  /api/v1/rules:
+    post:
+      summary: Create a cache rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id, name]
+              properties:
+                project_id:
+                  type: string
+                name:
+                  type: string
+                path_pattern:
+                  type: string
+                origin:
+                  type: string
+                cache_ttl_seconds:
+                  type: string
+      responses:
+        '201':
+          description: '{ item }'
+        '400':
+          description: validation error
+        '409':
+          description: name taken
+    get:
+      summary: List rules
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ items }'
+  /api/v1/rules/{id}:
+    get:
+      summary: Get one rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ item }'
+        '404':
+          description: not found
+    patch:
+      summary: Update a rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    put:
+      summary: Update a rule (alias)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: '{ item }'
+    delete:
+      summary: Delete a rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ deleted, id }'
+  /api/v1/rules/{id}/probe:
+    post:
+      summary: Probe origin URL for a rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: '{ rule, origin, status, ms, cache_ttl_seconds }'
+        '400':
+          description: origin required
+  /api/v1/purge:
+    post:
+      summary: Cloudflare cache purge (requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prefixes:
+                  type: array
+                  items:
+                    type: string
+                hosts:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: '{ purged, reason?, errors? }'
+  /api/v1/cache-rules:
+    post:
+      summary: Parked CF Cache Rulesets write (EDGE-PRO-4a)
+      responses:
+        '200':
+          description: '{ applied: false, parked: true, reason }'
+  /api/v1/waf:
+    post:
+      summary: Parked WAF intent note
+      responses:
+        '200':
+          description: '{ applied: false, parked: true, reason }'

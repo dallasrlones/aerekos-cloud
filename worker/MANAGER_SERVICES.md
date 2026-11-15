@@ -34,15 +34,14 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 |---------|------|------------|----------------------|
 | `metrics_manager` | 3105 | `/api/v1/series` | Stored metric samples |
 | `security_manager` | 3108 | `/api/v1/findings` | Security finding rows |
-| `balancer_manager` | 3109 | `/api/v1/targets` | Target hints + health probes (no cloud LB) |
+| `balancer_manager` | 3109 | `/api/v1/targets` | Target hints (no cloud LB) |
 | `webhook_manager` | 3112 | `/api/v1/webhooks` + `POST …/dispatch` | Outbound HTTP or **`SKIP_OUTBOUND=1`** (no network) |
 | `email_manager` | 3113 | `/api/v1/messages` | Queued; outbound send disabled |
 | `sms_manager` | 3114 | `/api/v1/messages` | Queued; outbound send disabled |
 | `slack_manager` | 3115 | `/api/v1/messages` | Queued; outbound send disabled |
 | `auth_manager` | 3116 | `/api/v1/providers`, `/credentials`, `/users`, `/auth/*` | OIDC *metadata* + app credentials + users + JWT; IdP **client_secret** in `secrets_manager` |
 | `analytics_manager` | 3117 | `/api/v1/events` | Analytics events |
-| `audit_manager` | 3149 | `/api/v1/events` + `/ingest` | Audit events (CloudTrail analog); tutorial none |
-| `cdn_manager` | 3118 | `/api/v1/rules` | CDN-style rules (config only) |
+| `cdn_manager` | 3118 | `/api/v1/rules`, `/purge` | Cache rules CRUD + CF purge; Cache Rulesets write parked |
 | `cicd_manager` | 3119 | `/api/v1/pipelines` | Pipeline definitions (JSON) |
 | `code_as_infra` | 3120 | `/api/v1/modules` | IaC modules/snippets CRUD; no apply engine (experimental) |
 | `crawler_manager` | 3121 | `/api/v1/jobs` | Crawl job metadata; add fetch with network later |
@@ -53,11 +52,11 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `ai_manager` | 3126 | `/api/v1/intelligence` (+ `/models`, agents, Icarus) | Model/intelligence routing; **no** inference until LLM/URL + keys set; console `/icarus` |
 | `system_manager` | 3127 | `/api/v1/tasks` + `/hosts/:id/check` | Host OS/Docker check+update (always on) |
 | `worker_manager` | 3128 | `/api/v1/annotations` | Worker/fleet labels + sync from Devices |
-| `backup_manager` | 3134 | `/api/v1/vaults` + `/api/v1/jobs` | Vaults + snapshots into `aerekos-backups` + restore; tutorial none; no prod mocks |
+| `backup_manager` | 3134 | `/api/v1/jobs` | Snapshots into `aerekos-backups` + restore |
 | `workflow_manager` | 3135 | `/api/v1/machines` | State machines subset; outbound notify skipped; tutorial none |
 | `config_manager` | 3136 | `/api/v1/namespaces` | Flags + `/evaluate` |
 | `cert_manager` | 3137 | `/api/v1/certs` | Import PEM or mint self-signed |
-| `billing_manager` | 3138 | `/api/v1/meters` (+ `/evaluate-quota`) | Meters CRUD + real quota (never unlimited); tutorial none |
+| `billing_manager` | 3138 | `/api/v1/meters` | Real quota (never unlimited stub) |
 | `graphql_manager` | 3141 | `/api/v1/execute` | GraphQL against Data API models |
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
 | `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |

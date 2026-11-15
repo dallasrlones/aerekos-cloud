@@ -62,6 +62,7 @@ Pluggable worker services live under `worker/<name>/`. All listed managers have 
 | `notebook_manager` | 3142 | `/api/v1/notebooks` | Run via compute oneshot |
 | `trace_manager` | 3143 | `/api/v1/traces` | OTLP ingest + span query |
 | `search_manager` | 3144 | `/api/v1/indexes` + `/index` + `/query` | Indexes CRUD + FTS5 hits; live e2e parked; no prod mocks |
+| `waf_manager` | 3146 | `/api/v1/rules` + `/evaluate` | Rules CRUD + local evaluate; live e2e parked; no prod mocks |
 | `vpn_manager` | 3147 | `/api/v1/peers` | Headscale hookup if `HEADSCALE_URL` |
 | `transfer_manager` | 3148 | `/api/v1/endpoints` | Object copy via storage |
 | `cluster_manager` | 3151 | `/api/v1/clusters` | Detect/install k3s on explicit click |

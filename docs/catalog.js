@@ -825,8 +825,12 @@ const managers = [
 
   {
     name: 'waf_manager', aws: 'WAF', category: 'Edge', port: 3146, status: 'implemented',
-    summary: 'WAF rules.',
-    proxyBase: '/api/v1', crud: { segment: 'rules' }, capabilities: ["waf"]
+    summary: 'Rules CRUD + ensure-defaults + local evaluate (exact cidr/path prefix; not cloud WAF); live conductor e2e parked; ManagerConsole (no ServiceGuide).',
+    proxyBase: '/api/v1', crud: { segment: 'rules' }, capabilities: ["waf"],
+    endpoints: [
+      { method: 'POST', path: '/api/v1/ensure-defaults', summary: 'Seed default-rate rule if missing' },
+      { method: 'POST', path: '/api/v1/evaluate', summary: 'Local allow/block from stored rules (not cloud WAF)' }
+    ]
   },
   {
     name: 'vpn_manager', aws: 'Client VPN', category: 'Edge', port: 3147, status: 'implemented',

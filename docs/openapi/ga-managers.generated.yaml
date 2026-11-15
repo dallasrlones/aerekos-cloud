@@ -948,6 +948,63 @@ paths:
       responses:
         '200':
           description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/info:
+    get:
+      summary: Service metadata (info)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/ensure-defaults:
+    post:
+      summary: Seed default-rate rule if missing
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/evaluate:
+    post:
+      summary: Local allow/block from stored rules (not cloud WAF)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/rules:
+    post:
+      summary: Create a rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    get:
+      summary: List rules (?project_id=)
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/api/v1/rules/{id}:
+    get:
+      summary: Get one rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    patch:
+      summary: Update a rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+    delete:
+      summary: Delete a rule
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/health:
+    get:
+      summary: "Liveness (direct manager health; proxy may use /api/services/{name}/health)"
+      responses:
+        '200':
+          description: Success (shape varies by manager)
+  /api/services/waf_manager/ready:
+    get:
+      summary: Readiness
+      responses:
+        '200':
+          description: Success (shape varies by manager)
   /api/services/workflow_manager/api/v1/info:
     get:
       summary: Service metadata (info)
